@@ -674,6 +674,8 @@ public class MainActivity extends Activity {
             .add("\u21BA", "Ne plus rediriger ce service",
                  () -> { if (onWebPage()) sendCommand("noFrontend"); })
             .add("\u270E", "CSS de ce site", () -> { if (onWebPage()) sendCommand("styleThis"); })
+            .add("\u2295", "Ajouter aux raccourcis",
+                 () -> { if (onWebPage()) sendCommand("addShortcut"); })
             .add("\u21F5", "Creer un flux",
                  () -> { if (onWebPage()) sendCommand("makeFeed"); })
             .add("\u2611", "Lire plus tard",

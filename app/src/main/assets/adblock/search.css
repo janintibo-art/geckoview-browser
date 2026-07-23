@@ -270,3 +270,46 @@ html, body {
   font-size: 12px;
   line-height: 1.45;
 }
+
+/* --- raccourcis --- */
+#dial {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(66px, 1fr));
+  gap: 10px;
+  padding: 14px 12px 4px;
+}
+#dial .sc {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  text-decoration: none;
+  color: var(--dim);
+  font-size: 11px;
+  text-align: center;
+  -webkit-tap-highlight-color: transparent;
+}
+#dial .ic {
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 19px;
+  font-weight: 600;
+  color: #10130f;
+  border: 1px solid #0004;
+}
+#dial .lb {
+  max-width: 68px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#dial .add .ic {
+  background: transparent;
+  border: 1px dashed var(--line);
+  color: var(--dim);
+  font-weight: 400;
+}

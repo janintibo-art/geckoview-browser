@@ -61,6 +61,44 @@
     margin: 11px 0;
   }
   .step { color: var(--accent); font-size: 12px; }
+
+  #tabs {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding: 10px 14px 4px;
+    scrollbar-width: none;
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 5;
+  }
+  #tabs::-webkit-scrollbar { display: none; }
+  .tab {
+    flex: 0 0 auto;
+    padding: 7px 14px;
+    border: 1px solid var(--line);
+    border-radius: 15px;
+    background: transparent;
+    color: var(--dim);
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  .tab.on { background: var(--panel); color: var(--fg); border-color: var(--accent); }
+
+  #find { padding: 6px 14px 4px; display: flex; align-items: center; gap: 9px; }
+  #find input {
+    flex: 1;
+    background: var(--panel);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    padding: 9px 11px;
+    font-size: 13px;
+  }
+  #count { color: var(--dim); font-size: 12px; white-space: nowrap; }
+  #none { color: var(--dim); text-align: center; padding: 30px 14px; font-size: 14px; }
+  mark { background: var(--accent); color: #10130f; border-radius: 2px; }
 </style>
 </head>
 <body>
@@ -70,9 +108,27 @@
   <div class="sub">Tout ce que fait ce navigateur, section par section.</div>
 </header>
 
+<nav id="tabs">
+  <button class="tab on" data-c="tous">Tout</button>
+  <button class="tab" data-c="demarrer">Demarrer</button>
+  <button class="tab" data-c="naviguer">Naviguer</button>
+  <button class="tab" data-c="filtrer">Filtrer</button>
+  <button class="tab" data-c="chercher">Chercher</button>
+  <button class="tab" data-c="outils">Outils</button>
+  <button class="tab" data-c="biblio">Bibliotheque</button>
+  <button class="tab" data-c="privacy">Confidentialite</button>
+  <button class="tab" data-c="perso">Personnaliser</button>
+  <button class="tab" data-c="technique">Technique</button>
+</nav>
+
+<div id="find">
+  <input id="q" type="search" placeholder="Rechercher dans l'aide">
+  <span id="count"></span>
+</div>
+
 <main>
 
-<details open>
+<details data-cat="demarrer" open>
   <summary>Prise en main</summary>
   <div class="c">
     <p>Le bouton <span class="path">&#8942;</span> a droite de la barre d'adresse ouvre le
@@ -89,7 +145,7 @@
   </div>
 </details>
 
-<details>
+<details data-cat="biblio">
   <summary>Flux maison <span class="step">nouveau</span></summary>
   <div class="c">
     <p>Beaucoup de sites ont abandonne les flux RSS. Celui-ci en fabrique un a partir
@@ -114,7 +170,7 @@
   </div>
 </details>
 
-<details>
+<details data-cat="biblio">
   <summary>File de lecture hors ligne <span class="step">nouveau</span></summary>
   <div class="c">
     <p><span class="path">Page &#8250; Lire plus tard</span> met l'article de cote.
@@ -137,7 +193,7 @@
   </div>
 </details>
 
-<details>
+<details data-cat="biblio">
   <summary>Comparaison de versions <span class="step">nouveau</span></summary>
   <div class="c">
     <p>Archiver le texte d'une page aujourd'hui, revenir dans un mois, et voir
@@ -164,7 +220,7 @@
   </div>
 </details>
 
-<details>
+<details data-cat="outils">
   <summary>Qui parle a qui <span class="step">nouveau</span></summary>
   <div class="c">
     <p><span class="path">Page &#8250; Qui parle a qui</span> repond a une question
@@ -190,7 +246,7 @@
   </div>
 </details>
 
-<details>
+<details data-cat="biblio">
   <summary>Surveillance de pages <span class="step">nouveau</span></summary>
   <div class="c">
     <p>Le navigateur revient verifier un element que vous avez designe, et vous
@@ -223,7 +279,27 @@
   </div>
 </details>
 
-<details>
+<details data-cat="demarrer">
+  <summary>Raccourcis de l'accueil <span class="step">nouveau</span></summary>
+  <div class="c">
+    <p>Sous la barre de recherche, une grille de pastilles menant a vos sites
+    habituels. Le bouton <b>+</b> en ajoute un ; <span class="path">Page &#8250;
+    Ajouter aux raccourcis</span> enregistre la page ouverte sans avoir a recopier
+    son adresse.</p>
+    <p>Un <b>appui long</b> sur une pastille propose de la renommer, d'en changer
+    l'icone, de la deplacer ou de la retirer. L'icone accepte une lettre ou une
+    emoji ; laissee vide, c'est l'initiale du nom qui s'affiche.</p>
+    <p class="warn">Les pastilles sont des aplats colores, non des favicons. Afficher
+    de vraies icones supposerait d'interroger chaque site a l'ouverture de l'accueil,
+    donc de signaler votre presence a une dizaine de serveurs avant meme que vous ne
+    tapiez quoi que ce soit. La couleur est calculee a partir de l'adresse : elle
+    reste stable sans rien demander a personne.</p>
+    <p>Les raccourcis accompagnent la page de marque : ils disparaissent pendant une
+    recherche, et ne s'affichent pas si vous avez choisi un moteur externe.</p>
+  </div>
+</details>
+
+<details data-cat="demarrer">
   <summary>Demarrage de l'application</summary>
   <div class="c">
     <p>Au lancement, le logo s'affiche sur fond sombre pendant que le moteur et
@@ -239,7 +315,7 @@
   </div>
 </details>
 
-<details>
+<details data-cat="naviguer">
   <summary>Onglets <span class="step">nouveau</span></summary>
   <div class="c">
     <p>Le compteur encadre en vert, a droite de la barre d'adresse, indique le nombre
@@ -265,7 +341,7 @@
   </div>
 </details>
 
-<details>
+<details data-cat="perso">
   <summary>Widgets d'ecran d'accueil <span class="step">nouveau</span></summary>
   <div class="c">
     <p>Deux widgets a poser depuis l'ecran d'accueil, par appui long puis
@@ -283,7 +359,7 @@
   </div>
 </details>
 
-<details>
+<details data-cat="filtrer">
   <summary>Blocage des publicites et traqueurs</summary>
   <div class="c">
     <p>Trois couches travaillent ensemble. La protection anti-pistage de Gecko en mode
@@ -298,7 +374,7 @@
   </div>
 </details>
 
-<details>
+<details data-cat="filtrer">
   <summary>Filtres editoriaux et categories</summary>
   <div class="c">
     <p>Huit categories de sites, activables separement dans
@@ -316,7 +392,7 @@
   </div>
 </details>
 
-<details>
+<details data-cat="chercher">
   <summary>Moteur de recherche</summary>
   <div class="c">
     <p>Deux reglages distincts, souvent confondus.</p>
@@ -334,7 +410,7 @@
   </div>
 </details>
 
-<details>
+<details data-cat="filtrer">
   <summary>Cookies et consentement</summary>
   <div class="c">
     <p>Masquer un bandeau ne refuse rien : sans action, beaucoup de sites considerent
@@ -350,7 +426,7 @@
   </div>
 </details>
 
-<details>
+<details data-cat="outils">
   <summary>Analyse de page</summary>
   <div class="c">
     <p><span class="path">Page &#8250; Analyser la page</span> ouvre cinq onglets.</p>
@@ -370,7 +446,7 @@
   </div>
 </details>
 
-<details>
+<details data-cat="outils">
   <summary>Console JavaScript <span class="step">nouveau</span></summary>
   <div class="c">
     <p>Onglet <b>Console</b> de l'analyseur. Saisissez une expression, appuyez sur
@@ -394,7 +470,7 @@
   </div>
 </details>
 
-<details>
+<details data-cat="outils">
   <summary>Journal reseau <span class="step">nouveau</span></summary>
   <div class="c">
     <p>Onglet <b>Reseau</b> de l'analyseur : les 250 dernieres requetes de la page,
@@ -410,7 +486,7 @@
   </div>
 </details>
 
-<details>
+<details data-cat="outils">
   <summary>Extracteur structure <span class="step">nouveau</span></summary>
   <div class="c">
     <p>Onglet <b>Extraire</b> de l'analyseur : transforme une page en tableau.
@@ -438,7 +514,7 @@
   </div>
 </details>
 
-<details>
+<details data-cat="outils">
   <summary>Telechargements et extraction audio</summary>
   <div class="c">
     <p>Depuis l'onglet Ressources : bouton par ligne, ou telechargement groupe de tout
@@ -452,7 +528,7 @@
   </div>
 </details>
 
-<details>
+<details data-cat="outils">
   <summary>Sauvegarde en un fichier <span class="step">nouveau</span></summary>
   <div class="c">
     <p><span class="path">Page &#8250; Enregistrer en un fichier</span> produit un
@@ -475,7 +551,7 @@
   </div>
 </details>
 
-<details>
+<details data-cat="perso">
   <summary>Scripts utilisateur</summary>
   <div class="c">
     <p><span class="path">Scripts et styles &#8250; Mes scripts</span> : editeur integre avec
@@ -499,7 +575,7 @@
   </div>
 </details>
 
-<details>
+<details data-cat="perso">
   <summary>Styles CSS par site <span class="step">nouveau</span></summary>
   <div class="c">
     <p><span class="path">Scripts et styles &#8250; Mes styles CSS</span> : des feuilles
@@ -533,7 +609,7 @@
   </div>
 </details>
 
-<details>
+<details data-cat="naviguer">
   <summary>Defilement infini</summary>
   <div class="c">
     <p>Sur un site pagine, les pages suivantes s'ajoutent automatiquement quand vous
@@ -549,7 +625,7 @@
   </div>
 </details>
 
-<details>
+<details data-cat="naviguer">
   <summary>Redirections vers les facades <span class="step">nouveau</span></summary>
   <div class="c">
     <p>Certains sites sont remplaces avant meme le chargement par une facade libre :
@@ -594,7 +670,7 @@
   </div>
 </details>
 
-<details>
+<details data-cat="privacy">
   <summary>Confidentialite</summary>
   <div class="c">
     <p>Trois niveaux dans <span class="path">Confidentialite &#8250; Niveau</span>,
@@ -616,7 +692,7 @@
   </div>
 </details>
 
-<details>
+<details data-cat="naviguer">
   <summary>Identite de l'appareil <span class="step">nouveau</span></summary>
   <div class="c">
     <p><span class="path">Page &#8250; Identite de l'appareil</span> : neuf profils
@@ -645,7 +721,7 @@
   </div>
 </details>
 
-<details>
+<details data-cat="privacy">
   <summary>Diagnostic d'empreinte <span class="step">nouveau</span></summary>
   <div class="c">
     <p><span class="path">Confidentialite &#8250; Diagnostic d'empreinte</span> mesure
@@ -672,7 +748,7 @@
   </div>
 </details>
 
-<details>
+<details data-cat="privacy">
   <summary>Tor et adresses .onion</summary>
   <div class="c">
     <p>Necessite Orbot, qui fournit un proxy local. Activation dans
@@ -689,7 +765,7 @@
   </div>
 </details>
 
-<details>
+<details data-cat="technique">
   <summary>Synchronisation par depot Git <span class="step">nouveau</span></summary>
   <div class="c">
     <p><span class="path">Menu &#8250; Synchronisation</span> depose vos reglages dans
@@ -720,7 +796,7 @@
   </div>
 </details>
 
-<details>
+<details data-cat="technique">
   <summary>Compilation et signature <span class="step">nouveau</span></summary>
   <div class="c">
     <p>Chaque envoi vers le depot declenche un <b>controle statique</b> avant la
@@ -748,7 +824,7 @@
   </div>
 </details>
 
-<details>
+<details data-cat="technique">
   <summary>A venir</summary>
   <div class="c">
     <p>Le navigateur est complet et signe. Pistes possibles pour la suite :</p>
@@ -762,6 +838,9 @@
   </div>
 </details>
 
+<div id="none" hidden>Aucune section ne correspond.</div>
 </main>
+
+<script src="help.js"></script>
 </body>
 </html>

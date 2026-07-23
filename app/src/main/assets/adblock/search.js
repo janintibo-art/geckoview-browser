@@ -27,6 +27,138 @@ let searxUrl = "";
 let engineTemplate = "internal";
 
 // ---------------------------------------------------------------------------
+//  Raccourcis
+//  Pastilles coloree + initiale plutot que favicons : aucune requete vers
+//  les sites concernes, donc aucune trace laissee en ouvrant l'accueil.
+// ---------------------------------------------------------------------------
+let shortcuts = [];
+
+const DIAL_COLORS = [
+  "#6fae5f", "#8ab4f8", "#d9c07c", "#d97757", "#a78bd0",
+  "#5fb0ae", "#c98fb0", "#8fb36f", "#7f9ede", "#d0a05f"
+];
+
+function dialColor(text) {
+  let h = 0;
+  for (let i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) >>> 0;
+  return DIAL_COLORS[h % DIAL_COLORS.length];
+}
+
+function dialLabel(sc) {
+  const t = (sc.title || sc.url || "?").trim();
+  // Une emoji fait un meilleur reperage qu'une lettre : on la garde telle quelle
+  const first = Array.from(t)[0] || "?";
+  return /[A-Za-z0-9]/.test(first) ? first.toUpperCase() : first;
+}
+
+async function loadShortcuts() {
+  try {
+    const s = await browser.storage.local.get("shortcuts");
+    shortcuts = (s && s.shortcuts) || [];
+  } catch (e) { shortcuts = []; }
+  renderDial();
+}
+
+async function saveShortcuts() {
+  try { await browser.storage.local.set({ shortcuts: shortcuts }); } catch (e) { }
+  renderDial();
+}
+
+function renderDial() {
+  const box = document.getElementById("dial");
+  if (!box) return;
+
+  const tiles = shortcuts.map((sc, i) => `
+    <a class="sc" href="${esc(sc.url)}" data-i="${i}">
+      <span class="ic" style="background:${esc(sc.color || dialColor(sc.url || ""))}"
+        >${esc(sc.icon || dialLabel(sc))}</span>
+      <span class="lb">${esc(sc.title || "")}</span>
+    </a>`).join("");
+
+  box.innerHTML = tiles + `
+    <a class="sc add" href="#" id="sc-add">
+      <span class="ic">+</span>
+      <span class="lb">Ajouter</span>
+    </a>`;
+
+  box.querySelectorAll(".sc[data-i]").forEach(a => {
+    // Appui long : modifier ou retirer, sans encombrer l'affichage
+    a.addEventListener("contextmenu", e => {
+      e.preventDefault();
+      editShortcut(+a.dataset.i);
+    });
+  });
+
+  const add = document.getElementById("sc-add");
+  if (add) add.onclick = e => { e.preventDefault(); addShortcut(); };
+}
+
+function normalizeUrl(u) {
+  u = (u || "").trim();
+  if (!u) return "";
+  if (!/^https?:\/\//i.test(u)) u = "https://" + u;
+  try { return new URL(u).href; } catch (e) { return ""; }
+}
+
+function addShortcut() {
+  const url = normalizeUrl(prompt("Adresse du raccourci", "https://"));
+  if (!url) return;
+
+  let suggested = "";
+  try { suggested = new URL(url).hostname.replace(/^www\./, "").split(".")[0]; }
+  catch (e) { }
+
+  const title = (prompt("Nom affiche", suggested) || suggested).trim().slice(0, 18);
+  const icon = (prompt("Lettre ou emoji (laisser vide pour l'initiale)", "") || "")
+    .trim().slice(0, 2);
+
+  shortcuts.push({ url, title, icon, color: dialColor(url) });
+  saveShortcuts();
+}
+
+function editShortcut(i) {
+  const sc = shortcuts[i];
+  if (!sc) return;
+
+  const choice = prompt(
+    "« " + (sc.title || sc.url) + " »\n\n" +
+    "1 = renommer\n2 = changer l'icone\n3 = deplacer a gauche\n" +
+    "4 = deplacer a droite\n5 = supprimer", "1");
+
+  if (choice === "1") {
+    const t = prompt("Nouveau nom", sc.title || "");
+    if (t !== null) sc.title = t.trim().slice(0, 18);
+  } else if (choice === "2") {
+    const ic = prompt("Lettre ou emoji (vide = initiale)", sc.icon || "");
+    if (ic !== null) sc.icon = ic.trim().slice(0, 2);
+  } else if (choice === "3" && i > 0) {
+    shortcuts.splice(i - 1, 0, shortcuts.splice(i, 1)[0]);
+  } else if (choice === "4" && i < shortcuts.length - 1) {
+    shortcuts.splice(i + 1, 0, shortcuts.splice(i, 1)[0]);
+  } else if (choice === "5") {
+    if (!confirm("Retirer ce raccourci ?")) return;
+    shortcuts.splice(i, 1);
+  } else {
+    return;
+  }
+  saveShortcuts();
+}
+
+// Les raccourcis suivent la page de marque : ils n'ont pas de sens
+// lorsqu'un moteur externe prend la main.
+function dialVisible(show) {
+  const box = document.getElementById("dial");
+  if (box) box.style.display = show ? "" : "none";
+}
+
+browser.storage.onChanged.addListener(changes => {
+  if (changes.shortcuts) {
+    shortcuts = changes.shortcuts.newValue || [];
+    renderDial();
+  }
+});
+
+// ---------------------------------------------------------------------------
 //  Preferences
 // ---------------------------------------------------------------------------
 function renderCategories() {
@@ -93,11 +225,13 @@ function showEngineBadge() {
   if (engineTemplate === "internal") {
     if (bar) bar.hidden = true;
     if (brand) brand.style.display = "";
+    dialVisible(true);
     return;
   }
 
   // Un autre moteur est actif : la page de marque n'a plus lieu d'etre.
   if (brand) brand.style.display = "none";
+  dialVisible(false);
   if (!bar) return;
   let host = engineTemplate;
   try { host = new URL(engineTemplate.replace("%s", "x")).hostname.replace(/^www\./, ""); }
@@ -282,6 +416,7 @@ async function run(query) {
   history.replaceState(null, "", "?q=" + encodeURIComponent(query) + "&s=" + scope);
   const brand = $("#brand");
   if (brand) brand.style.display = "none";
+  dialVisible(false);
   out.innerHTML = `<div class="msg"><span class="spin">◐</span> Interrogation des moteurs…</div>`;
   foot.textContent = "";
 
@@ -400,6 +535,7 @@ async function firstRun() {
 (async function init() {
   try {
     await loadPrefs();
+  await loadShortcuts();
   } catch (e) {
     // Sans cela, une erreur de chargement laisse une page vide et muette.
     out.innerHTML = '<div class="msg">Erreur d\'initialisation : ' +

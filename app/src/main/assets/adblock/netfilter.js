@@ -264,7 +264,33 @@
     } catch (e) { }
   }
 
+  async function addShortcutHere() {
+    const url = location.href;
+    let suggested = "";
+    try { suggested = location.hostname.replace(/^www\./, "").split(".")[0]; }
+    catch (e) { }
+
+    const title = (prompt("Nom du raccourci", suggested) || suggested)
+      .trim().slice(0, 18);
+    if (!title) return;
+
+    try {
+      const s = await browser.storage.local.get("shortcuts");
+      const list = (s && s.shortcuts) || [];
+      if (list.some(x => x.url === url)) {
+        alert("Cette page est deja dans vos raccourcis.");
+        return;
+      }
+      list.push({ url: url, title: title, icon: "", color: "" });
+      await browser.storage.local.set({ shortcuts: list });
+      alert("Raccourci ajoute a l'accueil.");
+    } catch (e) {
+      alert("Enregistrement impossible.");
+    }
+  }
+
   function handleCommand(cmd) {
+    if (cmd === "addShortcut") { addShortcutHere(); return; }
     if (cmd === "noFrontend") {
       noFrontendHere();
     } else if (cmd === "reader") {
