@@ -229,6 +229,8 @@
         </div>
         <div class="ins-act">
           <button data-dl="${i}" class="ins-dl">Telecharger</button>
+          ${(r.type === "video" || r.type === "audio")
+            ? `<button data-audio="${i}" class="ins-au">Extraire l'audio</button>` : ""}
           <button data-open="${i}">Ouvrir</button>
           <button data-copy="${i}">Copier</button>
           ${TEXTUAL.has(r.type) ? `<button data-src="${i}">Contenu</button>` : ""}
@@ -261,6 +263,10 @@
         <button id="ins-dl-all" class="ins-b ins-dl">Telecharger ces ${list.length}</button>
         <button id="ins-dl-sel" class="ins-b">Telecharger la selection</button>
       </div>
+      ${list.some(r => r.type === "video" || r.type === "audio")
+        ? `<div class="ins-tools">
+             <button id="ins-audio-all" class="ins-b ins-au">Extraire l'audio de ces medias</button>
+           </div>` : ""}
       <div class="ins-tools">
         <button id="ins-sel-all" class="ins-b">Tout selectionner</button>
         <button id="ins-sel-none" class="ins-b">Aucun</button>
@@ -363,6 +369,7 @@
   .ins-h{margin:16px 0 6px;font-size:12px;color:#99a0ad;text-transform:uppercase}
   .ins-empty{color:#99a0ad;padding:24px 0;text-align:center}
   .ins-dl{border-color:#3d5c34!important;color:#8fce7c!important}
+  .ins-au{border-color:#3a4d68!important;color:#8ab4f8!important}
   .ins-ck{margin-right:7px;vertical-align:middle}
   .ins-u{display:block;cursor:pointer}
   .ins-hits{color:#99a0ad;font-size:12px;align-self:center}`;
@@ -428,6 +435,14 @@
 
     const saveList = body.querySelector("#ins-savelist");
     if (saveList) saveList.onclick = () => saveUrlList(saveList);
+
+    const auAll = body.querySelector("#ins-audio-all");
+    if (auAll) auAll.onclick = () => extractAudio(
+      filtered().filter(r => r.type === "video" || r.type === "audio").map(r => r.url), auAll);
+
+    body.querySelectorAll("[data-audio]").forEach(b => {
+      b.onclick = () => extractAudio([filtered()[+b.dataset.audio].url], b);
+    });
 
     body.querySelectorAll("[data-dl]").forEach(b => {
       b.onclick = () => download([filtered()[+b.dataset.dl].url], b);
@@ -497,6 +512,41 @@
     try {
       const res = await browser.runtime.sendMessage({
         type: "downloadUrls", urls: urls, referer: location.href
+      });
+      if (btn) {
+        btn.textContent = (res && res.ok)
+          ? urls.length + " en cours"
+          : "Echec : " + ((res && res.error) || "inconnu");
+        setTimeout(() => { btn.textContent = label; }, 3000);
+      }
+    } catch (e) {
+      if (btn) btn.textContent = "Echec";
+    }
+  }
+
+  // L'extraction est faite par l'application : recopie de la piste audio
+  // sans reencodage, et via Tor si le mode est actif.
+  async function extractAudio(urls, btn) {
+    urls = (urls || []).filter(Boolean);
+    const streams = urls.filter(u => /\.m3u8|\.mpd/i.test(u));
+    urls = urls.filter(u => !/\.m3u8|\.mpd/i.test(u));
+
+    if (!urls.length) {
+      if (btn) btn.textContent = streams.length
+        ? "Flux segmente non pris en charge"
+        : "Aucun media";
+      return;
+    }
+    if (urls.length > 10 &&
+        !confirm(urls.length + " extractions vont etre lancees. Continuer ?")) {
+      return;
+    }
+
+    const label = btn ? btn.textContent : "";
+    if (btn) btn.textContent = "Envoi…";
+    try {
+      const res = await browser.runtime.sendMessage({
+        type: "extractAudio", urls: urls, referer: location.href
       });
       if (btn) {
         btn.textContent = (res && res.ok)

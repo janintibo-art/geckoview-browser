@@ -947,6 +947,18 @@ public class MainActivity extends Activity {
                             return;
                         }
 
+                        if ("extractAudio".equals(kind)) {
+                            org.json.JSONArray arr = json.optJSONArray("urls");
+                            if (arr != null && arr.length() > 0) {
+                                final String[] urls = new String[arr.length()];
+                                for (int i = 0; i < arr.length(); i++) urls[i] = arr.optString(i);
+                                final String ref = json.optString("referer", currentUrl);
+                                runOnUiThread(() -> AudioExtractor.extract(
+                                        MainActivity.this, urls, ref));
+                            }
+                            return;
+                        }
+
                         if ("downloadText".equals(kind)) {
                             final String name = json.optString("name", "liste.txt");
                             final String text = json.optString("text", "");

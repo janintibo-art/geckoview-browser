@@ -404,6 +404,19 @@ browser.runtime.onMessage.addListener(msg => {
       return Promise.resolve({ error: String(e) });
     }
   }
+  if (msg.type === "extractAudio") {
+    if (!nativePort) return Promise.resolve({ error: "app non connectee" });
+    try {
+      nativePort.postMessage({
+        type: "extractAudio",
+        urls: msg.urls || [],
+        referer: msg.referer || ""
+      });
+      return Promise.resolve({ ok: true, count: (msg.urls || []).length });
+    } catch (e) {
+      return Promise.resolve({ error: String(e) });
+    }
+  }
   if (msg.type === "downloadText") {
     if (!nativePort) return Promise.resolve({ error: "app non connectee" });
     try {
