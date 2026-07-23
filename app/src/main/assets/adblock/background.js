@@ -164,6 +164,16 @@ function connectNative() {
           } catch (e) { }
         }
       }
+      else if (msg.type === "setSentinel") {
+        try {
+          browser.storage.local.get("alertCfg").then(s2 => {
+            const c = Object.assign({ enabled: true, mute: [] },
+                                    (s2 && s2.alertCfg) || {});
+            c.enabled = !!msg.value;
+            browser.storage.local.set({ alertCfg: c });
+          });
+        } catch (e) { }
+      }
       else if (msg.type === "setEngine") {
         // Le moteur choisi dans le menu doit aussi s'appliquer au champ de
         // recherche de la page d'accueil, qui vit dans l'extension.

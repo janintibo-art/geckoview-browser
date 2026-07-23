@@ -954,6 +954,9 @@ public class MainActivity extends Activity {
                              Toast.LENGTH_SHORT).show();
                  })
             .add("\u2327", "Effacer toutes les donnees", this::clearAllData)
+            .add("\u26A1", "Alerte mouchards",
+                 prefs.getBoolean("sentinel", true) ? "actif" : "inactif",
+                 this::toggleSentinel)
             .add("\u25CE", "Diagnostic d'empreinte",
                  () -> { if (onWebPage()) sendCommand("fingerprint"); })
             .add("\u24D8", "Ce que ce navigateur revele", this::privacyInfo)
@@ -1033,6 +1036,28 @@ public class MainActivity extends Activity {
             })
             .setNegativeButton("Annuler", null)
             .show();
+    }
+
+    /**
+     * Active ou coupe l'encart signalant les mouchards a l'ouverture d'un site.
+     * Le reglage vit cote extension : c'est elle qui affiche l'encart.
+     */
+    private void toggleSentinel() {
+        boolean on = !prefs.getBoolean("sentinel", true);
+        prefs.edit().putBoolean("sentinel", on).apply();
+
+        if (blockerPort != null) {
+            try {
+                JSONObject msg = new JSONObject();
+                msg.put("type", "setSentinel");
+                msg.put("value", on);
+                blockerPort.postMessage(msg);
+            } catch (Exception ignored) { }
+        }
+
+        Toast.makeText(this, on
+                ? "Les mouchards seront signales a l'ouverture des sites"
+                : "Alerte desactivee", Toast.LENGTH_SHORT).show();
     }
 
     private void privacyInfo() {
