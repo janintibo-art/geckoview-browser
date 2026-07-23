@@ -25,6 +25,7 @@ let extra = [], allow = [];
 let cookieCfg = { blockThirdParty: true, stripSent: true, clearOnExit: false };
 let engineOn = {};
 let searxUrl = "";
+let engineTemplate = "internal";
 
 // ---------------------------------------------------------------------------
 //  Preferences
@@ -50,7 +51,7 @@ async function loadPrefs() {
   try {
     const s = await browser.storage.local.get(
       ["pageCfg", "pageExtra", "pageAllow", "identity", "showBadge", "cookieCfg",
-       "engineOn", "searxUrl"]);
+       "engineOn", "searxUrl", "engineTemplate"]);
     if (s.pageCfg) pageCfg = Object.assign(pageCfg, s.pageCfg);
     extra = s.pageExtra || [];
     allow = s.pageAllow || [];
@@ -59,10 +60,12 @@ async function loadPrefs() {
     if (s.cookieCfg) cookieCfg = Object.assign(cookieCfg, s.cookieCfg);
     engineOn = s.engineOn || {};
     searxUrl = s.searxUrl || "";
+    engineTemplate = s.engineTemplate || "internal";
   } catch (e) { }
 
   renderCategories();
   renderSources();
+  showEngineBadge();
   $("#opt-searx").value = searxUrl;
   $("#opt-badge").checked      = showBadge;
   $("#opt-cookies").checked    = pageCfg.cookies;
@@ -82,6 +85,22 @@ async function loadPrefs() {
 
   filterSet = await C.buildSet("search", catState, extra, allow);
   showStats();
+}
+
+// Rappelle quel moteur traite les recherches, quand ce n'est pas le notre
+function showEngineBadge() {
+  const bar = document.getElementById("engine-badge");
+  if (!bar) return;
+  if (engineTemplate === "internal") {
+    bar.hidden = true;
+    return;
+  }
+  let host = engineTemplate;
+  try { host = new URL(engineTemplate.replace("%s", "x")).hostname.replace(/^www\./, ""); }
+  catch (e) { }
+  bar.hidden = false;
+  bar.textContent = "Les recherches partent vers " + host +
+    "  \u00B7  changez de moteur dans le menu";
 }
 
 function renderSources() {
@@ -301,7 +320,18 @@ async function run(query) {
 $("#form").addEventListener("submit", e => {
   e.preventDefault();
   const v = qBox.value.trim();
-  if (v) { qBox.blur(); run(v); }
+  if (!v) return;
+  qBox.blur();
+
+  // Les raccourcis restent prioritaires, quel que soit le moteur
+  const bang = resolveBang(v);
+  if (bang) { location.href = bang; return; }
+
+  if (engineTemplate && engineTemplate !== "internal") {
+    location.href = engineTemplate.replace("%s", encodeURIComponent(v));
+    return;
+  }
+  run(v);
 });
 
 document.querySelectorAll(".chip[data-scope]").forEach(c => {

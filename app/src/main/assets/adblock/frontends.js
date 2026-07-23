@@ -30,9 +30,28 @@ const FRONTENDS = [
         q.set("v", id);
         return base + "/watch?" + q.toString();
       }
-      // /shorts/ID et /live/ID  ->  /watch?v=ID
+
+      // Recherche : YouTube utilise /results?search_query=, Invidious /search?q=
+      // Sans cette traduction, l'instance renvoie sur sa page d'accueil.
+      if (/^\/results\/?$/i.test(u.pathname)) {
+        const q = new URLSearchParams(u.search);
+        const term = q.get("search_query") || q.get("q") || "";
+        return base + "/search?q=" + encodeURIComponent(term);
+      }
+
+      // /shorts/ID, /live/ID, /embed/ID  ->  /watch?v=ID
       let m = u.pathname.match(/^\/(shorts|live|embed)\/([^/?#]+)/i);
       if (m) return base + "/watch?v=" + encodeURIComponent(m[2]) + hashOf(u);
+
+      // Chaines : /c/nom et /user/nom ne sont pas repris tels quels
+      m = u.pathname.match(/^\/(c|user)\/([^/?#]+)/i);
+      if (m) return base + "/search?q=" + encodeURIComponent(m[2]);
+
+      // Rubriques propres a YouTube, sans equivalent
+      if (/^\/(feed|shorts|gaming|premium|account|playlists)\b/i.test(u.pathname)) {
+        return base;
+      }
+
       return base + u.pathname + u.search + u.hash;
     }
   },

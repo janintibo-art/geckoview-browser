@@ -735,6 +735,17 @@ public class MainActivity extends Activity {
     // =======================================================================
     //  Moteurs de recherche
     // =======================================================================
+    /** Transmet le moteur choisi a la page d'accueil, qui vit dans l'extension. */
+    private void pushEngine() {
+        if (blockerPort == null) return;
+        try {
+            JSONObject msg = new JSONObject();
+            msg.put("type", "setEngine");
+            msg.put("template", engineTemplate());
+            blockerPort.postMessage(msg);
+        } catch (Exception ignored) { }
+    }
+
     private String engineTemplate() {
         return prefs.getString("engine", "internal");
     }
@@ -766,6 +777,7 @@ public class MainActivity extends Activity {
                     askCustomEngine();
                 } else {
                     prefs.edit().putString("engine", tpl).apply();
+                    pushEngine();
                     Toast.makeText(this, "Moteur : " + ENGINES[which][0],
                             Toast.LENGTH_SHORT).show();
                 }
@@ -793,6 +805,7 @@ public class MainActivity extends Activity {
                     return;
                 }
                 prefs.edit().putString("engine", tpl).putString("engineCustom", tpl).apply();
+                pushEngine();
                 Toast.makeText(this, "Moteur personnalise enregistre", Toast.LENGTH_SHORT).show();
             })
             .setNegativeButton("Annuler", null)
@@ -1089,6 +1102,8 @@ public class MainActivity extends Activity {
             @Override
             public void onConnect(WebExtension.Port port) {
                 blockerPort = port;
+
+                pushEngine();
 
                 // Retablit l'etat choisi precedemment, y compris depuis un widget.
                 if (!blockerEnabled) {

@@ -150,6 +150,13 @@ function connectNative() {
         bookmarksCache = msg.list || [];
         if (bookmarksWaiting) { bookmarksWaiting(bookmarksCache); bookmarksWaiting = null; }
       }
+      else if (msg.type === "setEngine") {
+        // Le moteur choisi dans le menu doit aussi s'appliquer au champ de
+        // recherche de la page d'accueil, qui vit dans l'extension.
+        try {
+          browser.storage.local.set({ engineTemplate: msg.template || "internal" });
+        } catch (e) { }
+      }
       else if (msg.type === "setProfile") {
         // Le navigateur remplace deja l'agent lui-meme : on ne stocke le profil
         // que pour aligner les proprietes JavaScript secondaires.
