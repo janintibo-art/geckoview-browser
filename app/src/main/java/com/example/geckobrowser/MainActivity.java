@@ -359,6 +359,7 @@ public class MainActivity extends Activity {
             "Code source",
             "Mode lecture",
             "Defilement infini ici",
+            "Ne plus rediriger ce service",
             "Masquer ce site",
             "Partager",
             "Copier l'adresse",
@@ -374,11 +375,12 @@ public class MainActivity extends Activity {
                     case 1: viewSource(); break;
                     case 2: if (onWebPage()) sendCommand("reader"); break;
                     case 3: if (onWebPage()) sendCommand("autopagerHere"); break;
-                    case 4: if (onWebPage()) sendCommand("hideSite"); break;
-                    case 5: sharePage(); break;
-                    case 6: copyUrl(); break;
-                    case 7: openExternally(); break;
-                    case 8: toggleDesktop(); break;
+                    case 4: if (onWebPage()) sendCommand("noFrontend"); break;
+                    case 5: if (onWebPage()) sendCommand("hideSite"); break;
+                    case 6: sharePage(); break;
+                    case 7: copyUrl(); break;
+                    case 8: openExternally(); break;
+                    case 9: toggleDesktop(); break;
                 }
             })
             .setNegativeButton("Retour", (d, w) -> showMenu())
@@ -511,6 +513,7 @@ public class MainActivity extends Activity {
             privateMode ? "Quitter la navigation privee" : "Navigation privee",
             "Niveau de protection : " + Privacy.levelName(Privacy.level(this)),
             "DNS chiffre : " + (prefs.getBoolean("doh", false) ? "actif" : "inactif"),
+            "Redirections vers les facades",
             TorSupport.isEnabled(this) ? "Tor : active" : "Tor : desactive",
             "Effacer toutes les donnees",
             "Ce que ce navigateur revele"
@@ -523,9 +526,10 @@ public class MainActivity extends Activity {
                     case 0: togglePrivate(); break;
                     case 1: showLevelPicker(); break;
                     case 2: toggleDoh(); break;
-                    case 3: showTorMenu(); break;
-                    case 4: clearAllData(); break;
-                    case 5: privacyInfo(); break;
+                    case 3: session.loadUri(extPage("frontends.html")); break;
+                    case 4: showTorMenu(); break;
+                    case 5: clearAllData(); break;
+                    case 6: privacyInfo(); break;
                 }
             })
             .setNegativeButton("Retour", (d, w) -> showMenu())

@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "GeckoBlock",
-  "version": "2.5",
+  "version": "2.6",
   "description": "Filtrage publicitaire, categories de sites et moteur de recherche",
   "browser_specific_settings": {
     "gecko": {
@@ -20,6 +20,7 @@
     "scripts": [
       "rules.js",
       "categories.js",
+      "frontends.js",
       "background.js"
     ],
     "persistent": true
@@ -97,7 +98,9 @@
     "lists/*.txt",
     "scripts.html",
     "scripts.js",
-    "help.html"
+    "help.html",
+    "frontends.html",
+    "frontends-ui.js"
   ],
   "content_security_policy": "script-src 'self' 'unsafe-eval'; object-src 'self'"
 }

@@ -269,6 +269,44 @@
 </details>
 
 <details>
+  <summary>Redirections vers les facades <span class="step">nouveau</span></summary>
+  <div class="c">
+    <p>Certains sites sont remplaces avant meme le chargement par une facade libre :
+    meme contenu, sans publicite, sans traqueur, sans script de mesure, et souvent
+    sans mur de connexion.</p>
+    <ul>
+      <li>YouTube &#8594; Invidious</li>
+      <li>Twitter / X &#8594; Nitter</li>
+      <li>Reddit &#8594; Redlib</li>
+      <li>Medium &#8594; Scribe</li>
+      <li>TikTok &#8594; ProxiTok</li>
+      <li>Imgur &#8594; rimgo</li>
+      <li>Fandom &#8594; BreezeWiki</li>
+      <li>Quora &#8594; Quetre</li>
+      <li>Stack Overflow &#8594; AnonymousOverflow</li>
+      <li>IMDb &#8594; libremdb</li>
+      <li>Google Traduction &#8594; Lingva</li>
+      <li>Wikipedia &#8594; Wikiless (desactive par defaut)</li>
+    </ul>
+    <p>La traduction du chemin est geree service par service :
+    <code>youtu.be/ID</code> et <code>/shorts/ID</code> deviennent
+    <code>/watch?v=ID</code>, un blog <code>auteur.medium.com</code> devient
+    <code>/@auteur</code>, un wiki <code>jeu.fandom.com</code> devient
+    <code>/jeu</code>.</p>
+    <p>Une option separee remonte aux articles d'origine depuis les pages accelerees
+    de Google, qui masquent l'editeur reel derriere une adresse Google.</p>
+    <p>Reglages dans <span class="path">Confidentialite &#8250; Redirections</span> :
+    activation par service, choix de l'instance, ou saisie de la votre.</p>
+    <p class="warn">Les instances publiques sont tenues par des benevoles : elles
+    tombent, se saturent, disparaissent. Si une facade ne repond plus, changez-en dans
+    la liste. Deux echappatoires : ajoutez <code>#direct</code> a la fin d'une adresse
+    pour la charger sans redirection, ou utilisez
+    <span class="path">Page &#8250; Ne plus rediriger ce service</span> depuis la
+    facade elle-meme, ce qui desactive le service et vous renvoie a l'original.</p>
+  </div>
+</details>
+
+<details>
   <summary>Confidentialite</summary>
   <div class="c">
     <p>Trois niveaux dans <span class="path">Confidentialite &#8250; Niveau</span>,
@@ -312,8 +350,6 @@
   <div class="c">
     <p>Les etapes suivantes, dans l'ordre prevu :</p>
     <ul>
-      <li>Redirecteur de facades — Twitter vers Nitter, YouTube vers Invidious,
-      Reddit vers Redlib, avec bascule par site</li>
       <li>CSS par site, facon Stylus : feuilles personnelles injectees avant le
       premier rendu</li>
       <li>Extracteur structure : un selecteur CSS, un export CSV ou JSON,

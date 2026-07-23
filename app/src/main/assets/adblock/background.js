@@ -38,6 +38,7 @@ const COOKIE_EXEMPT = new Set([
 ]);
 
 const bypass = new Set();    // sites debloques jusqu'au redemarrage
+let lastOriginal = "";       // derniere adresse redirigee vers une facade
 
 const REMOTE_LISTS = [
   "https://adaway.org/hosts.txt",
@@ -85,6 +86,7 @@ function matchesPattern(url) {
 //  Categories
 // ---------------------------------------------------------------------------
 async function rebuildSets() {
+  await loadFrontends();
   catState = await CAT_API.getCatState();
   try {
     const s = await browser.storage.local.get(
@@ -109,6 +111,7 @@ async function rebuildSets() {
 }
 
 browser.storage.onChanged.addListener(changes => {
+  if (changes.feCfg) loadFrontends();
   if (changes.catState || changes.pageExtra || changes.pageAllow ||
       changes.identity || changes.cookieCfg) {
     rebuildSets();
@@ -251,6 +254,14 @@ browser.webRequest.onBeforeRequest.addListener(
     // --- Navigation principale : categories de sites ---
     if (details.type === "main_frame") {
       if (bypass.has(host)) return {};
+
+      // Facade libre a la place du service d'origine
+      const fe = resolveFrontend(url);
+      if (fe) {
+        lastOriginal = url;
+        return { redirectUrl: fe };
+      }
+
       const hit = CAT_API.hostMatches(host, navSet);
       if (hit) {
         blockedCount++;
@@ -457,6 +468,30 @@ browser.runtime.onMessage.addListener(msg => {
   }
   if (msg.type === "purgeCookies") {
     return purgeCookies().then(n => ({ removed: n }));
+  }
+  if (msg.type === "feList") {
+    return Promise.resolve({
+      cfg: feCfg,
+      services: FRONTENDS.map(f => ({
+        id: f.id, name: f.name, target: f.target,
+        instances: f.instances, def: f.def !== false
+      }))
+    });
+  }
+  if (msg.type === "feBack") {
+    // Revenir au service d'origine depuis une facade
+    const f = serviceOfInstance(msg.host || "");
+    return Promise.resolve({
+      service: f ? { id: f.id, name: f.name } : null,
+      original: lastOriginal
+    });
+  }
+  if (msg.type === "feExcept") {
+    if (msg.id && feCfg.except.indexOf(msg.id) === -1) {
+      feCfg.except.push(msg.id);
+      try { browser.storage.local.set({ feCfg: feCfg }); } catch (e) { }
+    }
+    return Promise.resolve({ ok: true, original: lastOriginal });
   }
   if (msg.type === "netLog") {
     const origin = msg.origin || "";

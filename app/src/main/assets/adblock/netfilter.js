@@ -258,8 +258,27 @@
     } catch (e) { }
   }
 
+  async function noFrontendHere() {
+    try {
+      const info = await browser.runtime.sendMessage({
+        type: "feBack", host: location.hostname
+      });
+      if (!info || !info.service) {
+        alert("Cette page n'est pas une facade geree par le navigateur.");
+        return;
+      }
+      const res = await browser.runtime.sendMessage({
+        type: "feExcept", id: info.service.id
+      });
+      alert("Redirection desactivee pour " + info.service.name + ".");
+      if (res && res.original) location.href = res.original + "#direct";
+    } catch (e) { }
+  }
+
   function handleCommand(cmd) {
-    if (cmd === "reader") {
+    if (cmd === "noFrontend") {
+      noFrontendHere();
+    } else if (cmd === "reader") {
       try { readingMode(); } catch (e) { alert("Mode lecture indisponible ici."); }
     } else if (cmd === "hideSite") {
       hideThisSite();
