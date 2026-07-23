@@ -259,6 +259,29 @@
 </details>
 
 <details>
+  <summary>Sauvegarde en un fichier <span class="step">nouveau</span></summary>
+  <div class="c">
+    <p><span class="path">Page &#8250; Enregistrer en un fichier</span> produit un
+    <code>.html</code> autonome dans vos telechargements : styles, images, polices et
+    icones sont incorpores dans le fichier lui-meme. Il reste lisible hors ligne et
+    peut etre deplace ou archive sans rien perdre.</p>
+    <p>Deux options. Les images et polices peuvent etre exclues, ce qui donne un
+    fichier tres leger utile pour archiver un texte. Les scripts sont retires par
+    defaut : les conserver rend l'archive fragile et lui redonne acces au reseau.</p>
+    <p>Les feuilles de style sont toujours incorporees, avec resolution des
+    <code>@import</code> et des <code>url()</code> qu'elles contiennent — sans cela,
+    l'archive perdrait sa mise en page et ses images de fond.</p>
+    <p>Un bandeau discret en haut du fichier rappelle l'adresse d'origine, la date
+    d'enregistrement et le volume incorpore. Votre feuille CSS personnelle du site,
+    si vous en avez une, est appliquee a l'archive.</p>
+    <p class="warn">Limites assumees : 2 Mo par ressource et 12 Mo au total, pour ne
+    pas produire un fichier ingerable sur telephone. Les videos, cadres et contenus
+    externes ne peuvent pas etre incorpores : ils sont remplaces par une mention
+    indiquant leur adresse d'origine.</p>
+  </div>
+</details>
+
+<details>
   <summary>Scripts utilisateur</summary>
   <div class="c">
     <p><span class="path">Scripts et styles &#8250; Mes scripts</span> : editeur integre avec
@@ -441,7 +464,6 @@
   <div class="c">
     <p>Les etapes suivantes, dans l'ordre prevu :</p>
     <ul>
-      <li>Sauvegarde de page en un fichier autonome, ressources incorporees</li>
       <li>Synchronisation des listes, scripts et favoris par depot Git</li>
     </ul>
   </div>

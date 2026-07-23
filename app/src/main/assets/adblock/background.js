@@ -557,6 +557,28 @@ browser.runtime.onMessage.addListener(msg => {
         const init = { method: msg.method || "GET", headers: msg.headers || {} };
         if (msg.data) init.body = msg.data;
         const r = await fetch(msg.url, init);
+
+        // Mode binaire : renvoie le contenu encode, pour l'archivage de page
+        if (msg.binary) {
+          const buf = await r.arrayBuffer();
+          const max = msg.maxBytes || 2 * 1024 * 1024;
+          if (buf.byteLength > max) {
+            return { error: "trop volumineux", bytes: buf.byteLength };
+          }
+          const bytes = new Uint8Array(buf);
+          let bin = "";
+          const step = 0x8000;
+          for (let i = 0; i < bytes.length; i += step) {
+            bin += String.fromCharCode.apply(null, bytes.subarray(i, i + step));
+          }
+          return {
+            status: r.status,
+            base64: btoa(bin),
+            mime: (r.headers.get("content-type") || "").split(";")[0],
+            bytes: buf.byteLength
+          };
+        }
+
         const body = await r.text();
         const headers = {};
         r.headers.forEach((v, k) => { headers[k] = v; });

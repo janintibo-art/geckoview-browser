@@ -360,6 +360,7 @@ public class MainActivity extends Activity {
             "Mode lecture",
             "Defilement infini ici",
             "Ne plus rediriger ce service",
+            "Enregistrer en un fichier",
             "CSS de ce site",
             "Masquer un element (pointeur)",
             "Masquer ce site",
@@ -378,13 +379,14 @@ public class MainActivity extends Activity {
                     case 2: if (onWebPage()) sendCommand("reader"); break;
                     case 3: if (onWebPage()) sendCommand("autopagerHere"); break;
                     case 4: if (onWebPage()) sendCommand("noFrontend"); break;
-                    case 5: if (onWebPage()) sendCommand("styleThis"); break;
-                    case 6: if (onWebPage()) sendCommand("pickElement"); break;
-                    case 7: if (onWebPage()) sendCommand("hideSite"); break;
-                    case 8: sharePage(); break;
-                    case 9: copyUrl(); break;
-                    case 10: openExternally(); break;
-                    case 11: toggleDesktop(); break;
+                    case 5: if (onWebPage()) sendCommand("savePage"); break;
+                    case 6: if (onWebPage()) sendCommand("styleThis"); break;
+                    case 7: if (onWebPage()) sendCommand("pickElement"); break;
+                    case 8: if (onWebPage()) sendCommand("hideSite"); break;
+                    case 9: sharePage(); break;
+                    case 10: copyUrl(); break;
+                    case 11: openExternally(); break;
+                    case 12: toggleDesktop(); break;
                 }
             })
             .setNegativeButton("Retour", (d, w) -> showMenu())
