@@ -798,6 +798,9 @@ public class MainActivity extends Activity {
                     pushEngine();
                     Toast.makeText(this, "Moteur : " + ENGINES[which][0],
                             Toast.LENGTH_SHORT).show();
+                    if (currentUrl.isEmpty() || currentUrl.startsWith("moz-extension://")) {
+                        session.loadUri(homeUrl());
+                    }
                 }
             })
             .setNegativeButton("Fermer", null)
@@ -1234,7 +1237,18 @@ public class MainActivity extends Activity {
               .start();
     }
 
+    /**
+     * Accueil : la page de marque n'a de sens qu'avec le metamoteur integre.
+     * Avec un autre moteur, on ouvre directement son propre accueil.
+     */
     private String homeUrl() {
+        String tpl = engineTemplate();
+        if (!"internal".equals(tpl)) {
+            try {
+                java.net.URL u = new java.net.URL(tpl.replace("%s", "x"));
+                return u.getProtocol() + "://" + u.getHost() + "/";
+            } catch (Exception ignored) { }
+        }
         return searchBase != null ? searchBase : FALLBACK_HOME;
     }
 

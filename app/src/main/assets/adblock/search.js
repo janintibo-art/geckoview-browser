@@ -88,11 +88,17 @@ async function loadPrefs() {
 // Rappelle quel moteur traite les recherches, quand ce n'est pas le notre
 function showEngineBadge() {
   const bar = document.getElementById("engine-badge");
-  if (!bar) return;
+  const brand = document.getElementById("brand");
+
   if (engineTemplate === "internal") {
-    bar.hidden = true;
+    if (bar) bar.hidden = true;
+    if (brand) brand.style.display = "";
     return;
   }
+
+  // Un autre moteur est actif : la page de marque n'a plus lieu d'etre.
+  if (brand) brand.style.display = "none";
+  if (!bar) return;
   let host = engineTemplate;
   try { host = new URL(engineTemplate.replace("%s", "x")).hostname.replace(/^www\./, ""); }
   catch (e) { }
