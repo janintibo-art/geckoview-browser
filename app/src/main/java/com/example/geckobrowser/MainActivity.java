@@ -510,6 +510,13 @@ public class MainActivity extends Activity {
             .add("\u2605", "Ouvrir un favori", bookmarks().length() + " enregistre(s)",
                  this::showBookmarks)
             .add("\u2606", "Ajouter cette page", this::addBookmark)
+            .add("\u2699", "Organiser", "classer, deplacer, supprimer",
+                 this::organizeBookmarks)
+            .add("\u29C9", "Copier les adresses",
+                 "une par ligne, pret a coller", this::copyAllBookmarks)
+            .add("\u21AA", "Partager les adresses", this::shareAllBookmarks)
+            .add("\u2913", "Exporter dans Telechargements",
+                 "dossier GeckoBrowser", () -> exportBookmarks(false))
             .back(this::showMenu)
             .show();
     }
@@ -855,6 +862,199 @@ public class MainActivity extends Activity {
         catch (Exception e) { return new JSONArray(); }
     }
 
+    private static final String CAT_DEFAULT = "Sans categorie";
+
+    /** Categories existantes, par ordre alphabetique, la non-classee en dernier. */
+    private java.util.List<String> bookmarkCats() {
+        java.util.TreeSet<String> set = new java.util.TreeSet<>();
+        JSONArray arr = bookmarks();
+        for (int i = 0; i < arr.length(); i++) {
+            JSONObject o = arr.optJSONObject(i);
+            if (o != null) set.add(catOf(o));
+        }
+        java.util.List<String> out = new java.util.ArrayList<>(set);
+        if (out.remove(CAT_DEFAULT)) out.add(CAT_DEFAULT);
+        return out;
+    }
+
+    private String catOf(JSONObject o) {
+        String c = o.optString("cat", "").trim();
+        return c.isEmpty() ? CAT_DEFAULT : c;
+    }
+
+    private int countInCat(String cat) {
+        return inCat(cat).length();
+    }
+
+    /** Favoris d'une categorie, ou tous si cat vaut null. */
+    private JSONArray inCat(String cat) {
+        JSONArray arr = bookmarks();
+        if (cat == null) return arr;
+        JSONArray out = new JSONArray();
+        for (int i = 0; i < arr.length(); i++) {
+            JSONObject o = arr.optJSONObject(i);
+            if (o != null && catOf(o).equals(cat)) out.put(o);
+        }
+        return out;
+    }
+
+    /** Choix d'une categorie existante, ou creation. */
+    private void pickCategory(String title, final java.util.function.Consumer<String> then) {
+        final java.util.List<String> cats = bookmarkCats();
+        final String[] items = new String[cats.size() + 1];
+        for (int i = 0; i < cats.size(); i++) items[i] = cats.get(i);
+        items[cats.size()] = "Nouvelle categorie…";
+
+        Menus.choice(this, title)
+            .setItems(items, (d, which) -> {
+                if (which < cats.size()) { then.accept(cats.get(which)); return; }
+                final EditText input = new EditText(this);
+                input.setHint("Nom de la categorie");
+                Menus.choice(this, "Nouvelle categorie")
+                    .setView(input)
+                    .setPositiveButton("Valider", (d2, w2) -> {
+                        String c = input.getText().toString().trim();
+                        then.accept(c.isEmpty() ? CAT_DEFAULT : c);
+                    })
+                    .setNegativeButton("Annuler", null)
+                    .show();
+            })
+            .setNegativeButton("Annuler", null)
+            .show();
+    }
+
+    // -----------------------------------------------------------------------
+    //  Formats d'export
+    // -----------------------------------------------------------------------
+    /** Adresses seules, une par ligne : le plus simple a recoller ailleurs. */
+    private String bookmarkUrls(String cat) {
+        JSONArray arr = inCat(cat);
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < arr.length(); i++) {
+            JSONObject o = arr.optJSONObject(i);
+            if (o == null) continue;
+            String u = o.optString("url", "");
+            if (!u.isEmpty()) sb.append(u).append("\n");
+        }
+        return sb.toString();
+    }
+
+    /** Meme liste, regroupee par categorie, avec un en-tete par groupe. */
+    private String bookmarkText() {
+        StringBuilder sb = new StringBuilder();
+        for (String cat : bookmarkCats()) {
+            sb.append("# ").append(cat).append("\n").append(bookmarkUrls(cat)).append("\n");
+        }
+        return sb.toString();
+    }
+
+    /** Format Netscape : chaque categorie devient un dossier de favoris. */
+    private String bookmarkHtml() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("<!DOCTYPE NETSCAPE-Bookmark-file-1>\n")
+          .append("<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n")
+          .append("<TITLE>Favoris GeckoBrowser</TITLE>\n")
+          .append("<H1>Favoris GeckoBrowser</H1>\n<DL><p>\n");
+        for (String cat : bookmarkCats()) {
+            sb.append("    <DT><H3>").append(escapeHtml(cat)).append("</H3>\n    <DL><p>\n");
+            JSONArray arr = inCat(cat);
+            for (int i = 0; i < arr.length(); i++) {
+                JSONObject o = arr.optJSONObject(i);
+                if (o == null) continue;
+                sb.append("        <DT><A HREF=\"")
+                  .append(escapeHtml(o.optString("url", "")))
+                  .append("\">").append(escapeHtml(o.optString("title", "")))
+                  .append("</A>\n");
+            }
+            sb.append("    </DL><p>\n");
+        }
+        sb.append("</DL><p>\n");
+        return sb.toString();
+    }
+
+    private static String escapeHtml(String v) {
+        return v.replace("&", "&amp;").replace("<", "&lt;")
+                .replace(">", "&gt;").replace("\"", "&quot;");
+    }
+
+    /**
+     * Ecrit la liste dans Telechargements/GeckoBrowser, hors du stockage prive
+     * de l'application, donc consultable depuis un gestionnaire de fichiers.
+     */
+    private void exportBookmarks(final boolean silent) {
+        final String urls = bookmarkText();
+        final String html = bookmarkHtml();
+        if (urls.trim().isEmpty() && !silent) {
+            Toast.makeText(this, "Aucun favori a exporter", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        new Thread(() -> {
+            String message;
+            try {
+                Downloads.saveTextTo(this, "GeckoBrowser", "favoris.txt", urls);
+                String path = Downloads.saveTextTo(this, "GeckoBrowser",
+                        "favoris.html", html);
+                message = "Exporte : " + path;
+            } catch (Exception e) {
+                message = "Export impossible : " + e.getMessage();
+            }
+            if (silent) return;
+            final String m = message;
+            runOnUiThread(() -> Toast.makeText(this, m, Toast.LENGTH_LONG).show());
+        }, "export-favoris").start();
+    }
+
+    // -----------------------------------------------------------------------
+    //  Copie et partage groupes
+    // -----------------------------------------------------------------------
+    private void copyAllBookmarks() {
+        chooseCatThen("Copier quelles adresses ?", this::copyCat);
+    }
+
+    private void shareAllBookmarks() {
+        chooseCatThen("Partager quelles adresses ?", this::shareCat);
+    }
+
+    /** Propose « toutes » puis chaque categorie, ou agit directement s'il n'y en a qu'une. */
+    private void chooseCatThen(String title, final java.util.function.Consumer<String> then) {
+        if (bookmarks().length() == 0) {
+            Toast.makeText(this, "Aucun favori", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        java.util.List<String> cats = bookmarkCats();
+        if (cats.size() <= 1) { then.accept(null); return; }
+
+        Menus m = new Menus(this, title);
+        m.add("\u2630", "Toutes", bookmarks().length() + " adresse(s)",
+              () -> then.accept(null));
+        for (final String c : cats) {
+            m.add("\u25B8", c, countInCat(c) + " adresse(s)", () -> then.accept(c));
+        }
+        m.back(this::showBookmarksMenu).show();
+    }
+
+    private void copyCat(String cat) {
+        String urls = bookmarkUrls(cat);
+        if (urls.trim().isEmpty()) return;
+        ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+        if (cm == null) return;
+        cm.setPrimaryClip(ClipData.newPlainText("favoris", urls));
+        int n = urls.trim().split("\n").length;
+        Toast.makeText(this, n + " adresse(s) copiee(s)"
+                + (cat == null ? "" : " — " + cat), Toast.LENGTH_SHORT).show();
+    }
+
+    private void shareCat(String cat) {
+        String urls = bookmarkUrls(cat);
+        if (urls.trim().isEmpty()) return;
+        Intent i = new Intent(Intent.ACTION_SEND);
+        i.setType("text/plain");
+        i.putExtra(Intent.EXTRA_SUBJECT,
+                cat == null ? "Mes favoris" : "Favoris — " + cat);
+        i.putExtra(Intent.EXTRA_TEXT, urls);
+        startActivity(Intent.createChooser(i, "Partager les favoris"));
+    }
+
     private void addBookmark() {
         if (currentUrl.isEmpty() || currentUrl.startsWith("moz-extension://")) {
             Toast.makeText(this, "Rien a enregistrer ici", Toast.LENGTH_SHORT).show();
@@ -868,52 +1068,131 @@ public class MainActivity extends Activity {
                     return;
                 }
             }
+        } catch (Exception ignored) { }
+
+        final String url = currentUrl;
+        final String title = currentTitle.isEmpty() ? currentUrl : currentTitle;
+
+        pickCategory("Classer dans", cat -> saveBookmark(url, title, cat));
+    }
+
+    private void saveBookmark(String url, String title, String cat) {
+        try {
+            JSONArray arr = bookmarks();
             JSONObject o = new JSONObject();
-            o.put("url", currentUrl);
-            o.put("title", currentTitle.isEmpty() ? currentUrl : currentTitle);
+            o.put("url", url);
+            o.put("title", title);
+            o.put("cat", cat);
             arr.put(o);
             prefs.edit().putString("bookmarks", arr.toString()).apply();
-            Toast.makeText(this, "Ajoute aux favoris", Toast.LENGTH_SHORT).show();
+            exportBookmarks(true);
+            Toast.makeText(this, "Ajoute dans " + cat, Toast.LENGTH_SHORT).show();
         } catch (Exception e) {
             Toast.makeText(this, "Echec de l'enregistrement", Toast.LENGTH_SHORT).show();
         }
     }
 
     private void showBookmarks() {
+        if (bookmarks().length() == 0) {
+            Toast.makeText(this, "Aucun favori", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        java.util.List<String> cats = bookmarkCats();
+        if (cats.size() <= 1) {
+            listBookmarks(cats.isEmpty() ? null : cats.get(0));
+            return;
+        }
+
+        Menus m = new Menus(this, "Categories");
+        m.add("\u2630", "Toutes", bookmarks().length() + " favori(s)",
+              () -> listBookmarks(null));
+        for (final String cat : cats) {
+            m.add("\u25B8", cat, countInCat(cat) + " favori(s)",
+                  () -> listBookmarks(cat));
+        }
+        m.back(this::showBookmarksMenu).show();
+    }
+
+    private void listBookmarks(final String cat) {
+        final JSONArray arr = inCat(cat);
+        if (arr.length() == 0) {
+            Toast.makeText(this, "Categorie vide", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        Menus m = new Menus(this, cat == null ? "Tous les favoris" : cat);
+        for (int i = 0; i < arr.length(); i++) {
+            final JSONObject o = arr.optJSONObject(i);
+            if (o == null) continue;
+            String host = o.optString("url", "");
+            try {
+                String h = Uri.parse(host).getHost();
+                if (h != null) host = h.replaceFirst("^www\\.", "");
+            } catch (Exception ignored) { }
+            m.add("\u2605", o.optString("title", ""), host,
+                  () -> {
+                      String u = o.optString("url", "");
+                      if (!u.isEmpty()) session.loadUri(u);
+                  });
+        }
+        m.back(this::showBookmarks).show();
+    }
+
+    /** Deplacer ou supprimer, categorie par categorie. */
+    private void organizeBookmarks() {
         final JSONArray arr = bookmarks();
         if (arr.length() == 0) {
             Toast.makeText(this, "Aucun favori", Toast.LENGTH_SHORT).show();
             return;
         }
-        final String[] titles = new String[arr.length()];
+        Menus m = new Menus(this, "Organiser");
         for (int i = 0; i < arr.length(); i++) {
-            titles[i] = arr.optJSONObject(i).optString("title");
+            final JSONObject o = arr.optJSONObject(i);
+            if (o == null) continue;
+            final int index = i;
+            m.add("\u2699", o.optString("title", ""), catOf(o),
+                  () -> bookmarkActions(index, o));
         }
+        m.back(this::showBookmarksMenu).show();
+    }
 
-        new AlertDialog.Builder(this, R.style.GeckoDialog)
-            .setTitle("Favoris")
-            .setItems(titles, (d, which) -> {
-                String url = arr.optJSONObject(which).optString("url");
-                if (!url.isEmpty()) session.loadUri(url);
+    private void bookmarkActions(final int index, final JSONObject o) {
+        new Menus(this, o.optString("title", ""))
+            .add("\u25B8", "Changer de categorie", catOf(o),
+                 () -> pickCategory("Deplacer vers", cat -> moveBookmark(index, cat)))
+            .add("\u29C9", "Copier l'adresse", () -> {
+                ClipboardManager cm =
+                        (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                if (cm != null) {
+                    cm.setPrimaryClip(ClipData.newPlainText("url", o.optString("url", "")));
+                    Toast.makeText(this, "Adresse copiee", Toast.LENGTH_SHORT).show();
+                }
             })
-            .setNeutralButton("Supprimer…", (d, w) -> deleteBookmark(arr, titles))
-            .setNegativeButton("Fermer", null)
+            .add("\u2327", "Supprimer", () -> removeBookmark(index))
+            .back(this::organizeBookmarks)
             .show();
     }
 
-    private void deleteBookmark(final JSONArray arr, String[] titles) {
-        new AlertDialog.Builder(this, R.style.GeckoDialog)
-            .setTitle("Supprimer un favori")
-            .setItems(titles, (d, which) -> {
-                JSONArray outArr = new JSONArray();
-                for (int i = 0; i < arr.length(); i++) {
-                    if (i != which) outArr.put(arr.optJSONObject(i));
-                }
-                prefs.edit().putString("bookmarks", outArr.toString()).apply();
-                Toast.makeText(this, "Favori supprime", Toast.LENGTH_SHORT).show();
-            })
-            .setNegativeButton("Annuler", null)
-            .show();
+    private void moveBookmark(int index, String cat) {
+        try {
+            JSONArray arr = bookmarks();
+            JSONObject o = arr.optJSONObject(index);
+            if (o == null) return;
+            o.put("cat", cat);
+            prefs.edit().putString("bookmarks", arr.toString()).apply();
+            exportBookmarks(true);
+            Toast.makeText(this, "Deplace dans " + cat, Toast.LENGTH_SHORT).show();
+        } catch (Exception ignored) { }
+    }
+
+    private void removeBookmark(int index) {
+        JSONArray arr = bookmarks();
+        JSONArray out = new JSONArray();
+        for (int i = 0; i < arr.length(); i++) {
+            if (i != index) out.put(arr.optJSONObject(i));
+        }
+        prefs.edit().putString("bookmarks", out.toString()).apply();
+        exportBookmarks(true);
+        Toast.makeText(this, "Favori supprime", Toast.LENGTH_SHORT).show();
     }
 
     // =======================================================================
@@ -1187,6 +1466,7 @@ public class MainActivity extends Activity {
                             org.json.JSONArray list = json.optJSONArray("list");
                             if (list != null) {
                                 prefs.edit().putString("bookmarks", list.toString()).apply();
+                                exportBookmarks(true);
                                 runOnUiThread(() -> Toast.makeText(MainActivity.this,
                                         list.length() + " favori(s) restaure(s)",
                                         Toast.LENGTH_SHORT).show());

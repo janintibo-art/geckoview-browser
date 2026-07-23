@@ -97,6 +97,77 @@ public class Downloads {
         }
     }
 
+    /**
+     * Enregistre un texte dans un sous-dossier de Telechargements, sans passer
+     * par le stockage prive de l'application : le fichier reste consultable
+     * depuis n'importe quel gestionnaire de fichiers.
+     */
+    public static String saveTextTo(Context ctx, String folder, String name,
+                                    String text) throws Exception {
+        byte[] data = text.getBytes("UTF-8");
+        InputStream in = new ByteArrayInputStream(data);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            String rel = Environment.DIRECTORY_DOWNLOADS +
+                    (folder == null || folder.isEmpty() ? "" : "/" + folder);
+
+            ContentResolver cr = ctx.getContentResolver();
+
+            // Remplacer la version precedente plutot que d'empiler les copies
+            Uri existing = findExisting(cr, name, rel);
+            if (existing != null) {
+                OutputStream out = cr.openOutputStream(existing, "wt");
+                copy(in, out);
+                return rel + "/" + name;
+            }
+
+            ContentValues v = new ContentValues();
+            v.put(MediaStore.Downloads.DISPLAY_NAME, name);
+            v.put(MediaStore.Downloads.MIME_TYPE, "text/html");
+            v.put(MediaStore.Downloads.RELATIVE_PATH, rel);
+            v.put(MediaStore.Downloads.IS_PENDING, 1);
+
+            Uri uri = cr.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
+            if (uri == null) throw new Exception("dossier inaccessible");
+
+            copy(in, cr.openOutputStream(uri));
+
+            v.clear();
+            v.put(MediaStore.Downloads.IS_PENDING, 0);
+            cr.update(uri, v, null, null);
+            return rel + "/" + name;
+        }
+
+        File dir = Environment.getExternalStoragePublicDirectory(
+                Environment.DIRECTORY_DOWNLOADS);
+        if (folder != null && !folder.isEmpty()) dir = new File(dir, folder);
+        if (!dir.exists() && !dir.mkdirs()) throw new Exception("dossier inaccessible");
+        File target = new File(dir, name);
+        copy(in, new FileOutputStream(target));
+        return target.getAbsolutePath();
+    }
+
+    private static Uri findExisting(ContentResolver cr, String name, String rel) {
+        try {
+            String[] proj = { MediaStore.Downloads._ID };
+            String sel = MediaStore.Downloads.DISPLAY_NAME + "=? AND "
+                       + MediaStore.Downloads.RELATIVE_PATH + " LIKE ?";
+            String[] args = { name, rel + "%" };
+            android.database.Cursor c = cr.query(
+                    MediaStore.Downloads.EXTERNAL_CONTENT_URI, proj, sel, args, null);
+            if (c != null) {
+                try {
+                    if (c.moveToFirst()) {
+                        long id = c.getLong(0);
+                        return android.content.ContentUris.withAppendedId(
+                                MediaStore.Downloads.EXTERNAL_CONTENT_URI, id);
+                    }
+                } finally { c.close(); }
+            }
+        } catch (Exception ignored) { }
+        return null;
+    }
+
     /** Enregistre un contenu texte fourni par la page (liste d'URL, code...). */
     public static void saveText(final Context ctx, final String name, final String text) {
         new Thread(() -> {
