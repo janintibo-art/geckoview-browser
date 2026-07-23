@@ -630,9 +630,14 @@ public class MainActivity extends Activity {
                 new AlertDialog.Builder(this, R.style.GeckoDialog)
                     .setTitle(names[which])
                     .setMessage(Privacy.sideEffects(which)
-                            + "\n\nL'application va redemarrer.")
+                            + "\n\nL'application va redemarrer. Pour verifier "
+                            + "l'effet reel, ouvrez ensuite un site ordinaire puis "
+                            + "Confidentialite, Diagnostic d'empreinte : le fuseau "
+                            + "horaire et la langue annonces changent selon le niveau.")
                     .setPositiveButton("Appliquer", (d2, w2) -> {
-                        prefs.edit().putInt("privacyLevel", which).apply();
+                        // commit() et non apply() : le redemarrage tue le
+                        // processus, une ecriture differee serait perdue.
+                        prefs.edit().putInt("privacyLevel", which).commit();
                         Privacy.writeConfig(this);
                         TorSupport.restart(this);
                     })
@@ -646,7 +651,7 @@ public class MainActivity extends Activity {
     private void toggleDoh() {
         final boolean on = prefs.getBoolean("doh", false);
         if (on) {
-            prefs.edit().putBoolean("doh", false).apply();
+            prefs.edit().putBoolean("doh", false).commit();
             Privacy.writeConfig(this);
             TorSupport.restart(this);
             return;
@@ -662,7 +667,7 @@ public class MainActivity extends Activity {
             .setTitle("Resolveur DNS chiffre")
             .setItems(names, (d, which) -> {
                 prefs.edit().putBoolean("doh", true)
-                     .putString("dohUri", uris[which]).apply();
+                     .putString("dohUri", uris[which]).commit();
                 Privacy.writeConfig(this);
                 TorSupport.restart(this);
             })

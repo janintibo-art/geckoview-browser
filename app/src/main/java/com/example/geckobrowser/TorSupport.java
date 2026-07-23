@@ -124,7 +124,9 @@ public class TorSupport {
             .setTitle(title)
             .setMessage(message)
             .setPositiveButton(on ? "Desactiver" : "Activer", (d, w) -> {
-                prefs(activity).edit().putBoolean("tor", !on).apply();
+                // commit() : restart() tue le processus juste apres, une
+                // ecriture differee n'atteindrait jamais le disque.
+                prefs(activity).edit().putBoolean("tor", !on).commit();
                 if (!on) startOrbot(activity);
                 writeConfig(activity);
                 restart(activity);
