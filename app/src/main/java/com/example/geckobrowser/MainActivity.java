@@ -328,7 +328,7 @@ public class MainActivity extends Activity {
             "Page…",
             "Recherche…",
             "Confidentialite…",
-            "Scripts…",
+            "Scripts et styles…",
             "Favoris…",
             blockerEnabled ? "Desactiver le blocage" : "Activer le blocage",
             "Aide et tutoriel"
@@ -360,6 +360,8 @@ public class MainActivity extends Activity {
             "Mode lecture",
             "Defilement infini ici",
             "Ne plus rediriger ce service",
+            "CSS de ce site",
+            "Masquer un element (pointeur)",
             "Masquer ce site",
             "Partager",
             "Copier l'adresse",
@@ -376,11 +378,13 @@ public class MainActivity extends Activity {
                     case 2: if (onWebPage()) sendCommand("reader"); break;
                     case 3: if (onWebPage()) sendCommand("autopagerHere"); break;
                     case 4: if (onWebPage()) sendCommand("noFrontend"); break;
-                    case 5: if (onWebPage()) sendCommand("hideSite"); break;
-                    case 6: sharePage(); break;
-                    case 7: copyUrl(); break;
-                    case 8: openExternally(); break;
-                    case 9: toggleDesktop(); break;
+                    case 5: if (onWebPage()) sendCommand("styleThis"); break;
+                    case 6: if (onWebPage()) sendCommand("pickElement"); break;
+                    case 7: if (onWebPage()) sendCommand("hideSite"); break;
+                    case 8: sharePage(); break;
+                    case 9: copyUrl(); break;
+                    case 10: openExternally(); break;
+                    case 11: toggleDesktop(); break;
                 }
             })
             .setNegativeButton("Retour", (d, w) -> showMenu())
@@ -412,13 +416,15 @@ public class MainActivity extends Activity {
     private void showScriptsMenu() {
         final String[] items = {
             "Mes scripts",
+            "Mes styles CSS",
             "Commandes des scripts (" + gmCommands.length() + ")"
         };
 
         new AlertDialog.Builder(this)
-            .setTitle("Scripts")
+            .setTitle("Scripts et styles")
             .setItems(items, (d, which) -> {
                 if (which == 0) session.loadUri(extPage("scripts.html"));
+                else if (which == 1) session.loadUri(extPage("styles.html"));
                 else showScriptCommands();
             })
             .setNegativeButton("Retour", (d, w) -> showMenu())

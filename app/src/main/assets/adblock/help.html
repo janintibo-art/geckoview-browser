@@ -81,7 +81,7 @@
       <li><b>Page</b> — analyser, code source, mode lecture, defilement infini, partage</li>
       <li><b>Recherche</b> — moteur par defaut, filtres editoriaux, sources</li>
       <li><b>Confidentialite</b> — navigation privee, niveau de protection, DNS, Tor</li>
-      <li><b>Scripts</b> — vos scripts utilisateur et leurs commandes</li>
+      <li><b>Scripts et styles</b> — scripts utilisateur, feuilles CSS, commandes</li>
       <li><b>Favoris</b> — ouvrir, ajouter, supprimer</li>
     </ul>
     <p>Le chiffre vert a gauche de la barre d'adresse compte les elements bloques.
@@ -231,7 +231,7 @@
 <details>
   <summary>Scripts utilisateur</summary>
   <div class="c">
-    <p><span class="path">Scripts &#8250; Mes scripts</span> : editeur integre avec
+    <p><span class="path">Scripts et styles &#8250; Mes scripts</span> : editeur integre avec
     modele prerempli, interrupteur par script, import depuis une URL, controle de
     syntaxe avant enregistrement.</p>
     <p>En-tetes reconnus : <code>@match</code>, <code>@include</code>,
@@ -246,9 +246,43 @@
     <p><code>GM_xmlhttpRequest</code> passe par l'extension : pas de restriction CORS,
     vos scripts peuvent interroger n'importe quel domaine.</p>
     <p>Les commandes enregistrees apparaissent dans
-    <span class="path">Scripts &#8250; Commandes</span>.</p>
+    <span class="path">Scripts et styles &#8250; Commandes</span>.</p>
     <p class="warn">Un script utilisateur a tous les droits sur les pages qu'il touche :
     cookies, formulaires, contenu. N'importez que du code dont vous comprenez l'effet.</p>
+  </div>
+</details>
+
+<details>
+  <summary>Styles CSS par site <span class="step">nouveau</span></summary>
+  <div class="c">
+    <p><span class="path">Scripts et styles &#8250; Mes styles CSS</span> : des feuilles
+    appliquees automatiquement selon le site. Le complement naturel des scripts —
+    le JavaScript pour le comportement, le CSS pour l'apparence.</p>
+    <p>Motifs acceptes, un par ligne :</p>
+    <ul>
+      <li><code>exemple.fr</code> — le domaine et ses sous-domaines</li>
+      <li><code>*.exemple.fr</code> — les sous-domaines seuls</li>
+      <li><code>exemple.fr/blog*</code> — restreint au chemin</li>
+      <li><code>/expression/</code> — expression reguliere sur l'adresse complete</li>
+      <li><code>*</code> — toutes les pages</li>
+    </ul>
+    <p>Cinq modeles fournis dans l'editeur : masquer un element, elargir le contenu,
+    fond sombre, confort de lecture, suppression des bandeaux colles. Les accolades
+    sont verifiees avant enregistrement.</p>
+    <p>Les modifications s'appliquent a chaud : une page deja ouverte se met a jour
+    sans rechargement.</p>
+    <p><b>Le pointeur.</b> <span class="path">Page &#8250; Masquer un element</span>
+    passe la page en mode designation : touchez un element, il se surligne en vert et
+    la barre du bas affiche le selecteur calcule ainsi que le nombre d'elements vises.
+    « Bloc parent » remonte d'un cran quand vous n'avez attrape que le texte au lieu
+    du cadre entier. « Masquer » enregistre la regle pour ce site, « Editer » ouvre
+    l'editeur avec le selecteur pre-rempli.</p>
+    <p><span class="path">Page &#8250; CSS de ce site</span> ouvre directement la feuille
+    du site courant, ou en cree une.</p>
+    <p class="warn">Le selecteur privilegie l'identifiant, puis les classes qui
+    paraissent stables, en ecartant celles qui ressemblent a du genere automatiquement.
+    Sur un site qui regenere ses classes a chaque deploiement, une regle peut cesser de
+    fonctionner : reprenez le pointeur pour la recalculer.</p>
   </div>
 </details>
 
@@ -350,8 +384,6 @@
   <div class="c">
     <p>Les etapes suivantes, dans l'ordre prevu :</p>
     <ul>
-      <li>CSS par site, facon Stylus : feuilles personnelles injectees avant le
-      premier rendu</li>
       <li>Extracteur structure : un selecteur CSS, un export CSV ou JSON,
       pagination comprise</li>
       <li>Page de diagnostic d'empreinte, pour verifier ce que le niveau strict

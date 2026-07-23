@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mes styles</title>
+<link rel="stylesheet" href="search.css">
+<style>
+  header { padding: 14px 14px 8px; border-bottom: 1px solid var(--line); }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .sub { color: var(--dim); font-size: 13px; }
+  main { padding: 6px 14px 40px; }
+
+  .row { display: flex; align-items: center; gap: 10px;
+         padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .row .info { flex: 1; min-width: 0; }
+  .row .nm { font-size: 14px; font-weight: 500; }
+  .row .mt { font-size: 11px; color: var(--dim); margin-top: 2px;
+             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sw { width: 38px; text-align: center; font-size: 17px; background: none;
+        border: 0; cursor: pointer; }
+  .on { color: var(--accent); }
+  .off { color: #4a5058; }
+  .row button.ed { background: transparent; border: 1px solid var(--line);
+                   border-radius: 7px; color: var(--dim); padding: 5px 10px; font-size: 12px; }
+
+  #editor { display: none; }
+  label.f { display: block; margin: 12px 0 5px; font-size: 13px; color: var(--dim); }
+  #name, #pat {
+    width: 100%; background: var(--bg); color: var(--fg);
+    border: 1px solid var(--line); border-radius: 8px; padding: 9px; font-size: 13px;
+  }
+  #css {
+    width: 100%; min-height: 40vh; background: #101216; color: #cfd4dc;
+    border: 1px solid var(--line); border-radius: 9px; padding: 10px;
+    font: 12px/1.5 monospace; resize: vertical; white-space: pre; overflow-x: auto;
+  }
+  .tpl { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0 0; }
+  .tpl button { padding: 5px 11px; border: 1px solid var(--line); border-radius: 13px;
+                background: transparent; color: var(--dim); font-size: 12px; }
+  .bar { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .bar button { flex: 1 1 auto; padding: 11px; border-radius: 9px; border: 0; font-size: 13px; }
+  .primary { background: var(--accent); color: #10130f; font-weight: 600; }
+  .sec { background: transparent; border: 1px solid var(--line) !important; color: var(--dim); }
+  .danger { background: transparent; border: 1px solid #5a3230 !important; color: #d97757; }
+  #msg { font-size: 12px; color: var(--dim); margin-top: 10px; min-height: 16px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Mes styles</h1>
+  <div class="sub">Feuilles CSS appliquees automatiquement, site par site.</div>
+</header>
+
+<main>
+  <div id="list-view">
+    <div class="bar" style="margin-top:10px">
+      <button id="new" class="primary">Nouveau style</button>
+    </div>
+    <div id="list"></div>
+    <p class="note" style="margin-top:20px">
+      Motifs acceptes : <code>exemple.fr</code> pour le domaine et ses sous-domaines,
+      <code>*.exemple.fr</code> pour les sous-domaines seuls,
+      <code>exemple.fr/blog*</code> pour restreindre au chemin,
+      <code>/expression/</code> pour une expression reguliere,
+      <code>*</code> pour toutes les pages. Un motif par ligne.
+    </p>
+  </div>
+
+  <div id="editor">
+    <label class="f" for="name">Nom</label>
+    <input id="name" placeholder="Sans titre">
+
+    <label class="f" for="pat">Sites concernes (un motif par ligne)</label>
+    <textarea id="pat" rows="3"
+      style="width:100%;background:var(--bg);color:var(--fg);border:1px solid var(--line);
+             border-radius:8px;padding:9px;font:12px monospace;resize:vertical"></textarea>
+
+    <label class="f" for="css">Feuille de style</label>
+    <textarea id="css" spellcheck="false"></textarea>
+
+    <div class="tpl">
+      <button data-t="hide">Masquer un element</button>
+      <button data-t="wide">Elargir le contenu</button>
+      <button data-t="dark">Fond sombre</button>
+      <button data-t="font">Confort de lecture</button>
+      <button data-t="sticky">Supprimer les bandeaux fixes</button>
+    </div>
+
+    <div class="bar">
+      <button id="save" class="primary">Enregistrer</button>
+      <button id="cancel" class="sec">Annuler</button>
+      <button id="del" class="danger">Supprimer</button>
+    </div>
+    <div id="msg"></div>
+  </div>
+</main>
+
+<script src="styles-ui.js"></script>
+</body>
+</html>
