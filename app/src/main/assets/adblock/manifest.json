@@ -1,44 +1,68 @@
 {
   "manifest_version": 2,
   "name": "GeckoBlock",
-  "version": "2.0",
+  "version": "2.1",
   "description": "Filtrage publicitaire, categories de sites et moteur de recherche",
-
   "browser_specific_settings": {
-    "gecko": { "id": "adblock@geckobrowser" }
+    "gecko": {
+      "id": "adblock@geckobrowser"
+    }
   },
-
   "permissions": [
     "webRequest",
     "webRequestBlocking",
     "storage",
+    "cookies",
     "nativeMessaging",
     "<all_urls>"
   ],
-
   "background": {
-    "scripts": ["rules.js", "categories.js", "background.js"],
+    "scripts": [
+      "rules.js",
+      "categories.js",
+      "background.js"
+    ],
     "persistent": true
   },
-
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"],
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content.js"
+      ],
       "run_at": "document_start",
       "all_frames": true
     },
     {
-      "matches": ["<all_urls>"],
-      "js": ["netfilter.js"],
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "netfilter.js"
+      ],
       "run_at": "document_end",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "cookies.js"
+      ],
+      "run_at": "document_start",
       "all_frames": false
     }
   ],
-
   "web_accessible_resources": [
-    "search.html", "search.css", "search.js",
-    "engines.js", "publishers.js", "categories.js",
+    "search.html",
+    "search.css",
+    "search.js",
+    "engines.js",
+    "publishers.js",
+    "categories.js",
     "blocked.html",
     "lists/*.txt"
   ]

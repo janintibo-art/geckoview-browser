@@ -14,6 +14,7 @@ let pageCfg = { hideSearch: true, cookies: true, clickbait: true, cleanurls: tru
 let showBadge = true;
 let identity = "auto";
 let extra = [], allow = [];
+let cookieCfg = { blockThirdParty: true, stripSent: true, clearOnExit: false };
 
 // ---------------------------------------------------------------------------
 //  Preferences
@@ -38,12 +39,13 @@ async function loadPrefs() {
 
   try {
     const s = await browser.storage.local.get(
-      ["pageCfg", "pageExtra", "pageAllow", "identity", "showBadge"]);
+      ["pageCfg", "pageExtra", "pageAllow", "identity", "showBadge", "cookieCfg"]);
     if (s.pageCfg) pageCfg = Object.assign(pageCfg, s.pageCfg);
     extra = s.pageExtra || [];
     allow = s.pageAllow || [];
     identity = s.identity || "auto";
     showBadge = s.showBadge !== false;
+    if (s.cookieCfg) cookieCfg = Object.assign(cookieCfg, s.cookieCfg);
   } catch (e) { }
 
   renderCategories();
@@ -52,6 +54,10 @@ async function loadPrefs() {
   $("#opt-clickbait").checked  = pageCfg.clickbait;
   $("#opt-cleanurls").checked  = pageCfg.cleanurls;
   $("#opt-hidesearch").checked = pageCfg.hideSearch;
+  $("#opt-creject").checked = pageCfg.cookieReject !== false;
+  $("#opt-c3p").checked     = cookieCfg.blockThirdParty;
+  $("#opt-csend").checked   = cookieCfg.stripSent;
+  $("#opt-cexit").checked   = cookieCfg.clearOnExit;
   $("#opt-extra").value = extra.join("\n");
   $("#opt-allow").value = allow.join("\n");
   const radio = document.querySelector(`#ident input[value="${identity}"]`);
@@ -67,7 +73,7 @@ async function showStats() {
     if (st) {
       $("#stats").textContent =
         `${st.adRules} regles publicitaires · ${st.navRules} domaines filtres · ` +
-        `${st.blocked} elements bloques depuis le demarrage`;
+        `${st.blocked} elements bloques · ${st.consent || 0} bandeaux refuses`;
     }
   } catch (e) { }
 }
@@ -80,6 +86,11 @@ async function savePrefs() {
   pageCfg.clickbait  = $("#opt-clickbait").checked;
   pageCfg.cleanurls  = $("#opt-cleanurls").checked;
   pageCfg.hideSearch = $("#opt-hidesearch").checked;
+  pageCfg.cookieReject = $("#opt-creject").checked;
+  pageCfg.cookieClear  = $("#opt-cexit").checked;
+  cookieCfg.blockThirdParty = $("#opt-c3p").checked;
+  cookieCfg.stripSent       = $("#opt-csend").checked;
+  cookieCfg.clearOnExit     = $("#opt-cexit").checked;
   showBadge = $("#opt-badge").checked;
   identity = (document.querySelector("#ident input:checked") || {}).value || "auto";
   extra = $("#opt-extra").value.split("\n").map(s => s.trim()).filter(Boolean);
@@ -88,7 +99,7 @@ async function savePrefs() {
   await C.setCatState(catState);
   try {
     await browser.storage.local.set({
-      pageCfg, pageExtra: extra, pageAllow: allow, identity, showBadge
+      pageCfg, pageExtra: extra, pageAllow: allow, identity, showBadge, cookieCfg
     });
   } catch (e) { }
 
@@ -265,6 +276,21 @@ $("#prefs-btn").addEventListener("click", () => {
   if (!$("#prefs").hidden) showStats();
 });
 $("#prefs-save").addEventListener("click", savePrefs);
+
+$("#purge-now").addEventListener("click", async e => {
+  e.preventDefault();
+  const btn = e.target;
+  btn.textContent = "Purge en cours…";
+  try {
+    const r = await browser.runtime.sendMessage({ type: "purgeCookies" });
+    btn.textContent = (r && r.removed)
+      ? r.removed + " cookies supprimes"
+      : "API cookies indisponible";
+  } catch (err) {
+    btn.textContent = "Echec de la purge";
+  }
+  setTimeout(() => { btn.textContent = "Purger les cookies maintenant"; }, 2600);
+});
 
 (async function init() {
   await loadPrefs();

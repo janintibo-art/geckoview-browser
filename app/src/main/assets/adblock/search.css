@@ -202,3 +202,14 @@ html, body {
 }
 #ident { display: flex; gap: 14px; flex-wrap: wrap; }
 #ident label { margin-bottom: 4px; font-size: 13px; }
+
+.ghost {
+  display: block;
+  margin: 6px 0 2px;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--dim);
+  font-size: 13px;
+}

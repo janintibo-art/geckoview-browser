@@ -13,7 +13,9 @@
     hideAll: false,
     cookies: true,
     clickbait: true,
-    cleanurls: true
+    cleanurls: true,
+    cookieReject: true,
+    cookieClear: false
   };
   let blockedSet = new Set();
   let ready = false;
@@ -317,6 +319,8 @@
       v => { cfg.clickbait = v; save(); }));
     panel.appendChild(checkRow("Nettoyer les URL", "cleanurls",
       v => { cfg.cleanurls = v; save(); }));
+    panel.appendChild(checkRow("Refuser le consentement", "cookieReject",
+      v => { cfg.cookieReject = v; save(); }));
 
     const sep = document.createElement("div");
     style(sep, { height: "1px", background: "#2b303a", margin: "9px 0" });

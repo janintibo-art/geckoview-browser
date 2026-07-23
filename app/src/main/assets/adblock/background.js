@@ -21,6 +21,21 @@ let catState = {};
 let userExtra = [];
 let userAllow = [];
 let identity = "auto";       // auto | desktop | mobile
+let cookieCfg = {
+  blockThirdParty: true,   // refuser les cookies tiers
+  stripSent: true,         // ne pas renvoyer de cookie aux tiers
+  clearOnExit: false       // purger les cookies a la fermeture
+};
+let consentRejected = 0;
+
+// Sites ou les cookies tiers restent autorises (connexion, paiement, captcha)
+const COOKIE_EXEMPT = new Set([
+  "accounts.google.com", "recaptcha.net", "google.com", "gstatic.com",
+  "hcaptcha.com", "cloudflare.com", "paypal.com", "paypalobjects.com",
+  "stripe.com", "stripe.network", "checkout.stripe.com",
+  "auth0.com", "okta.com", "microsoftonline.com", "live.com",
+  "franceconnect.gouv.fr", "impots.gouv.fr"
+]);
 
 const bypass = new Set();    // sites debloques jusqu'au redemarrage
 
@@ -72,10 +87,12 @@ function matchesPattern(url) {
 async function rebuildSets() {
   catState = await CAT_API.getCatState();
   try {
-    const s = await browser.storage.local.get(["pageExtra", "pageAllow", "identity"]);
+    const s = await browser.storage.local.get(
+      ["pageExtra", "pageAllow", "identity", "cookieCfg"]);
     userExtra = (s && s.pageExtra) || [];
     userAllow = (s && s.pageAllow) || [];
     identity = (s && s.identity) || "auto";
+    if (s && s.cookieCfg) cookieCfg = Object.assign(cookieCfg, s.cookieCfg);
   } catch (e) { }
 
   navSet = await CAT_API.buildSet("nav", catState, userExtra, userAllow);
@@ -92,7 +109,8 @@ async function rebuildSets() {
 }
 
 browser.storage.onChanged.addListener(changes => {
-  if (changes.catState || changes.pageExtra || changes.pageAllow || changes.identity) {
+  if (changes.catState || changes.pageExtra || changes.pageAllow ||
+      changes.identity || changes.cookieCfg) {
     rebuildSets();
   }
 });
@@ -203,6 +221,18 @@ browser.webRequest.onBeforeSendHeaders.addListener(
       headers.push({ name: "Sec-GPC", value: "1" });
     }
 
+    // Cookies sortants vers un tiers : on ne les renvoie pas.
+    if (cookieCfg.stripSent && details.type !== "main_frame") {
+      const host = hostOf(details.url);
+      const origin = details.documentUrl ? hostOf(details.documentUrl) : "";
+      const thirdParty = origin && baseDomain(origin) !== baseDomain(host);
+      if (thirdParty && !inSet(host, COOKIE_EXEMPT)) {
+        for (let i = headers.length - 1; i >= 0; i--) {
+          if (headers[i].name.toLowerCase() === "cookie") headers.splice(i, 1);
+        }
+      }
+    }
+
     if (identity === "desktop" || identity === "mobile") {
       const ua = identity === "desktop" ? UA_DESKTOP : UA_MOBILE;
       let found = false;
@@ -217,6 +247,49 @@ browser.webRequest.onBeforeSendHeaders.addListener(
   { urls: ["<all_urls>"] },
   ["blocking", "requestHeaders"]
 );
+
+// ---------------------------------------------------------------------------
+//  Cookies tiers : on refuse leur depot
+// ---------------------------------------------------------------------------
+browser.webRequest.onHeadersReceived.addListener(
+  details => {
+    if (!cookieCfg.blockThirdParty) return {};
+    if (details.type === "main_frame") return {};
+
+    const host = hostOf(details.url);
+    const origin = details.documentUrl ? hostOf(details.documentUrl) : "";
+    if (!origin) return {};
+    if (baseDomain(origin) === baseDomain(host)) return {};   // premiere partie
+    if (inSet(host, COOKIE_EXEMPT)) return {};
+
+    const headers = details.responseHeaders.filter(
+      h => h.name.toLowerCase() !== "set-cookie");
+    if (headers.length === details.responseHeaders.length) return {};
+    return { responseHeaders: headers };
+  },
+  { urls: ["<all_urls>"] },
+  ["blocking", "responseHeaders"]
+);
+
+// ---------------------------------------------------------------------------
+//  Purge des cookies a la fermeture (si l'API est disponible)
+// ---------------------------------------------------------------------------
+async function purgeCookies() {
+  if (!cookieCfg.clearOnExit) return 0;
+  if (typeof browser.cookies === "undefined" || !browser.cookies.getAll) return 0;
+  try {
+    const all = await browser.cookies.getAll({});
+    let n = 0;
+    for (const c of all) {
+      const d = c.domain.replace(/^\./, "");
+      if (inSet(d, COOKIE_EXEMPT)) continue;
+      if (userAllow.some(a => d === a || d.endsWith("." + a))) continue;
+      const url = (c.secure ? "https://" : "http://") + d + c.path;
+      try { await browser.cookies.remove({ url, name: c.name }); n++; } catch (e) { }
+    }
+    return n;
+  } catch (e) { return 0; }
+}
 
 // ---------------------------------------------------------------------------
 //  Listes distantes de publicite
@@ -289,11 +362,19 @@ browser.runtime.onMessage.addListener(msg => {
     bypass.add(String(msg.host).toLowerCase().replace(/^www\./, ""));
     return Promise.resolve({ ok: true });
   }
+  if (msg.type === "consentRejected") {
+    consentRejected++;
+    return Promise.resolve({ ok: true });
+  }
+  if (msg.type === "purgeCookies") {
+    return purgeCookies().then(n => ({ removed: n }));
+  }
   if (msg.type === "stats") {
     return Promise.resolve({
       blocked: blockedCount,
       adRules: adDomains.size,
       navRules: navSet.size,
+      consent: consentRejected,
       categories: catState
     });
   }
