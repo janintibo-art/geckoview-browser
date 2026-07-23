@@ -77,6 +77,11 @@ public class MainActivity extends Activity {
         { "OpenStreetMap",       "https://www.openstreetmap.org/search?query=%s" },
         { "Google",              "https://www.google.com/search?q=%s" },
         { "Bing",                "https://www.bing.com/search?q=%s" },
+        { "Ahmia (.onion)",      "https://ahmia.fi/search/?q=%s" },
+        { "Ahmia via Tor",
+          "http://juhanurmihxlp77nkq76byazcldy2hlmovfu2epvl5ankdibsot4csyd.onion/search/?q=%s" },
+        { "DuckDuckGo via Tor",
+          "https://duckduckgogg42xjoc72x3sjasowoarfbgcmvfimaftt6twagswzczad.onion/?q=%s" },
         { "Personnalise…",       "custom" }
     };
 
@@ -296,6 +301,7 @@ public class MainActivity extends Activity {
             "Copier l'adresse",
             "Ouvrir dans une autre application",
             desktopMode ? "Version telephone" : "Version ordinateur",
+            TorSupport.isEnabled(this) ? "Tor : active" : "Tor : desactive",
             "Filtres et categories",
             "Mes scripts",
             blockerEnabled ? "Desactiver le blocage" : "Activer le blocage"
@@ -314,11 +320,64 @@ public class MainActivity extends Activity {
                     case 6:  copyUrl(); break;
                     case 7:  openExternally(); break;
                     case 8:  toggleDesktop(); break;
-                    case 9:  session.loadUri(extPage("search.html") + "?prefs=1"); break;
-                    case 10: session.loadUri(extPage("scripts.html")); break;
-                    case 11: toggleBlocker(); break;
+                    case 9:  showTorMenu(); break;
+                    case 10: session.loadUri(extPage("search.html") + "?prefs=1"); break;
+                    case 11: session.loadUri(extPage("scripts.html")); break;
+                    case 12: toggleBlocker(); break;
                 }
             })
+            .show();
+    }
+
+    // =======================================================================
+    //  Tor
+    // =======================================================================
+    private void showTorMenu() {
+        final boolean on = TorSupport.isEnabled(this);
+        final String[] items = {
+            on ? "Desactiver le routage Tor" : "Activer le routage Tor",
+            "Verifier la connexion Tor",
+            "Lancer Orbot",
+            "A propos de ce mode"
+        };
+
+        new AlertDialog.Builder(this)
+            .setTitle(on ? "Tor : active" : "Tor : desactive")
+            .setItems(items, (d, which) -> {
+                switch (which) {
+                    case 0:
+                        TorSupport.toggle(this);
+                        break;
+                    case 1:
+                        session.loadUri("https://check.torproject.org/");
+                        break;
+                    case 2:
+                        if (TorSupport.isOrbotInstalled(this)) TorSupport.startOrbot(this);
+                        else TorSupport.offerInstall(this);
+                        break;
+                    case 3:
+                        torInfo();
+                        break;
+                }
+            })
+            .setNegativeButton("Fermer", null)
+            .show();
+    }
+
+    private void torInfo() {
+        new AlertDialog.Builder(this)
+            .setTitle("Ce que fait ce mode")
+            .setMessage(
+                "Le trafic est envoye au proxy SOCKS d'Orbot, avec resolution DNS "
+              + "cote Tor et acces aux adresses .onion. WebRTC, la prelecture DNS "
+              + "et le predicteur reseau sont coupes, car ils contourneraient le proxy.\n\n"
+              + "Ce que ce mode ne fait PAS : il ne reproduit pas les protections "
+              + "d'anonymat de Tor Browser. Votre empreinte de navigateur reste "
+              + "distinctive, il n'y a ni cloisonnement par onglet ni normalisation "
+              + "de la taille de fenetre, et vos scripts utilisateur comme vos "
+              + "reglages vous rendent identifiable.\n\n"
+              + "Pour un besoin reel d'anonymat, utilisez Tor Browser.")
+            .setPositiveButton("Compris", null)
             .show();
     }
 
@@ -517,6 +576,8 @@ public class MainActivity extends Activity {
     //  Extension
     // =======================================================================
     private GeckoRuntimeSettings buildSettings() {
+        String configPath = TorSupport.writeConfig(this);
+
         ContentBlocking.Settings blocking = new ContentBlocking.Settings.Builder()
                 .antiTracking(ContentBlocking.AntiTracking.AD
                         | ContentBlocking.AntiTracking.ANALYTIC
@@ -529,10 +590,15 @@ public class MainActivity extends Activity {
                 .safeBrowsing(ContentBlocking.SafeBrowsing.DEFAULT)
                 .build();
 
-        return new GeckoRuntimeSettings.Builder()
+        GeckoRuntimeSettings.Builder b = new GeckoRuntimeSettings.Builder()
                 .contentBlocking(blocking)
-                .javaScriptEnabled(true)
-                .build();
+                .javaScriptEnabled(true);
+
+        if (configPath != null) {
+            try { b.configFilePath(configPath); }
+            catch (Throwable ignored) { }
+        }
+        return b.build();
     }
 
     private void installBlocker() {

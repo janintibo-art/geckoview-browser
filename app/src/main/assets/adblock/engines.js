@@ -116,6 +116,33 @@ const ENGINES = [
   },
 
   {
+    id: "ahmia",
+    label: "Ahmia (.onion)",
+    url: q => "https://ahmia.fi/search/?q=" + encodeURIComponent(q),
+    parse: doc => {
+      const out = [];
+      doc.querySelectorAll("li.result, .result").forEach(el => {
+        const a = el.querySelector("h4 a, a[href]");
+        if (!a) return;
+        let url = a.getAttribute("href") || "";
+        // Ahmia enveloppe les liens : /search/redirect?redirect_url=...
+        try {
+          const u = new URL(url, "https://ahmia.fi");
+          const inner = u.searchParams.get("redirect_url");
+          if (inner) url = decodeURIComponent(inner);
+        } catch (e) {}
+        if (!/^https?:/.test(url)) return;
+        out.push({
+          url,
+          title: clean(a.textContent),
+          snippet: clean((el.querySelector("p") || {}).textContent)
+        });
+      });
+      return out;
+    }
+  },
+
+  {
     id: "marginalia",
     label: "Marginalia",
     url: q => "https://search.marginalia.nu/search?query=" + encodeURIComponent(q),
