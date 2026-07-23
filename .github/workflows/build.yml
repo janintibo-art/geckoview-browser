@@ -47,18 +47,52 @@ jobs:
       #  Release signee : uniquement si la cle est fournie en secret.
       #  Voir tools/SIGNING.md pour la creation du trousseau.
       # ------------------------------------------------------------------
-      - name: Preparer le trousseau
+      - name: Preparer et verifier le trousseau
         id: keystore
         if: ${{ github.event.inputs.release == 'true' }}
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
           if [ -z "$KEYSTORE_BASE64" ]; then
             echo "present=false" >> "$GITHUB_OUTPUT"
             echo "Aucun secret KEYSTORE_BASE64 : release non signee, etape ignoree."
-          else
-            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            exit 0
+          fi
+
+          # tr : le secret peut contenir des retours a la ligne selon la facon
+          # dont il a ete depose. base64 -d les refuserait.
+          printf '%s' "$KEYSTORE_BASE64" | tr -d '\n\r \t' | base64 -d > "$RUNNER_TEMP/release.jks"
+
+          SIZE=$(stat -c%s "$RUNNER_TEMP/release.jks")
+          SUM=$(sha256sum "$RUNNER_TEMP/release.jks" | cut -c1-16)
+          echo "Trousseau reconstruit : $SIZE octets, empreinte $SUM"
+          echo "Comparez avec la commande donnee dans tools/SIGNING.md."
+
+          if [ "$SIZE" -lt 1000 ]; then
+            echo "::error::Le trousseau reconstruit est trop petit : le secret KEYSTORE_BASE64 est incomplet."
+            exit 1
+          fi
+
+          echo "Longueur du mot de passe recu : ${#KEYSTORE_PASSWORD} caracteres"
+          echo "Alias attendu : $KEY_ALIAS"
+
+          # Test decisif : le mot de passe ouvre-t-il le trousseau ?
+          if keytool -list -keystore "$RUNNER_TEMP/release.jks" \
+                     -storepass "$KEYSTORE_PASSWORD" > /tmp/ks.txt 2>&1; then
+            echo "Mot de passe accepte. Contenu :"
+            grep -i "PrivateKeyEntry\|Alias" /tmp/ks.txt || true
+            if ! grep -qi "^$KEY_ALIAS," /tmp/ks.txt; then
+              echo "::warning::L'alias $KEY_ALIAS n'apparait pas dans le trousseau."
+            fi
             echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Le mot de passe ne correspond pas a ce trousseau."
+            echo "Soit le secret KEYSTORE_PASSWORD est errone, soit KEYSTORE_BASE64"
+            echo "contient encore une version precedente du trousseau."
+            sed -n '1,4p' /tmp/ks.txt
+            exit 1
           fi
 
       - name: Build release signe

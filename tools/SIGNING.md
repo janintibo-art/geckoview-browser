@@ -77,6 +77,37 @@ seul l'APK de debug est produit.
 - **Identifiant distinct** : la version de debug porte le suffixe `.debug`,
   les deux peuvent donc cohabiter sur le même appareil.
 
+## Verifier que le secret correspond bien au trousseau
+
+Le workflow affiche la taille et une empreinte du trousseau qu'il a reconstruit.
+Produisez les memes valeurs localement :
+
+```bash
+stat -c%s ~/geckobrowser.jks
+sha256sum ~/geckobrowser.jks | cut -c1-16
+```
+
+Si les deux empreintes different, le secret `KEYSTORE_BASE64` contient une
+version anterieure : renvoyez-le.
+
+Pour verifier le mot de passe lui-meme :
+
+```bash
+keytool -list -keystore ~/geckobrowser.jks
+```
+
+S'il ouvre le trousseau localement mais que la compilation le refuse, c'est le
+secret `KEYSTORE_PASSWORD` qui differe. Deposez-le sans le retaper :
+
+```bash
+cd ~/geckoview-browser
+printf '%s' 'LE_MOT_DE_PASSE' | gh secret set KEYSTORE_PASSWORD
+printf '%s' 'LE_MOT_DE_PASSE' | gh secret set KEY_PASSWORD
+```
+
+Le `printf '%s'` evite d'ajouter un retour a la ligne invisible, qui suffirait
+a faire echouer la comparaison.
+
 ## Si la version release plante alors que la debug fonctionne
 
 C'est presque toujours la minification qui a retiré une classe atteinte par
