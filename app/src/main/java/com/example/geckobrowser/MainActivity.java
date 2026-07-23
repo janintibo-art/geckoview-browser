@@ -513,6 +513,42 @@ public class MainActivity extends Activity {
             .show();
     }
 
+    // =======================================================================
+    //  Actions transmises a la page
+    // =======================================================================
+    /** Transmet une action aux scripts de contenu via l'extension. */
+    private void sendCommand(String cmd) {
+        if (blockerPort == null) {
+            Toast.makeText(this, "Extension non connectee", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        try {
+            JSONObject msg = new JSONObject();
+            msg.put("type", "cmd");
+            msg.put("cmd", cmd);
+            blockerPort.postMessage(msg);
+        } catch (Exception e) {
+            Toast.makeText(this, "Action indisponible", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    /** Vrai si une page web ordinaire est ouverte. */
+    private boolean onWebPage() {
+        if (currentUrl.isEmpty() || currentUrl.startsWith("moz-extension://")) {
+            Toast.makeText(this, "Ouvrez d'abord une page web", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+        return true;
+    }
+
+    private void inspectPage() {
+        if (onWebPage()) sendCommand("inspect");
+    }
+
+    private void viewSource() {
+        if (onWebPage()) session.loadUri("view-source:" + currentUrl);
+    }
+
     private void showScriptCommands() {
         if (gmCommands.length() == 0) {
             Toast.makeText(this,
