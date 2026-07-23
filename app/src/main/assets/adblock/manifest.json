@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "GeckoBlock",
-  "version": "2.3",
+  "version": "2.4",
   "description": "Filtrage publicitaire, categories de sites et moteur de recherche",
   "browser_specific_settings": {
     "gecko": {
@@ -71,6 +71,16 @@
       ],
       "js": [
         "inspector.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "autopager.js"
       ],
       "run_at": "document_idle",
       "all_frames": false

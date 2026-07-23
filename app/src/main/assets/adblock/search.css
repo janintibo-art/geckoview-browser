@@ -223,3 +223,15 @@ html, body {
   padding: 9px;
   font-size: 13px;
 }
+
+#apmode { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 6px; }
+#apmode label { margin-bottom: 4px; font-size: 13px; }
+#prefs input[type=number] {
+  width: 110px;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px;
+  font-size: 13px;
+}

@@ -11,7 +11,8 @@ const out = $("#out"), foot = $("#foot"), qBox = $("#q");
 let scope = "web";
 let catState = {};
 let filterSet = new Set();
-let pageCfg = { hideSearch: true, cookies: true, clickbait: true, cleanurls: true, hideAll: false };
+let pageCfg = { hideSearch: true, cookies: true, clickbait: true, cleanurls: true,
+                hideAll: false, autopager: true, autopagerMode: "auto", autopagerMax: 20 };
 let showBadge = true;
 let identity = "auto";
 let extra = [], allow = [];
@@ -62,6 +63,10 @@ async function loadPrefs() {
   $("#opt-clickbait").checked  = pageCfg.clickbait;
   $("#opt-cleanurls").checked  = pageCfg.cleanurls;
   $("#opt-hidesearch").checked = pageCfg.hideSearch;
+  $("#opt-autopager").checked = pageCfg.autopager !== false;
+  $("#opt-apmax").value = pageCfg.autopagerMax || 20;
+  const apm = document.querySelector(`#apmode input[value="${pageCfg.autopagerMode || "auto"}"]`);
+  if (apm) apm.checked = true;
   $("#opt-creject").checked = pageCfg.cookieReject !== false;
   $("#opt-c3p").checked     = cookieCfg.blockThirdParty;
   $("#opt-csend").checked   = cookieCfg.stripSent;
@@ -107,6 +112,10 @@ async function savePrefs() {
   pageCfg.clickbait  = $("#opt-clickbait").checked;
   pageCfg.cleanurls  = $("#opt-cleanurls").checked;
   pageCfg.hideSearch = $("#opt-hidesearch").checked;
+  pageCfg.autopager = $("#opt-autopager").checked;
+  pageCfg.autopagerMax = Math.max(2, Math.min(200, parseInt($("#opt-apmax").value, 10) || 20));
+  pageCfg.autopagerMode =
+    (document.querySelector("#apmode input:checked") || {}).value || "auto";
   pageCfg.cookieReject = $("#opt-creject").checked;
   pageCfg.cookieClear  = $("#opt-cexit").checked;
   cookieCfg.blockThirdParty = $("#opt-c3p").checked;

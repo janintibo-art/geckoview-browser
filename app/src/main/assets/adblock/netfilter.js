@@ -343,6 +343,11 @@
       } catch (e) { }
     }));
 
+    panel.appendChild(actionBtn("\u267E  Defilement infini ici", () => {
+      panel.style.display = "none";
+      if (window.__toggleAutopagerHere) window.__toggleAutopagerHere();
+    }));
+
     panel.appendChild(actionBtn("\uD83D\uDD0E  Analyser la page", () => {
       panel.style.display = "none";
       if (window.__inspectPage) window.__inspectPage();

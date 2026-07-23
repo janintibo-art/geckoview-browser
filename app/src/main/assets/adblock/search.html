@@ -38,6 +38,17 @@
   <label><input type="checkbox" id="opt-cleanurls" checked> Nettoyer les URL de suivi</label>
   <label><input type="checkbox" id="opt-hidesearch" checked> Masquer les sites filtres dans les recherches externes</label>
 
+  <h3>Navigation</h3>
+  <label><input type="checkbox" id="opt-autopager" checked> Defilement infini sur les sites pagines</label>
+  <div id="apmode">
+    <label><input type="radio" name="apm" value="auto" checked> Automatique</label>
+    <label><input type="radio" name="apm" value="manuel"> Bouton « Charger la suite »</label>
+  </div>
+  <div class="field">
+    <span>Nombre maximal de pages enchainees</span>
+    <input id="opt-apmax" type="number" min="2" max="200" value="20">
+  </div>
+
   <h3>Cookies</h3>
   <label><input type="checkbox" id="opt-creject" checked> Refuser automatiquement le consentement</label>
   <label><input type="checkbox" id="opt-c3p" checked> Bloquer le depot de cookies tiers</label>
