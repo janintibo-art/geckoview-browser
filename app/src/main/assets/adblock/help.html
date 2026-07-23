@@ -90,6 +90,32 @@
 </details>
 
 <details>
+  <summary>Onglets <span class="step">nouveau</span></summary>
+  <div class="c">
+    <p>Le compteur encadre en vert, a droite de la barre d'adresse, indique le nombre
+    d'onglets ouverts. Un appui ouvre la liste, un appui long cree directement un
+    nouvel onglet.</p>
+    <p>La liste montre le titre de chaque page et son adresse, avec un reperage :
+    disque plein pour l'onglet visible, cercle vide pour les autres, demi-disque pour
+    un onglet prive. On y trouve aussi la creation d'un onglet normal ou prive, la
+    fermeture de l'onglet courant, et la fermeture de tous les autres.</p>
+    <p>Un lien ouvert par le site dans une nouvelle fenetre — <code>target="_blank"</code> —
+    cree desormais un onglet en arriere-plan au lieu de remplacer la page courante.</p>
+    <p>Le bouton retour suit l'ordre attendu : d'abord l'historique de la page, puis la
+    fermeture de l'onglet s'il en reste d'autres, et seulement ensuite la sortie de
+    l'application. Le dernier onglet n'est jamais ferme : il revient a l'accueil.</p>
+    <p><b>Restauration.</b> Les onglets ouverts sont retrouves au lancement suivant,
+    dans la limite de douze. Les onglets prives en sont exclus : ils ne laissent
+    aucune trace, c'est leur raison d'etre. Le comportement se desactive dans
+    <span class="path">Confidentialite &#8250; Restaurer les onglets au demarrage</span>.</p>
+    <p class="warn">Chaque onglet garde sa page en memoire. Sur un telephone modeste,
+    au-dela d'une dizaine d'onglets charges, le systeme peut fermer l'application pour
+    recuperer de la memoire — la restauration les rouvrira, mais la navigation en
+    cours sera perdue.</p>
+  </div>
+</details>
+
+<details>
   <summary>Widgets d'ecran d'accueil <span class="step">nouveau</span></summary>
   <div class="c">
     <p>Deux widgets a poser depuis l'ecran d'accueil, par appui long puis
@@ -380,7 +406,7 @@
     meme contenu, sans publicite, sans traqueur, sans script de mesure, et souvent
     sans mur de connexion.</p>
     <ul>
-      <li>YouTube &#8594; Invidious</li>
+      <li>YouTube &#8594; Invidious <i>(desactive par defaut)</i></li>
       <li>Twitter / X &#8594; Nitter</li>
       <li>Reddit &#8594; Redlib</li>
       <li>Medium &#8594; Scribe</li>
@@ -402,8 +428,15 @@
     de Google, qui masquent l'editeur reel derriere une adresse Google.</p>
     <p>Reglages dans <span class="path">Confidentialite &#8250; Redirections</span> :
     activation par service, choix de l'instance, ou saisie de la votre.</p>
-    <p class="warn">Les instances publiques sont tenues par des benevoles : elles
-    tombent, se saturent, disparaissent. Si une facade ne repond plus, changez-en dans
+    <p class="warn">Le cas de YouTube est particulier : la plateforme bloque
+    activement les instances Invidious publiques, qui affichent alors une page
+    d'erreur au lieu des resultats. La redirection est donc desactivee par defaut.
+    Vous pouvez l'activer et essayer une instance : certaines tiennent quelques
+    semaines. Le blocage publicitaire du navigateur reste actif sur YouTube, mais
+    il ne remplace pas ce qu'apportait la facade — sans elle, YouTube associe de
+    nouveau vos visionnages a votre compte et a votre adresse.</p>
+    <p class="warn">Plus generalement, les instances publiques sont tenues par des
+    benevoles : elles tombent, se saturent, disparaissent. Si une facade ne repond plus, changez-en dans
     la liste. Deux echappatoires : ajoutez <code>#direct</code> a la fin d'une adresse
     pour la charger sans redirection, ou utilisez
     <span class="path">Page &#8250; Ne plus rediriger ce service</span> depuis la

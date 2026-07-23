@@ -4,6 +4,7 @@
     <string name="url_hint">Rechercher ou saisir une adresse</string>
     <string name="go">Aller</string>
     <string name="menu">Menu</string>
+    <string name="tabs">Onglets</string>
 
     <string name="widget_search_hint">Rechercher</string>
     <string name="widget_private">Navigation privee</string>

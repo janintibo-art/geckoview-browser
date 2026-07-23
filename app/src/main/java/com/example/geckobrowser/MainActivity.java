@@ -51,6 +51,18 @@ public class MainActivity extends Activity {
     private boolean privateMode = false;
     private GeckoView geckoView;
 
+    /** Un onglet : sa session et ce qu'on affiche a son sujet. */
+    private static class Tab {
+        GeckoSession session;
+        String url = "";
+        String title = "";
+        boolean priv;
+    }
+
+    private final java.util.List<Tab> tabs = new java.util.ArrayList<>();
+    private int active = -1;
+    private TextView tabButton;
+
     private SharedPreferences prefs;
     private org.json.JSONArray gmCommands = new org.json.JSONArray();
     private Permissions permissions;
@@ -152,6 +164,7 @@ public class MainActivity extends Activity {
         ImageButton menuButton = findViewById(R.id.menu_button);
         progress = findViewById(R.id.progress);
         splash = findViewById(R.id.splash);
+        tabButton = findViewById(R.id.tab_button);
 
         if (sRuntime == null) {
             sRuntime = GeckoRuntime.create(this, buildSettings());
@@ -159,9 +172,17 @@ public class MainActivity extends Activity {
         installBlocker();
 
         setupSession(false, null);
+        restoreTabs();
 
         goButton.setOnClickListener(v -> loadFromBar());
         menuButton.setOnClickListener(v -> showMenu());
+
+        tabButton.setOnClickListener(v -> showTabs());
+        tabButton.setOnLongClickListener(v -> {
+            setupSession(false, null);
+            selectTab(tabs.size() - 1);
+            return true;
+        });
 
         shield.setOnClickListener(v -> toggleBlocker());
         shield.setOnLongClickListener(v -> {
@@ -220,6 +241,7 @@ public class MainActivity extends Activity {
     // =======================================================================
     //  Session (recreee lors du passage en navigation privee)
     // =======================================================================
+    /** Cree un onglet, l'ajoute a la liste et l'affiche. */
     private void setupSession(boolean priv, String target) {
         privateMode = priv;
 
@@ -236,24 +258,27 @@ public class MainActivity extends Activity {
                         : GeckoSessionSettings.VIEWPORT_MODE_MOBILE)
                 .build();
 
-        GeckoSession old = session;
-
+        final Tab tab = new Tab();
+        tab.priv = priv;
         session = new GeckoSession(settings);
+        tab.session = session;
 
         session.setNavigationDelegate(new GeckoSession.NavigationDelegate() {
             @Override
             public void onLocationChange(GeckoSession s, String url,
                                          java.util.List<GeckoSession.PermissionDelegate.ContentPermission> perms,
                                          Boolean hasUserGesture) {
-                if (url != null) {
-                    currentUrl = url;
-                    urlBar.setText(url.startsWith("moz-extension://") ? "" : url);
-                }
+                if (url == null) return;
+                tab.url = url;
+                // Un onglet d'arriere-plan ne doit pas ecraser la barre d'adresse.
+                if (s != session) return;
+                currentUrl = url;
+                urlBar.setText(url.startsWith("moz-extension://") ? "" : url);
             }
 
             @Override
             public void onCanGoBack(GeckoSession s, boolean value) {
-                canGoBack = value;
+                if (s == session) canGoBack = value;
             }
 
             // Liens mailto:, tel:, geo:, intent:... : deleguer a l'application idoine.
@@ -271,11 +296,17 @@ public class MainActivity extends Activity {
                 return GeckoResult.fromValue(AllowOrDeny.DENY);
             }
 
-            // target="_blank" : sans onglets, on ouvre dans la session courante.
+            // target="_blank" : un onglet est ouvert en arriere-plan.
             @Override
             public GeckoResult<GeckoSession> onNewSession(GeckoSession s, String uri) {
                 if (uri != null && !uri.isEmpty()) {
-                    runOnUiThread(() -> session.loadUri(uri));
+                    runOnUiThread(() -> {
+                        int previous = active;
+                        setupSession(privateMode, uri);
+                        selectTab(previous);
+                        Toast.makeText(MainActivity.this,
+                                "Ouvert dans un nouvel onglet", Toast.LENGTH_SHORT).show();
+                    });
                 }
                 return GeckoResult.fromValue(null);
             }
@@ -284,7 +315,8 @@ public class MainActivity extends Activity {
         session.setContentDelegate(new GeckoSession.ContentDelegate() {
             @Override
             public void onTitleChange(GeckoSession s, String title) {
-                currentTitle = title == null ? "" : title;
+                tab.title = title == null ? "" : title;
+                if (s == session) currentTitle = tab.title;
             }
 
             // Fichier que Gecko ne peut pas afficher : on l'enregistre.
@@ -297,6 +329,7 @@ public class MainActivity extends Activity {
         session.setProgressDelegate(new GeckoSession.ProgressDelegate() {
             @Override
             public void onProgressChange(GeckoSession s, int value) {
+                if (s != session) return;
                 progress.setProgress(value);
                 progress.setVisibility(value > 0 && value < 100
                         ? android.view.View.VISIBLE : android.view.View.GONE);
@@ -304,6 +337,7 @@ public class MainActivity extends Activity {
 
             @Override
             public void onPageStop(GeckoSession s, boolean success) {
+                if (s != session) return;
                 progress.setVisibility(android.view.View.GONE);
                 hideSplash();
             }
@@ -335,9 +369,143 @@ public class MainActivity extends Activity {
         }
 
 
-        if (old != null) {
-            try { old.close(); } catch (Exception ignored) { }
+        tabs.add(tab);
+        active = tabs.size() - 1;
+        updateTabButton();
+    }
+
+    // =======================================================================
+    //  Onglets
+    // =======================================================================
+    private void selectTab(int index) {
+        if (index < 0 || index >= tabs.size()) return;
+        active = index;
+        Tab t = tabs.get(index);
+        session = t.session;
+        privateMode = t.priv;
+        currentUrl = t.url;
+        currentTitle = t.title;
+
+        geckoView.setSession(session);
+        urlBar.setText(currentUrl.startsWith("moz-extension://") ? "" : currentUrl);
+        updateTabButton();
+    }
+
+    private void closeTab(int index) {
+        if (index < 0 || index >= tabs.size()) return;
+        Tab t = tabs.get(index);
+
+        // Le dernier onglet n'est pas ferme : on le ramene a l'accueil.
+        if (tabs.size() == 1) {
+            t.url = "";
+            t.title = "";
+            session.loadUri(homeUrl());
+            return;
         }
+
+        try { t.session.close(); } catch (Exception ignored) { }
+        tabs.remove(index);
+        selectTab(Math.min(index, tabs.size() - 1));
+        Toast.makeText(this, tabs.size() + " onglet(s)", Toast.LENGTH_SHORT).show();
+    }
+
+    private void updateTabButton() {
+        if (tabButton == null) return;
+        tabButton.setText(String.valueOf(tabs.size()));
+        tabButton.setTextColor(privateMode ? 0xFF8AB4F8 : 0xFFE8EAEE);
+    }
+
+    private String tabLabel(Tab t) {
+        if (t.title != null && !t.title.isEmpty()) return t.title;
+        if (t.url != null && !t.url.isEmpty()) {
+            if (t.url.startsWith("moz-extension://")) return "Accueil";
+            try {
+                String h = Uri.parse(t.url).getHost();
+                if (h != null) return h.replaceFirst("^www\\.", "");
+            } catch (Exception ignored) { }
+            return t.url;
+        }
+        return "Nouvel onglet";
+    }
+
+    private void showTabs() {
+        Menus m = new Menus(this, tabs.size() + " onglet(s)");
+        for (int i = 0; i < tabs.size(); i++) {
+            final int index = i;
+            final Tab t = tabs.get(i);
+            String mark = (i == active ? "\u25CF" : (t.priv ? "\u25D1" : "\u25CB"));
+            String host = t.url.isEmpty() ? "vide" : t.url;
+            if (host.length() > 46) host = host.substring(0, 46) + "…";
+            m.add(mark, tabLabel(t), host, () -> selectTab(index));
+        }
+        m.add("\u002B", "Nouvel onglet", () -> {
+            setupSession(false, null);
+            selectTab(tabs.size() - 1);
+        });
+        m.add("\u25D1", "Nouvel onglet prive", () -> {
+            setupSession(true, null);
+            selectTab(tabs.size() - 1);
+        });
+        m.add("\u2327", "Fermer l'onglet courant", tabLabel(tabs.get(active)),
+              () -> closeTab(active));
+        if (tabs.size() > 1) {
+            m.add("\u2327", "Fermer tous les autres", this::closeOthers);
+        }
+        m.back(this::showMenu).show();
+    }
+
+    private void closeOthers() {
+        Tab keep = tabs.get(active);
+        for (Tab t : tabs) {
+            if (t != keep) {
+                try { t.session.close(); } catch (Exception ignored) { }
+            }
+        }
+        tabs.clear();
+        tabs.add(keep);
+        selectTab(0);
+    }
+
+    // -----------------------------------------------------------------------
+    //  Restauration de session
+    // -----------------------------------------------------------------------
+    private void saveTabs() {
+        try {
+            JSONArray arr = new JSONArray();
+            for (Tab t : tabs) {
+                // Les onglets prives ne laissent aucune trace, par definition.
+                if (t.priv || t.url.isEmpty() || t.url.startsWith("moz-extension://")) continue;
+                JSONObject o = new JSONObject();
+                o.put("url", t.url);
+                o.put("title", t.title);
+                arr.put(o);
+            }
+            prefs.edit().putString("session", arr.toString())
+                 .putInt("sessionActive", active).apply();
+        } catch (Exception ignored) { }
+    }
+
+    /** Rouvre les onglets du dernier lancement, l'accueil restant le premier. */
+    private void restoreTabs() {
+        if (!prefs.getBoolean("restoreSession", true)) return;
+        try {
+            JSONArray arr = new JSONArray(prefs.getString("session", "[]"));
+            int limit = Math.min(arr.length(), 12);
+            for (int i = 0; i < limit; i++) {
+                JSONObject o = arr.optJSONObject(i);
+                if (o == null) continue;
+                String u = o.optString("url", "");
+                if (u.isEmpty()) continue;
+                setupSession(false, u);
+            }
+            if (tabs.size() > 1) selectTab(0);
+        } catch (Exception ignored) { }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        saveTabs();
     }
 
     // =======================================================================
@@ -430,6 +598,7 @@ public class MainActivity extends Activity {
         new Menus(this, "GeckoBrowser")
             .add("\u2302", "Accueil", () -> session.loadUri(homeUrl()))
             .add("\u21BB", "Recharger", () -> session.reload())
+            .sub("\u25A5", "Onglets", tabs.size() + " ouvert(s)", this::showTabs)
             .sub("\u25A4", "Page", pageHost(), this::showPageMenu)
             .sub("\u2315", "Recherche", engineName(), this::showSearchMenu)
             .sub("\u26E8", "Confidentialite",
@@ -620,6 +789,14 @@ public class MainActivity extends Activity {
                  () -> session.loadUri(extPage("frontends.html")))
             .sub("\u2609", "Tor",
                  TorSupport.isEnabled(this) ? "active" : "desactive", this::showTorMenu)
+            .add("\u21BA", "Restaurer les onglets au demarrage",
+                 prefs.getBoolean("restoreSession", true) ? "actif" : "inactif", () -> {
+                     boolean v = !prefs.getBoolean("restoreSession", true);
+                     prefs.edit().putBoolean("restoreSession", v).apply();
+                     Toast.makeText(this, v ? "Onglets restaures au demarrage"
+                             : "Demarrage sur un onglet vierge",
+                             Toast.LENGTH_SHORT).show();
+                 })
             .add("\u2327", "Effacer toutes les donnees", this::clearAllData)
             .add("\u25CE", "Diagnostic d'empreinte",
                  () -> { if (onWebPage()) sendCommand("fingerprint"); })
@@ -1611,7 +1788,13 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        if (canGoBack) session.goBack();
-        else super.onBackPressed();
+        if (canGoBack) {
+            session.goBack();
+        } else if (tabs.size() > 1) {
+            // Fermer l'onglet plutot que quitter : c'est l'attente courante.
+            closeTab(active);
+        } else {
+            super.onBackPressed();
+        }
     }
 }
