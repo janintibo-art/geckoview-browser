@@ -538,6 +538,30 @@
 </details>
 
 <details>
+  <summary>Compilation et signature <span class="step">nouveau</span></summary>
+  <div class="c">
+    <p>Chaque envoi vers le depot declenche un <b>controle statique</b> avant la
+    compilation : syntaxe JavaScript, coherence du manifeste, collisions de portee,
+    methodes Java citees mais absentes, ressources manquantes, XML mal forme.
+    Ces familles de pannes correspondent a celles reellement rencontrees ; elles
+    arretent desormais le build en quelques secondes au lieu de le laisser echouer
+    apres une minute.</p>
+    <p>Deux versions sont produisibles. L'APK de <b>debug</b>, automatique a chaque
+    envoi, porte le suffixe <code>.debug</code> et peut cohabiter avec l'autre.
+    L'APK de <b>release</b>, declenche a la demande, est minifie, allege de ses
+    ressources inutilisees, et signe avec votre propre cle.</p>
+    <p>La difference pratique tient a la signature : une version de debug doit etre
+    desinstallee avant chaque mise a jour, ce qui efface favoris, scripts et
+    reglages. Une version signee s'installe par-dessus la precedente.</p>
+    <p class="warn">La cle n'est jamais dans le depot : elle vit dans les secrets du
+    depot GitHub, et le fichier temporaire est efface a la fin de la compilation.
+    Sauvegardez le trousseau ailleurs que sur le telephone — le perdre interdit
+    definitivement toute mise a jour de l'application installee. La marche a suivre
+    est dans <code>tools/SIGNING.md</code>.</p>
+  </div>
+</details>
+
+<details>
   <summary>A venir</summary>
   <div class="c">
     <p>Toutes les etapes prevues sont livrees. Pistes possibles pour la suite :</p>
@@ -545,7 +569,6 @@
       <li>Onglets et restauration de session</li>
       <li>Recherche dans la page</li>
       <li>Menu contextuel sur appui long</li>
-      <li>Signature de l'APK en release, pour des mises a jour propres</li>
     </ul>
   </div>
 </details>

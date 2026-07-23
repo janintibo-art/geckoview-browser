@@ -126,66 +126,12 @@
   // -------------------------------------------------------------------------
   //  2) Repli : clic sur le bouton de refus
   // -------------------------------------------------------------------------
-  const REJECT_SELECTORS = [
-    "#onetrust-reject-all-handler",
-    ".ot-pc-refuse-all-handler",
-    "#CybotCookiebotDialogBodyButtonDecline",
-    "#CybotCookiebotDialogBodyLevelButtonLevelOptinDeclineAll",
-    "button[id*='denyAll']",
-    ".didomi-continue-without-agreeing",
-    "#didomi-notice-disagree-button",
-    ".qc-cmp2-summary-buttons > button[mode='secondary']",
-    "button.sp_choice_type_REJECT_ALL",
-    "button[title='REJECT ALL']",
-    "#tarteaucitronAllDenied2",
-    "#tarteaucitronAllDenied",
-    ".cmplz-deny",
-    ".cky-btn-reject",
-    ".osano-cm-denyAll",
-    "#uc-btn-deny-banner",
-    ".uc-deny-button",
-    "button[data-role='none'][data-testid='uc-deny-all-button']",
-    ".fc-cta-do-not-consent",
-    "#axeptio_btn_dismiss",
-    ".iubenda-cs-reject-btn",
-    "._brlbs-btn-cookie-preference",
-    "[data-testid='reject-all']",
-    "[aria-label*='Refuser' i]",
-    "[aria-label*='Reject' i]"
-  ];
+  // Selecteurs et libelles de refus : voir shared.js, partages avec le
+  // masquage des bandeaux.
+  const REJECT_SELECTORS = GB.REJECT_SELECTORS;
+  const REJECT_TEXTS = GB.REJECT_TEXTS;
 
-  // Libelles frequents, francais et anglais.
-  const REJECT_TEXTS = [
-    "continuer sans accepter",
-    "continuer sans accepter →",
-    "tout refuser",
-    "refuser tout",
-    "refuser et fermer",
-    "je refuse",
-    "refuser",
-    "uniquement les cookies essentiels",
-    "cookies essentiels uniquement",
-    "seulement les necessaires",
-    "reject all",
-    "decline all",
-    "deny all",
-    "necessary only",
-    "only essential",
-    "essential cookies only",
-    "continue without accepting",
-    "alle ablehnen",
-    "rechazar todo",
-    "rifiuta tutto"
-  ];
-
-  function norm(s) {
-    return (s || "")
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/\s+/g, " ")
-      .trim();
-  }
+  const norm = GB.norm;
 
   function clickable(el) {
     if (!el || !el.offsetParent) return false;
@@ -205,10 +151,7 @@
     }
 
     // b) recherche par libelle, limitee aux conteneurs de consentement
-    const scopes = document.querySelectorAll(
-      "[class*='cookie' i], [id*='cookie' i], [class*='consent' i], [id*='consent' i]," +
-      "[class*='cmp' i], [id*='cmp' i], [class*='gdpr' i], [id*='gdpr' i]," +
-      "[class*='privacy' i], dialog, [role='dialog']");
+    const scopes = document.querySelectorAll(GB.CMP_SCOPES);
 
     for (const scope of scopes) {
       const buttons = scope.querySelectorAll("button, a[role='button'], input[type='button'], [role='button']");

@@ -8,7 +8,7 @@ android {
 
     defaultConfig {
         applicationId "com.example.geckobrowser"
-        minSdk 26
+        minSdk 26            // impose par GeckoView
         targetSdk 36
         versionCode 1
         versionName "1.0"
@@ -19,15 +19,43 @@ android {
         targetCompatibility JavaVersion.VERSION_17
     }
 
-    buildTypes {
+    // La cle de signature n'est jamais dans le depot : elle arrive par
+    // variables d'environnement, alimentees par les secrets du dépôt.
+    signingConfigs {
         release {
-            minifyEnabled false
+            def store = System.getenv("KEYSTORE_PATH")
+            if (store) {
+                storeFile file(store)
+                storePassword System.getenv("KEYSTORE_PASSWORD")
+                keyAlias System.getenv("KEY_ALIAS")
+                keyPassword System.getenv("KEY_PASSWORD")
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix ".debug"
+            versionNameSuffix "-debug"
+        }
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'),
+                          'proguard-rules.pro'
+            if (System.getenv("KEYSTORE_PATH")) {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+
+    packagingOptions {
+        resources {
+            excludes += ['META-INF/*.version', 'META-INF/LICENSE*', 'kotlin/**']
         }
     }
 }
 
 dependencies {
-    // Version dynamique : Gradle prend le dernier build stable 151.x
-    // sur maven.mozilla.org. Remplacez par une version exacte si besoin.
     implementation 'org.mozilla.geckoview:geckoview:151.+'
 }

@@ -36,19 +36,8 @@
     "lite.duckduckgo.": "tr"
   };
 
-  const COOKIE_SELECTORS = [
-    "#onetrust-consent-sdk", "#onetrust-banner-sdk",
-    "#CybotCookiebotDialog", "#CybotCookiebotDialogBodyUnderlay",
-    "#didomi-host", ".qc-cmp2-container", "#qc-cmp2-container",
-    "#axeptio_overlay", "#tarteaucitronRoot", "#tarteaucitronAlertBig",
-    "div[id^='sp_message_container']", "#usercentrics-root", "#uc-banner-modal",
-    "#truste-consent-track", ".truste_overlay",
-    "#cmplz-cookiebanner-container", ".cmplz-cookiebanner",
-    ".cky-consent-container", ".cky-overlay", ".osano-cm-window",
-    "#cookie-banner", "#cookie-consent", "#cookie-notice", "#cookieConsent",
-    ".cookie-banner", ".cookie-consent", ".cookie-notice", ".cookie-law-info-bar",
-    "#gdpr-cookie-message", ".gdpr-cookie-notice"
-  ];
+  // Conteneurs de consentement : voir shared.js.
+  const COOKIE_SELECTORS = GB.CMP_CONTAINERS;
 
   const CLICKBAIT_SELECTORS = [
     "[id^='taboola']", ".taboola", ".trc_related_container", ".trc_rbox_container",

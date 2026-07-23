@@ -4,13 +4,24 @@ on:
   push:
     branches: [ main ]
   workflow_dispatch:
+    inputs:
+      release:
+        description: "Produire aussi un APK release signe"
+        type: boolean
+        default: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # Le controle attrape les pannes qui coutaient un aller-retour complet :
+      # collisions de portee, methodes supprimees, ressources absentes.
+      - name: Controle statique
+        run: python3 tools/check.py
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -26,8 +37,46 @@ jobs:
       - name: Build debug APK
         run: gradle assembleDebug --no-daemon
 
-      - name: Upload APK
+      - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
           name: GeckoBrowser-debug
           path: app/build/outputs/apk/debug/app-debug.apk
+
+      # ------------------------------------------------------------------
+      #  Release signee : uniquement si la cle est fournie en secret.
+      #  Voir tools/SIGNING.md pour la creation du trousseau.
+      # ------------------------------------------------------------------
+      - name: Preparer le trousseau
+        id: keystore
+        if: ${{ github.event.inputs.release == 'true' }}
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "Aucun secret KEYSTORE_BASE64 : release non signee, etape ignoree."
+          else
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build release signe
+        if: ${{ steps.keystore.outputs.present == 'true' }}
+        env:
+          KEYSTORE_PATH: ${{ runner.temp }}/release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: gradle assembleRelease --no-daemon
+
+      - name: Upload release APK
+        if: ${{ steps.keystore.outputs.present == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: GeckoBrowser-release
+          path: app/build/outputs/apk/release/app-release.apk
+
+      - name: Effacer le trousseau
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.jks"

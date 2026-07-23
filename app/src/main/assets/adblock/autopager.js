@@ -28,82 +28,10 @@
   // -------------------------------------------------------------------------
   //  Detection du lien vers la page suivante
   // -------------------------------------------------------------------------
-  const NEXT_TEXT = /^(suivant|suivante|page suivante|next|next page|older|plus ancien|plus anciens|charger plus|voir plus|load more|more|»|›|→|>>|>)$/i;
-
-  function textOf(a) {
-    return (a.textContent || a.getAttribute("aria-label") || a.title || "")
-      .replace(/\s+/g, " ").trim();
-  }
-
-  function sameOrigin(url) {
-    try { return new URL(url, location.href).origin === location.origin; }
-    catch (e) { return false; }
-  }
-
+  // La detection de la page suivante vit dans shared.js, partagee avec
+  // l'extracteur structure : une seule implementation a maintenir.
   function findNext(doc, baseUrl) {
-    const base = baseUrl || location.href;
-    const resolve = u => { try { return new URL(u, base).href; } catch (e) { return null; } };
-
-    // 1. Declaration explicite
-    let el = doc.querySelector("link[rel~='next'][href], a[rel~='next'][href]");
-    if (el) {
-      const u = resolve(el.getAttribute("href"));
-      if (u && sameOrigin(u)) return u;
-    }
-
-    // 2. Element de pagination marque comme courant
-    const current = doc.querySelector(
-      ".pagination .active, .pagination .current, .pager .current, " +
-      "[aria-current='page'], .page-numbers.current");
-    if (current) {
-      let sib = current.nextElementSibling;
-      while (sib) {
-        const a = sib.matches("a[href]") ? sib : sib.querySelector("a[href]");
-        if (a) {
-          const u = resolve(a.getAttribute("href"));
-          if (u && sameOrigin(u)) return u;
-        }
-        sib = sib.nextElementSibling;
-      }
-    }
-
-    // 3. Libelle du lien
-    const scopes = doc.querySelectorAll(
-      ".pagination a[href], .pager a[href], nav a[href], " +
-      "[class*='pagination'] a[href], [class*='paging'] a[href], " +
-      "[id*='pagination'] a[href], a[href]");
-    for (const a of scopes) {
-      const t = textOf(a);
-      if (t.length > 24) continue;
-      if (NEXT_TEXT.test(t)) {
-        const u = resolve(a.getAttribute("href"));
-        if (u && sameOrigin(u) && u !== base) return u;
-      }
-    }
-
-    // 4. Increment du parametre de page dans l'URL
-    try {
-      const u = new URL(base);
-      const keys = ["page", "p", "pg", "start", "offset", "from", "skip"];
-      for (const k of keys) {
-        const v = u.searchParams.get(k);
-        if (v && /^\d+$/.test(v)) {
-          const step = (k === "start" || k === "offset" || k === "skip" || k === "from")
-            ? guessStep() : 1;
-          u.searchParams.set(k, String(parseInt(v, 10) + step));
-          return u.href;
-        }
-      }
-      // Motif /page/2/ dans le chemin
-      const m = u.pathname.match(/\/page\/(\d+)\/?$/i);
-      if (m) {
-        u.pathname = u.pathname.replace(/\/page\/\d+\/?$/i,
-          "/page/" + (parseInt(m[1], 10) + 1) + "/");
-        return u.href;
-      }
-    } catch (e) { }
-
-    return null;
+    return GB.findNext(doc, baseUrl || location.href, guessStep());
   }
 
   function guessStep() {

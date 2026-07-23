@@ -595,51 +595,9 @@
   // -------------------------------------------------------------------------
   //  Page suivante (detection compacte, meme principe que le defilement infini)
   // -------------------------------------------------------------------------
-  const NEXT_RE = /^(suivant|suivante|page suivante|next|next page|older|plus ancien|»|›|→|>>|>)$/i;
-
+  // Detection deleguee a shared.js, commune avec le defilement infini.
   function nextLink(doc, base) {
-    const abs2 = u => { try { return new URL(u, base).href; } catch (e) { return null; } };
-
-    let el = doc.querySelector("link[rel~='next'][href], a[rel~='next'][href]");
-    if (el) { const u = abs2(el.getAttribute("href")); if (u) return u; }
-
-    const cur = doc.querySelector(
-      ".pagination .active, .pagination .current, [aria-current='page'], .page-numbers.current");
-    if (cur) {
-      let sib = cur.nextElementSibling;
-      while (sib) {
-        const a = sib.matches("a[href]") ? sib : sib.querySelector("a[href]");
-        if (a) { const u = abs2(a.getAttribute("href")); if (u) return u; }
-        sib = sib.nextElementSibling;
-      }
-    }
-
-    for (const a of doc.querySelectorAll("a[href]")) {
-      const t = (a.textContent || a.getAttribute("aria-label") || "").replace(/\s+/g, " ").trim();
-      if (t.length <= 24 && NEXT_RE.test(t)) {
-        const u = abs2(a.getAttribute("href"));
-        if (u && u !== base) return u;
-      }
-    }
-
-    try {
-      const u = new URL(base);
-      for (const k of ["page", "p", "pg", "start", "offset"]) {
-        const v = u.searchParams.get(k);
-        if (v && /^\d+$/.test(v)) {
-          const step = (k === "start" || k === "offset") ? Math.max(1, exRows().length) : 1;
-          u.searchParams.set(k, String(parseInt(v, 10) + step));
-          return u.href;
-        }
-      }
-      const m = u.pathname.match(/\/page\/(\d+)\/?$/i);
-      if (m) {
-        u.pathname = u.pathname.replace(/\/page\/\d+\/?$/i,
-          "/page/" + (parseInt(m[1], 10) + 1) + "/");
-        return u.href;
-      }
-    } catch (e) { }
-    return null;
+    return GB.findNext(doc, base, Math.max(1, exRows().length));
   }
 
   async function exRun() {
