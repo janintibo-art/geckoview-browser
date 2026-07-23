@@ -90,6 +90,22 @@
 </details>
 
 <details>
+  <summary>Demarrage de l'application</summary>
+  <div class="c">
+    <p>Au lancement, le logo s'affiche sur fond sombre pendant que le moteur et
+    l'extension se chargent, puis la page de recherche apparait.</p>
+    <p>Trois reglages evitent les a-coups visuels. Le theme de la fenetre est sombre
+    des l'ouverture, avant meme que l'application ne dessine. Le compositeur de Gecko
+    peint dans la meme couleur, alors qu'il utilise du blanc par defaut. Et l'ecran de
+    demarrage ne se retire qu'au premier rendu effectif du contenu, pas a la fin du
+    chargement reseau — ce dernier survient trop tot, quand rien n'est encore
+    affiche.</p>
+    <p>Si l'extension tarde a repondre, un repli au bout de cinq secondes ouvre quand
+    meme une page, pour ne jamais rester bloque sur le logo.</p>
+  </div>
+</details>
+
+<details>
   <summary>Onglets <span class="step">nouveau</span></summary>
   <div class="c">
     <p>Le compteur encadre en vert, a droite de la barre d'adresse, indique le nombre
@@ -579,10 +595,14 @@
     Ces familles de pannes correspondent a celles reellement rencontrees ; elles
     arretent desormais le build en quelques secondes au lieu de le laisser echouer
     apres une minute.</p>
-    <p>Deux versions sont produisibles. L'APK de <b>debug</b>, automatique a chaque
-    envoi, porte le suffixe <code>.debug</code> et peut cohabiter avec l'autre.
+    <p>Deux versions sont produites. L'APK de <b>debug</b>, automatique a chaque
+    envoi, porte le suffixe <code>.debug</code> et cohabite avec l'autre.
     L'APK de <b>release</b>, declenche a la demande, est minifie, allege de ses
     ressources inutilisees, et signe avec votre propre cle.</p>
+    <p>Avant de compiler, le workflow verifie que le mot de passe ouvre bien le
+    trousseau, et affiche la taille et l'empreinte du fichier reconstruit. Une
+    erreur de secret est ainsi signalee en quelques secondes, au lieu d'echouer
+    apres trois minutes de compilation.</p>
     <p>La difference pratique tient a la signature : une version de debug doit etre
     desinstallee avant chaque mise a jour, ce qui efface favoris, scripts et
     reglages. Une version signee s'installe par-dessus la precedente.</p>
@@ -597,9 +617,8 @@
 <details>
   <summary>A venir</summary>
   <div class="c">
-    <p>Toutes les etapes prevues sont livrees. Pistes possibles pour la suite :</p>
+    <p>Le navigateur est complet et signe. Pistes possibles pour la suite :</p>
     <ul>
-      <li>Onglets et restauration de session</li>
       <li>Recherche dans la page</li>
       <li>Menu contextuel sur appui long</li>
     </ul>

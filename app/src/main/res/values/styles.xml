@@ -17,4 +17,15 @@
         <item name="android:fontFamily">sans-serif-medium</item>
     </style>
 
+
+    <!-- Applique avant meme que l'activite ne dessine : sans cela, Android
+         affiche une fenetre blanche pendant le lancement. -->
+    <style name="GeckoTheme" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/brand_bg</item>
+        <item name="android:colorBackground">@color/brand_bg</item>
+        <item name="android:statusBarColor">@color/brand_bg</item>
+        <item name="android:navigationBarColor">@color/brand_bg</item>
+        <item name="android:windowDisablePreview">false</item>
+    </style>
+
 </resources>

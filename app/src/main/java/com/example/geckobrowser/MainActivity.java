@@ -324,6 +324,16 @@ public class MainActivity extends Activity {
             public void onExternalResponse(GeckoSession s, WebResponse response) {
                 Downloads.save(MainActivity.this, response);
             }
+
+            /**
+             * Premier rendu effectif du contenu. C'est le bon moment pour
+             * retirer l'ecran de demarrage : la fin du chargement reseau
+             * survient trop tot, avant que quoi que ce soit ne soit peint.
+             */
+            @Override
+            public void onFirstContentfulPaint(GeckoSession s) {
+                if (s == session) hideSplash();
+            }
         });
 
         session.setProgressDelegate(new GeckoSession.ProgressDelegate() {
@@ -339,7 +349,9 @@ public class MainActivity extends Activity {
             public void onPageStop(GeckoSession s, boolean success) {
                 if (s != session) return;
                 progress.setVisibility(android.view.View.GONE);
-                hideSplash();
+                // Repli : si aucun rendu n'a eu lieu, on ne laisse pas
+                // l'ecran de demarrage indefiniment.
+                splash.postDelayed(MainActivity.this::hideSplash, 400);
             }
         });
 
@@ -350,6 +362,12 @@ public class MainActivity extends Activity {
 
         restoreProfile();
         session.open(sRuntime);
+
+        // Gecko peint en blanc tant que rien n'est rendu : on impose le fond
+        // sombre du navigateur, sinon un eclair blanc traverse chaque chargement.
+        try {
+            session.getCompositorController().setClearColor(0xFF0B0D10);
+        } catch (Throwable ignored) { }
         geckoView.setSession(session);
 
         if (target != null) {
