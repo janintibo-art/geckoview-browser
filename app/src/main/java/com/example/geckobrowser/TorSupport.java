@@ -8,8 +8,6 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.widget.Toast;
 
-import java.io.File;
-import java.io.FileWriter;
 
 /**
  * Routage du trafic via Tor, en s'appuyant sur Orbot (proxy SOCKS local).
@@ -54,49 +52,7 @@ public class TorSupport {
      * l'ecriture echoue. A appeler avant GeckoRuntime.create.
      */
     public static String writeConfig(Context ctx) {
-        boolean tor = isEnabled(ctx);
-        boolean rfp = prefs(ctx).getBoolean("resistFingerprinting", tor);
-
-        StringBuilder sb = new StringBuilder();
-        sb.append("// Configuration generee par GeckoBrowser\n");
-
-        if (tor) {
-            sb.append("pref(\"network.proxy.type\", 1);\n");
-            sb.append("pref(\"network.proxy.socks\", \"").append(SOCKS_HOST).append("\");\n");
-            sb.append("pref(\"network.proxy.socks_port\", ").append(SOCKS_PORT).append(");\n");
-            sb.append("pref(\"network.proxy.socks_version\", 5);\n");
-            // Resolution DNS cote Tor : sans cela, les requetes DNS fuient.
-            sb.append("pref(\"network.proxy.socks_remote_dns\", true);\n");
-            sb.append("pref(\"network.proxy.no_proxies_on\", \"\");\n");
-            sb.append("pref(\"network.proxy.allow_hijacking_localhost\", true);\n");
-            // Autorise la resolution des adresses .onion
-            sb.append("pref(\"network.dns.blockDotOnion\", false);\n");
-            // Coupe les canaux qui contourneraient le proxy
-            sb.append("pref(\"media.peerconnection.enabled\", false);\n");
-            sb.append("pref(\"network.dns.disablePrefetch\", true);\n");
-            sb.append("pref(\"network.predictor.enabled\", false);\n");
-            sb.append("pref(\"network.http.speculative-parallel-limit\", 0);\n");
-            sb.append("pref(\"browser.send_pings\", false);\n");
-        } else {
-            sb.append("pref(\"network.proxy.type\", 0);\n");
-            sb.append("pref(\"media.peerconnection.enabled\", true);\n");
-        }
-
-        if (rfp) {
-            sb.append("pref(\"privacy.resistFingerprinting\", true);\n");
-            sb.append("pref(\"privacy.firstparty.isolate\", true);\n");
-            sb.append("pref(\"webgl.disabled\", true);\n");
-        }
-
-        try {
-            File f = new File(ctx.getFilesDir(), CONFIG_NAME);
-            FileWriter w = new FileWriter(f, false);
-            w.write(sb.toString());
-            w.close();
-            return f.getAbsolutePath();
-        } catch (Exception e) {
-            return null;
-        }
+        return Privacy.writeConfig(ctx);
     }
 
     // -----------------------------------------------------------------------

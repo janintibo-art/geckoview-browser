@@ -26,6 +26,7 @@ import org.mozilla.geckoview.GeckoRuntimeSettings;
 import org.mozilla.geckoview.GeckoSession;
 import org.mozilla.geckoview.GeckoSessionSettings;
 import org.mozilla.geckoview.GeckoView;
+import org.mozilla.geckoview.StorageController;
 import org.mozilla.geckoview.WebExtension;
 import org.mozilla.geckoview.WebResponse;
 import org.mozilla.geckoview.AllowOrDeny;
@@ -47,6 +48,8 @@ public class MainActivity extends Activity {
     private boolean blockerEnabled = true;
     private int blockedCount = 0;
     private boolean desktopMode = false;
+    private boolean privateMode = false;
+    private GeckoView geckoView;
 
     private SharedPreferences prefs;
     private Permissions permissions;
@@ -92,7 +95,7 @@ public class MainActivity extends Activity {
 
         prefs = getSharedPreferences("geckobrowser", MODE_PRIVATE);
 
-        GeckoView geckoView = findViewById(R.id.geckoview);
+        geckoView = findViewById(R.id.geckoview);
         urlBar = findViewById(R.id.url_bar);
         shield = findViewById(R.id.shield);
         ImageButton goButton = findViewById(R.id.go_button);
@@ -104,7 +107,49 @@ public class MainActivity extends Activity {
         }
         installBlocker();
 
-        session = new GeckoSession();
+        setupSession(false, null);
+
+        goButton.setOnClickListener(v -> loadFromBar());
+        menuButton.setOnClickListener(v -> showMenu());
+
+        shield.setOnClickListener(v -> toggleBlocker());
+        shield.setOnLongClickListener(v -> {
+            Toast.makeText(this, blockedCount + " element(s) bloque(s)", Toast.LENGTH_SHORT).show();
+            return true;
+        });
+
+        urlBar.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_GO
+                    || (event != null && event.getKeyCode() == KeyEvent.KEYCODE_ENTER)) {
+                loadFromBar();
+                return true;
+            }
+            return false;
+        });
+
+        updateShield();
+    }
+
+
+    // =======================================================================
+    //  Session (recreee lors du passage en navigation privee)
+    // =======================================================================
+    private void setupSession(boolean priv, String target) {
+        privateMode = priv;
+
+        GeckoSessionSettings settings = new GeckoSessionSettings.Builder()
+                .usePrivateMode(priv)
+                .userAgentMode(desktopMode
+                        ? GeckoSessionSettings.USER_AGENT_MODE_DESKTOP
+                        : GeckoSessionSettings.USER_AGENT_MODE_MOBILE)
+                .viewportMode(desktopMode
+                        ? GeckoSessionSettings.VIEWPORT_MODE_DESKTOP
+                        : GeckoSessionSettings.VIEWPORT_MODE_MOBILE)
+                .build();
+
+        GeckoSession old = session;
+
+        session = new GeckoSession(settings);
 
         session.setNavigationDelegate(new GeckoSession.NavigationDelegate() {
             @Override
@@ -181,27 +226,12 @@ public class MainActivity extends Activity {
 
         session.open(sRuntime);
         geckoView.setSession(session);
-        session.loadUri(homeUrl());
+        session.loadUri(target != null ? target : homeUrl());
 
-        goButton.setOnClickListener(v -> loadFromBar());
-        menuButton.setOnClickListener(v -> showMenu());
 
-        shield.setOnClickListener(v -> toggleBlocker());
-        shield.setOnLongClickListener(v -> {
-            Toast.makeText(this, blockedCount + " element(s) bloque(s)", Toast.LENGTH_SHORT).show();
-            return true;
-        });
-
-        urlBar.setOnEditorActionListener((v, actionId, event) -> {
-            if (actionId == EditorInfo.IME_ACTION_GO
-                    || (event != null && event.getKeyCode() == KeyEvent.KEYCODE_ENTER)) {
-                loadFromBar();
-                return true;
-            }
-            return false;
-        });
-
-        updateShield();
+        if (old != null) {
+            try { old.close(); } catch (Exception ignored) { }
+        }
     }
 
     // =======================================================================
@@ -301,6 +331,8 @@ public class MainActivity extends Activity {
             "Copier l'adresse",
             "Ouvrir dans une autre application",
             desktopMode ? "Version telephone" : "Version ordinateur",
+            privateMode ? "Quitter la navigation privee" : "Navigation privee",
+            "Confidentialite : " + Privacy.levelName(Privacy.level(this)),
             TorSupport.isEnabled(this) ? "Tor : active" : "Tor : desactive",
             "Filtres et categories",
             "Mes scripts",
@@ -320,12 +352,141 @@ public class MainActivity extends Activity {
                     case 6:  copyUrl(); break;
                     case 7:  openExternally(); break;
                     case 8:  toggleDesktop(); break;
-                    case 9:  showTorMenu(); break;
-                    case 10: session.loadUri(extPage("search.html") + "?prefs=1"); break;
-                    case 11: session.loadUri(extPage("scripts.html")); break;
-                    case 12: toggleBlocker(); break;
+                    case 9:  togglePrivate(); break;
+                    case 10: showPrivacyMenu(); break;
+                    case 11: showTorMenu(); break;
+                    case 12: session.loadUri(extPage("search.html") + "?prefs=1"); break;
+                    case 13: session.loadUri(extPage("scripts.html")); break;
+                    case 14: toggleBlocker(); break;
                 }
             })
+            .show();
+    }
+
+    // =======================================================================
+    //  Confidentialite
+    // =======================================================================
+    private void togglePrivate() {
+        boolean going = !privateMode;
+        setupSession(going, going ? homeUrl() : homeUrl());
+        Toast.makeText(this,
+                going ? "Navigation privee : rien n'est conserve"
+                      : "Navigation normale",
+                Toast.LENGTH_SHORT).show();
+    }
+
+    private void showPrivacyMenu() {
+        final String[] items = {
+            "Niveau de protection",
+            "DNS chiffre : " + (prefs.getBoolean("doh", false) ? "actif" : "inactif"),
+            "Effacer toutes les donnees",
+            "Ce que ce navigateur revele"
+        };
+
+        new AlertDialog.Builder(this)
+            .setTitle("Confidentialite")
+            .setItems(items, (d, which) -> {
+                switch (which) {
+                    case 0: showLevelPicker(); break;
+                    case 1: toggleDoh(); break;
+                    case 2: clearAllData(); break;
+                    case 3: privacyInfo(); break;
+                }
+            })
+            .setNegativeButton("Fermer", null)
+            .show();
+    }
+
+    private void showLevelPicker() {
+        final String[] names = { "Standard", "Renforce", "Strict" };
+        new AlertDialog.Builder(this)
+            .setTitle("Niveau de protection")
+            .setSingleChoiceItems(names, Privacy.level(this), (d, which) -> {
+                d.dismiss();
+                new AlertDialog.Builder(this)
+                    .setTitle(names[which])
+                    .setMessage(Privacy.sideEffects(which)
+                            + "\n\nL'application va redemarrer.")
+                    .setPositiveButton("Appliquer", (d2, w2) -> {
+                        prefs.edit().putInt("privacyLevel", which).apply();
+                        Privacy.writeConfig(this);
+                        TorSupport.restart(this);
+                    })
+                    .setNegativeButton("Annuler", null)
+                    .show();
+            })
+            .setNegativeButton("Fermer", null)
+            .show();
+    }
+
+    private void toggleDoh() {
+        final boolean on = prefs.getBoolean("doh", false);
+        if (on) {
+            prefs.edit().putBoolean("doh", false).apply();
+            Privacy.writeConfig(this);
+            TorSupport.restart(this);
+            return;
+        }
+        final String[] names = { "Quad9 (9.9.9.9)", "Cloudflare", "Mullvad", "dns0.eu" };
+        final String[] uris = {
+            "https://dns.quad9.net/dns-query",
+            "https://mozilla.cloudflare-dns.com/dns-query",
+            "https://dns.mullvad.net/dns-query",
+            "https://zero.dns0.eu/"
+        };
+        new AlertDialog.Builder(this)
+            .setTitle("Resolveur DNS chiffre")
+            .setItems(names, (d, which) -> {
+                prefs.edit().putBoolean("doh", true)
+                     .putString("dohUri", uris[which]).apply();
+                Privacy.writeConfig(this);
+                TorSupport.restart(this);
+            })
+            .setNegativeButton("Annuler", null)
+            .show();
+    }
+
+    private void clearAllData() {
+        new AlertDialog.Builder(this)
+            .setTitle("Effacer toutes les donnees ?")
+            .setMessage("Cookies, cache, stockage local et sessions ouvertes. "
+                      + "Vos favoris, scripts et filtres sont conserves.")
+            .setPositiveButton("Effacer", (d, w) -> {
+                try {
+                    sRuntime.getStorageController()
+                            .clearData(StorageController.ClearFlags.ALL);
+                    Toast.makeText(this, "Donnees effacees", Toast.LENGTH_SHORT).show();
+                    session.reload();
+                } catch (Throwable t) {
+                    Toast.makeText(this, "Effacement partiel : " + t.getMessage(),
+                            Toast.LENGTH_LONG).show();
+                }
+            })
+            .setNegativeButton("Annuler", null)
+            .show();
+    }
+
+    private void privacyInfo() {
+        new AlertDialog.Builder(this)
+            .setTitle("Ce que ce navigateur revele")
+            .setMessage(
+                "Le niveau renforce uniformise ce qu'un site peut lire de votre "
+              + "appareil : agent, langue, fuseau, taille d'ecran, canvas, "
+              + "precision des minuteurs. Les cookies et le cache sont cloisonnes "
+              + "par site, donc un traqueur ne vous suit plus d'un site a l'autre.\n\n"
+              + "Ce qui reste identifiant, et qu'aucun reglage ne corrige :\n\n"
+              + "• Ce navigateur est rare. Un moteur Gecko avec cette combinaison "
+              + "d'extensions forme deja une signature.\n\n"
+              + "• Vos scripts utilisateur modifient les pages de facon observable "
+              + "par le site.\n\n"
+              + "• Vos listes de filtres personnalisees changent ce qui se charge, "
+              + "ce qui est mesurable.\n\n"
+              + "L'anonymat vient de la ressemblance : Tor Browser protege parce que "
+              + "ses utilisateurs sont identiques entre eux. Un navigateur "
+              + "personnalise vous distingue par construction. Ce mode vous protege "
+              + "tres bien du pistage commercial ; il ne vous rend pas anonyme face "
+              + "a un adversaire determine.")
+            .setPositiveButton("Compris", null)
             .show();
     }
 
@@ -560,11 +721,11 @@ public class MainActivity extends Activity {
 
     private void toggleDesktop() {
         desktopMode = !desktopMode;
-        GeckoSessionSettings s = session.getSettings();
-        s.setUserAgentMode(desktopMode
+        GeckoSessionSettings st = session.getSettings();
+        st.setUserAgentMode(desktopMode
                 ? GeckoSessionSettings.USER_AGENT_MODE_DESKTOP
                 : GeckoSessionSettings.USER_AGENT_MODE_MOBILE);
-        s.setViewportMode(desktopMode
+        st.setViewportMode(desktopMode
                 ? GeckoSessionSettings.VIEWPORT_MODE_DESKTOP
                 : GeckoSessionSettings.VIEWPORT_MODE_MOBILE);
         session.reload();
@@ -576,7 +737,7 @@ public class MainActivity extends Activity {
     //  Extension
     // =======================================================================
     private GeckoRuntimeSettings buildSettings() {
-        String configPath = TorSupport.writeConfig(this);
+        String configPath = Privacy.writeConfig(this);
 
         ContentBlocking.Settings blocking = new ContentBlocking.Settings.Builder()
                 .antiTracking(ContentBlocking.AntiTracking.AD
