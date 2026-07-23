@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Synchronisation</title>
+<link rel="stylesheet" href="search.css">
+<style>
+  header { padding: 14px 14px 8px; border-bottom: 1px solid var(--line); }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .sub { color: var(--dim); font-size: 13px; line-height: 1.5; }
+  main { padding: 10px 14px 40px; }
+  h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em;
+       color: var(--dim); margin: 18px 0 8px; }
+  label.f { display: block; font-size: 13px; color: var(--dim); margin: 10px 0 4px; }
+  input[type=text], input[type=password], input[type=url] {
+    width: 100%; background: var(--bg); color: var(--fg);
+    border: 1px solid var(--line); border-radius: 8px; padding: 9px; font-size: 13px;
+  }
+  .two { display: flex; gap: 8px; }
+  .two > div { flex: 1; min-width: 0; }
+  .bar { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  .bar button { flex: 1 1 120px; padding: 11px; border-radius: 9px; border: 0; font-size: 13px; }
+  .primary { background: var(--accent); color: #10130f; font-weight: 600; }
+  .sec { background: transparent; border: 1px solid var(--line) !important; color: var(--dim); }
+  #log {
+    margin-top: 14px; background: #101216; border: 1px solid var(--line);
+    border-radius: 9px; padding: 10px; font: 11px/1.6 monospace;
+    color: #cfd4dc; min-height: 60px; max-height: 34vh; overflow-y: auto;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .ok { color: #8fce7c; }
+  .err { color: #e08a72; }
+  label.chk { display: flex; gap: 9px; align-items: flex-start; font-size: 14px; margin: 9px 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Synchronisation</h1>
+  <div class="sub">Vos scripts, styles, listes, filtres et favoris dans un depot
+  a vous. Vous editez sur un ordinateur, le telephone suit.</div>
+</header>
+
+<main>
+  <h3>Depot GitHub</h3>
+  <div class="two">
+    <div>
+      <label class="f" for="owner">Compte</label>
+      <input id="owner" type="text" placeholder="mon-compte" autocapitalize="off">
+    </div>
+    <div>
+      <label class="f" for="repo">Depot</label>
+      <input id="repo" type="text" placeholder="mes-reglages" autocapitalize="off">
+    </div>
+  </div>
+
+  <div class="two">
+    <div>
+      <label class="f" for="branch">Branche</label>
+      <input id="branch" type="text" placeholder="main" autocapitalize="off">
+    </div>
+    <div>
+      <label class="f" for="path">Fichier</label>
+      <input id="path" type="text" placeholder="geckobrowser.json" autocapitalize="off">
+    </div>
+  </div>
+
+  <label class="f" for="token">Jeton d'acces</label>
+  <input id="token" type="password" placeholder="github_pat_…" autocapitalize="off">
+
+  <h3>Automatisme</h3>
+  <label class="chk"><input type="checkbox" id="autopull">
+    <span>Recuperer au demarrage si la version distante est plus recente</span></label>
+
+  <div class="bar">
+    <button id="push" class="primary">Envoyer</button>
+    <button id="pull" class="sec">Recuperer</button>
+  </div>
+  <div class="bar">
+    <button id="check" class="sec">Comparer</button>
+    <button id="save" class="sec">Enregistrer les reglages</button>
+  </div>
+
+  <div id="log">Pret.</div>
+
+  <h3>Source en lecture seule</h3>
+  <label class="f" for="raw">Adresse brute d'un fichier a importer</label>
+  <input id="raw" type="url" placeholder="https://raw.githubusercontent.com/…/reglages.json">
+  <div class="bar">
+    <button id="pullraw" class="sec">Importer depuis cette adresse</button>
+  </div>
+
+  <p class="note" style="margin-top:22px">
+    Le jeton reste sur cet appareil, dans le stockage de l'extension. Utilisez un jeton
+    a portee restreinte : un seul depot prive, autorisation « Contents » en lecture et
+    ecriture, rien d'autre. N'ecrivez jamais un jeton dans le code source du navigateur,
+    qui est publie.
+  </p>
+  <p class="note">
+    Ce qui est synchronise : scripts utilisateur et leurs valeurs, feuilles CSS,
+    categories de filtrage actives, domaines ajoutes ou exemptes, reglages de cookies,
+    de recherche, de redirections, profil d'appareil, sites exclus du defilement
+    infini, et favoris. Ce qui ne l'est pas : historique, cookies de session, cache.
+  </p>
+</main>
+
+<script src="sync-ui.js"></script>
+</body>
+</html>

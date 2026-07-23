@@ -507,11 +507,45 @@
 </details>
 
 <details>
+  <summary>Synchronisation par depot Git <span class="step">nouveau</span></summary>
+  <div class="c">
+    <p><span class="path">Menu &#8250; Synchronisation</span> depose vos reglages dans
+    un depot GitHub a vous, sous forme d'un seul fichier JSON. Vous editez depuis un
+    ordinateur, le telephone suit ; ou vous transferez tout vers un nouvel appareil
+    en une manipulation.</p>
+    <p>Quatre actions : <b>Envoyer</b> televerse l'instantane courant,
+    <b>Recuperer</b> restaure la version du depot, <b>Comparer</b> affiche les deux
+    inventaires cote a cote sans rien modifier, et <b>Enregistrer</b> retient la
+    configuration sur l'appareil.</p>
+    <p>Une case active la recuperation automatique au demarrage : le fichier n'est
+    applique que s'il est plus recent que la derniere recuperation, ce qui evite
+    d'ecraser en boucle. A l'envoi, si le depot contient une version plus recente que
+    la votre, une confirmation vous previent avant d'ecraser.</p>
+    <p><b>Ce qui est synchronise</b> : scripts utilisateur et leurs valeurs, feuilles
+    CSS, categories de filtrage actives, domaines ajoutes ou exemptes, reglages de
+    cookies, de recherche, de redirections, profil d'appareil, sites exclus du
+    defilement infini, et favoris. <b>Ce qui ne l'est pas</b> : historique, cookies de
+    session, cache — c'est-a-dire tout ce qui est propre a un appareil.</p>
+    <p>Un champ separe permet d'importer depuis une adresse brute quelconque, sans
+    jeton ni compte. Pratique pour partager une configuration en lecture seule, ou
+    pour reprendre celle d'un ami.</p>
+    <p class="warn">Le jeton reste sur l'appareil, dans le stockage de l'extension.
+    Utilisez un jeton a portee restreinte : un seul depot prive, autorisation
+    « Contents » en lecture et ecriture, rien d'autre. N'ecrivez jamais un jeton dans
+    le code source du navigateur, qui est publie sur GitHub — le detecteur de secrets
+    bloquerait d'ailleurs l'envoi.</p>
+  </div>
+</details>
+
+<details>
   <summary>A venir</summary>
   <div class="c">
-    <p>Les etapes suivantes, dans l'ordre prevu :</p>
+    <p>Toutes les etapes prevues sont livrees. Pistes possibles pour la suite :</p>
     <ul>
-      <li>Synchronisation des listes, scripts et favoris par depot Git</li>
+      <li>Onglets et restauration de session</li>
+      <li>Recherche dans la page</li>
+      <li>Menu contextuel sur appui long</li>
+      <li>Signature de l'APK en release, pour des mises a jour propres</li>
     </ul>
   </div>
 </details>

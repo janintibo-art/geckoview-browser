@@ -39,6 +39,28 @@ const COOKIE_EXEMPT = new Set([
 
 const bypass = new Set();    // sites debloques jusqu'au redemarrage
 let lastOriginal = "";       // derniere adresse redirigee vers une facade
+let bookmarksCache = null;
+let bookmarksWaiting = null;
+
+function requestBookmarks() {
+  return new Promise(resolve => {
+    if (!nativePort) { resolve(bookmarksCache || []); return; }
+    bookmarksWaiting = resolve;
+    try {
+      nativePort.postMessage({ type: "getBookmarks" });
+    } catch (e) {
+      bookmarksWaiting = null;
+      resolve(bookmarksCache || []);
+      return;
+    }
+    setTimeout(() => {
+      if (bookmarksWaiting) {
+        bookmarksWaiting = null;
+        resolve(bookmarksCache || []);
+      }
+    }, 1500);
+  });
+}
 
 const REMOTE_LISTS = [
   "https://adaway.org/hosts.txt",
@@ -124,6 +146,10 @@ function connectNative() {
     nativePort.onMessage.addListener(msg => {
       if (!msg) return;
       if (msg.type === "setEnabled") { enabled = !!msg.value; pushState(); }
+      else if (msg.type === "bookmarks") {
+        bookmarksCache = msg.list || [];
+        if (bookmarksWaiting) { bookmarksWaiting(bookmarksCache); bookmarksWaiting = null; }
+      }
       else if (msg.type === "setProfile") {
         // Le navigateur remplace deja l'agent lui-meme : on ne stocke le profil
         // que pour aligner les proprietes JavaScript secondaires.
@@ -464,6 +490,48 @@ browser.runtime.onMessage.addListener(msg => {
   if (msg.type === "purgeCookies") {
     return purgeCookies().then(n => ({ removed: n }));
   }
+  // -------------------------------------------------------------------------
+  //  Synchronisation : instantane et restauration
+  // -------------------------------------------------------------------------
+  if (msg.type === "syncSnapshot") {
+    return (async () => {
+      const keys = [
+        "userscripts", "userStyles", "catState", "pageCfg", "cookieCfg",
+        "feCfg", "engineOn", "searxUrl", "pageExtra", "pageAllow",
+        "deviceProfile", "autopagerOff", "showBadge"
+      ];
+      let data = {};
+      try { data = await browser.storage.local.get(keys); } catch (e) { }
+
+      // Les favoris vivent cote application : on les demande par le port.
+      data.bookmarks = await requestBookmarks();
+
+      return {
+        version: 1,
+        updated: new Date().toISOString(),
+        data: data
+      };
+    })();
+  }
+
+  if (msg.type === "syncApply") {
+    return (async () => {
+      const d = (msg.snapshot && msg.snapshot.data) || {};
+      const bookmarks = d.bookmarks;
+      delete d.bookmarks;
+      try { await browser.storage.local.set(d); } catch (e) {
+        return { error: String(e) };
+      }
+      if (bookmarks && nativePort) {
+        try {
+          nativePort.postMessage({ type: "setBookmarks", list: bookmarks });
+        } catch (e) { }
+      }
+      await rebuildSets();
+      return { ok: true, keys: Object.keys(d).length };
+    })();
+  }
+
   if (msg.type === "feList") {
     return Promise.resolve({
       cfg: feCfg,
@@ -597,7 +665,52 @@ browser.runtime.onMessage.addListener(msg => {
 // ---------------------------------------------------------------------------
 //  Demarrage
 // ---------------------------------------------------------------------------
+// Recuperation automatique au demarrage, si elle a ete demandee
+async function autoPull() {
+  try {
+    const s = await browser.storage.local.get(["syncCfg", "lastPull"]);
+    const c = s && s.syncCfg;
+    if (!c || !c.autopull || !c.owner || !c.repo || !c.token) return;
+
+    const url = "https://api.github.com/repos/" + encodeURIComponent(c.owner) +
+      "/" + encodeURIComponent(c.repo) + "/contents/" +
+      c.path.split("/").map(encodeURIComponent).join("/") +
+      "?ref=" + encodeURIComponent(c.branch || "main");
+
+    const r = await fetch(url, {
+      headers: {
+        "Accept": "application/vnd.github+json",
+        "Authorization": "Bearer " + c.token,
+        "X-GitHub-Api-Version": "2022-11-28"
+      }
+    });
+    if (!r.ok) return;
+    const j = await r.json();
+    if (!j || !j.content) return;
+
+    const bin = atob(j.content.replace(/\s/g, ""));
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const snap = JSON.parse(new TextDecoder().decode(bytes));
+
+    // On n'ecrase que si le depot est plus recent que la derniere recuperation
+    if (!snap || !snap.data || !snap.updated) return;
+    if (s.lastPull && snap.updated <= s.lastPull) return;
+
+    const bookmarks = snap.data.bookmarks;
+    delete snap.data.bookmarks;
+    await browser.storage.local.set(snap.data);
+    await browser.storage.local.set({ lastPull: snap.updated });
+    if (bookmarks && nativePort) {
+      try { nativePort.postMessage({ type: "setBookmarks", list: bookmarks }); }
+      catch (e) { }
+    }
+    await rebuildSets();
+  } catch (e) { }
+}
+
 connectNative();
 rebuildSets();
+setTimeout(autoPull, 3000);
 refreshLists();
 setInterval(refreshLists, REFRESH_MS);

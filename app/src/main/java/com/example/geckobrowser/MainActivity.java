@@ -417,6 +417,7 @@ public class MainActivity extends Activity {
             "Scripts et styles…",
             "Favoris…",
             blockerEnabled ? "Desactiver le blocage" : "Activer le blocage",
+            "Synchronisation",
             "Aide et tutoriel"
         };
 
@@ -432,7 +433,8 @@ public class MainActivity extends Activity {
                     case 5: showScriptsMenu(); break;
                     case 6: showBookmarksMenu(); break;
                     case 7: toggleBlocker(); break;
-                    case 8: session.loadUri(extPage("help.html")); break;
+                    case 8: session.loadUri(extPage("sync.html")); break;
+                    case 9: session.loadUri(extPage("help.html")); break;
                 }
             })
             .show();
@@ -1157,6 +1159,27 @@ public class MainActivity extends Activity {
                                 final String ref = json.optString("referer", currentUrl);
                                 runOnUiThread(() -> Downloads.saveUrls(
                                         MainActivity.this, urls, ref));
+                            }
+                            return;
+                        }
+
+                        if ("getBookmarks".equals(kind)) {
+                            try {
+                                JSONObject reply = new JSONObject();
+                                reply.put("type", "bookmarks");
+                                reply.put("list", bookmarks());
+                                p.postMessage(reply);
+                            } catch (Exception ignored) { }
+                            return;
+                        }
+
+                        if ("setBookmarks".equals(kind)) {
+                            org.json.JSONArray list = json.optJSONArray("list");
+                            if (list != null) {
+                                prefs.edit().putString("bookmarks", list.toString()).apply();
+                                runOnUiThread(() -> Toast.makeText(MainActivity.this,
+                                        list.length() + " favori(s) restaure(s)",
+                                        Toast.LENGTH_SHORT).show());
                             }
                             return;
                         }
