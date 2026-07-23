@@ -13,6 +13,7 @@
   let root = null;
   let resources = [];
   let filters = new Set();
+  let selected = new Set();
   let textFilter = "";
   let customExt = "";
 
@@ -212,16 +213,14 @@
     });
   }
 
-  function renderResources() {
-    const c = counts();
-    const chips = TYPES.filter(t => c[t.id]).map(t =>
-      `<button class="ins-chip${filters.has(t.id) ? " on" : ""}" data-t="${t.id}">
-         ${t.label} <b>${c[t.id]}</b></button>`).join("");
-
-    const list = filtered();
-    const rows = list.map((r, i) => `
-      <div class="ins-row" data-i="${i}">
-        <div class="ins-u">${esc(r.url)}</div>
+  function rowHtml(r, i) {
+    return `
+      <div class="ins-row">
+        <label class="ins-u">
+          <input type="checkbox" class="ins-ck" data-k="${esc(r.url)}"
+                 ${selected.has(r.url) ? "checked" : ""}>
+          ${esc(r.url)}
+        </label>
         <div class="ins-m">
           <span class="ins-tag">${esc(r.type)}</span>
           ${r.ext ? `<span>.${esc(r.ext)}</span>` : ""}
@@ -229,11 +228,22 @@
           ${r.origins.length ? `<span>${esc(r.origins.join(", "))}</span>` : ""}
         </div>
         <div class="ins-act">
+          <button data-dl="${i}" class="ins-dl">Telecharger</button>
           <button data-open="${i}">Ouvrir</button>
           <button data-copy="${i}">Copier</button>
           ${TEXTUAL.has(r.type) ? `<button data-src="${i}">Contenu</button>` : ""}
         </div>
-      </div>`).join("");
+      </div>`;
+  }
+
+  function renderResources() {
+    const c = counts();
+    const chips = TYPES.filter(t => c[t.id]).map(t =>
+      `<button class="ins-chip${filters.has(t.id) ? " on" : ""}" data-t="${t.id}">
+         ${t.label} <b>${c[t.id]}</b></button>`).join("");
+
+    const list = filtered();
+    const rows = list.map((r, i) => rowHtml(r, i)).join("");
 
     return `
       <div class="ins-chips">${chips}
@@ -245,7 +255,16 @@
       </div>
       <div class="ins-tools">
         <button id="ins-sizes" class="ins-b">Mesurer les tailles</button>
-        <button id="ins-copyall" class="ins-b">Copier les ${list.length} URL</button>
+        <button id="ins-copyall" class="ins-b">Copier les URL</button>
+      </div>
+      <div class="ins-tools">
+        <button id="ins-dl-all" class="ins-b ins-dl">Telecharger ces ${list.length}</button>
+        <button id="ins-dl-sel" class="ins-b">Telecharger la selection</button>
+      </div>
+      <div class="ins-tools">
+        <button id="ins-sel-all" class="ins-b">Tout selectionner</button>
+        <button id="ins-sel-none" class="ins-b">Aucun</button>
+        <button id="ins-savelist" class="ins-b">Enregistrer la liste</button>
       </div>
       <div class="ins-list">${rows || '<div class="ins-empty">Aucune ressource pour ce filtre.</div>'}</div>`;
   }
@@ -343,6 +362,9 @@
   .ins-t td:first-child{color:#99a0ad;width:38%}
   .ins-h{margin:16px 0 6px;font-size:12px;color:#99a0ad;text-transform:uppercase}
   .ins-empty{color:#99a0ad;padding:24px 0;text-align:center}
+  .ins-dl{border-color:#3d5c34!important;color:#8fce7c!important}
+  .ins-ck{margin-right:7px;vertical-align:middle}
+  .ins-u{display:block;cursor:pointer}
   .ins-hits{color:#99a0ad;font-size:12px;align-self:center}`;
 
   let tab = "res";
@@ -382,6 +404,35 @@
       copyAll.textContent = "Copie";
     };
 
+    body.querySelectorAll(".ins-ck").forEach(cb => {
+      cb.onchange = () => {
+        if (cb.checked) selected.add(cb.dataset.k);
+        else selected.delete(cb.dataset.k);
+        updateSelCount();
+      };
+    });
+
+    const selAll = body.querySelector("#ins-sel-all");
+    if (selAll) selAll.onclick = () => {
+      filtered().forEach(r => selected.add(r.url));
+      refreshList();
+    };
+    const selNone = body.querySelector("#ins-sel-none");
+    if (selNone) selNone.onclick = () => { selected.clear(); refreshList(); };
+
+    const dlAll = body.querySelector("#ins-dl-all");
+    if (dlAll) dlAll.onclick = () => download(filtered().map(r => r.url), dlAll);
+
+    const dlSel = body.querySelector("#ins-dl-sel");
+    if (dlSel) dlSel.onclick = () => download(Array.from(selected), dlSel);
+
+    const saveList = body.querySelector("#ins-savelist");
+    if (saveList) saveList.onclick = () => saveUrlList(saveList);
+
+    body.querySelectorAll("[data-dl]").forEach(b => {
+      b.onclick = () => download([filtered()[+b.dataset.dl].url], b);
+    });
+
     body.querySelectorAll("[data-open]").forEach(b => {
       b.onclick = () => { location.href = filtered()[+b.dataset.open].url; };
     });
@@ -410,24 +461,76 @@
     if (!list) return paint();
     const items = filtered();
     list.innerHTML = items.length
-      ? items.map((r, i) => `
-        <div class="ins-row">
-          <div class="ins-u">${esc(r.url)}</div>
-          <div class="ins-m"><span class="ins-tag">${esc(r.type)}</span>
-            ${r.ext ? `<span>.${esc(r.ext)}</span>` : ""}
-            ${r.size ? `<span>${human(r.size)}</span>` : ""}</div>
-          <div class="ins-act">
-            <button data-open="${i}">Ouvrir</button>
-            <button data-copy="${i}">Copier</button>
-            ${TEXTUAL.has(r.type) ? `<button data-src="${i}">Contenu</button>` : ""}
-          </div>
-        </div>`).join("")
+      ? items.map((r, i) => rowHtml(r, i)).join("")
       : '<div class="ins-empty">Aucune ressource pour ce filtre.</div>';
+    const all = root.querySelector("#ins-dl-all");
+    if (all) all.textContent = "Telecharger ces " + items.length;
     wire();
   }
 
   function copy(text) {
     try { navigator.clipboard.writeText(text); } catch (e) { }
+  }
+
+  function updateSelCount() {
+    const b = root.querySelector("#ins-dl-sel");
+    if (b) b.textContent = selected.size
+      ? "Telecharger la selection (" + selected.size + ")"
+      : "Telecharger la selection";
+  }
+
+  // Le telechargement est confie a l'application : elle gere le binaire,
+  // les gros fichiers, et passe par Tor si le mode est actif.
+  async function download(urls, btn) {
+    urls = (urls || []).filter(Boolean);
+    if (!urls.length) {
+      if (btn) btn.textContent = "Rien a telecharger";
+      return;
+    }
+    if (urls.length > 25 &&
+        !confirm(urls.length + " fichiers vont etre telecharges. Continuer ?")) {
+      return;
+    }
+
+    const label = btn ? btn.textContent : "";
+    if (btn) btn.textContent = "Envoi…";
+    try {
+      const res = await browser.runtime.sendMessage({
+        type: "downloadUrls", urls: urls, referer: location.href
+      });
+      if (btn) {
+        btn.textContent = (res && res.ok)
+          ? urls.length + " en cours"
+          : "Echec : " + ((res && res.error) || "inconnu");
+        setTimeout(() => { btn.textContent = label; }, 3000);
+      }
+    } catch (e) {
+      if (btn) btn.textContent = "Echec";
+    }
+  }
+
+  async function saveUrlList(btn) {
+    const items = selected.size
+      ? Array.from(selected)
+      : filtered().map(r => r.url);
+    if (!items.length) return;
+
+    let host = "page";
+    try { host = location.hostname.replace(/^www\./, ""); } catch (e) { }
+    const name = host + "-ressources.txt";
+
+    btn.textContent = "Envoi…";
+    try {
+      await browser.runtime.sendMessage({
+        type: "downloadText", name: name,
+        text: "# " + location.href + "\n# " + items.length + " ressources\n\n"
+              + items.join("\n") + "\n"
+      });
+      btn.textContent = "Liste enregistree";
+    } catch (e) {
+      btn.textContent = "Echec";
+    }
+    setTimeout(() => { btn.textContent = "Enregistrer la liste"; }, 3000);
   }
 
   // -------------------------------------------------------------------------

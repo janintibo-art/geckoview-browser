@@ -827,7 +827,29 @@ public class MainActivity extends Activity {
                     public void onPortMessage(Object message, WebExtension.Port p) {
                         if (!(message instanceof JSONObject)) return;
                         JSONObject json = (JSONObject) message;
-                        if (!"state".equals(json.optString("type"))) return;
+                        String kind = json.optString("type");
+
+                        if ("download".equals(kind)) {
+                            org.json.JSONArray arr = json.optJSONArray("urls");
+                            if (arr != null && arr.length() > 0) {
+                                final String[] urls = new String[arr.length()];
+                                for (int i = 0; i < arr.length(); i++) urls[i] = arr.optString(i);
+                                final String ref = json.optString("referer", currentUrl);
+                                runOnUiThread(() -> Downloads.saveUrls(
+                                        MainActivity.this, urls, ref));
+                            }
+                            return;
+                        }
+
+                        if ("downloadText".equals(kind)) {
+                            final String name = json.optString("name", "liste.txt");
+                            final String text = json.optString("text", "");
+                            runOnUiThread(() -> Downloads.saveText(
+                                    MainActivity.this, name, text));
+                            return;
+                        }
+
+                        if (!"state".equals(kind)) return;
                         blockedCount = json.optInt("blocked", blockedCount);
                         blockerEnabled = json.optBoolean("enabled", blockerEnabled);
                         runOnUiThread(MainActivity.this::updateShield);

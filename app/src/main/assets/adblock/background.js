@@ -374,6 +374,32 @@ browser.runtime.onMessage.addListener(msg => {
   if (msg.type === "purgeCookies") {
     return purgeCookies().then(n => ({ removed: n }));
   }
+  if (msg.type === "downloadUrls") {
+    if (!nativePort) return Promise.resolve({ error: "app non connectee" });
+    try {
+      nativePort.postMessage({
+        type: "download",
+        urls: msg.urls || [],
+        referer: msg.referer || ""
+      });
+      return Promise.resolve({ ok: true, count: (msg.urls || []).length });
+    } catch (e) {
+      return Promise.resolve({ error: String(e) });
+    }
+  }
+  if (msg.type === "downloadText") {
+    if (!nativePort) return Promise.resolve({ error: "app non connectee" });
+    try {
+      nativePort.postMessage({
+        type: "downloadText",
+        name: msg.name || "liste.txt",
+        text: msg.text || ""
+      });
+      return Promise.resolve({ ok: true });
+    } catch (e) {
+      return Promise.resolve({ error: String(e) });
+    }
+  }
   if (msg.type === "gmFetch") {
     return (async () => {
       try {
