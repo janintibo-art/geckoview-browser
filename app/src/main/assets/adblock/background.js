@@ -124,6 +124,11 @@ function connectNative() {
     nativePort.onMessage.addListener(msg => {
       if (!msg) return;
       if (msg.type === "setEnabled") { enabled = !!msg.value; pushState(); }
+      else if (msg.type === "inspect") {
+        // Le menu de l'application n'a pas d'acces direct aux scripts de
+        // contenu : on passe par le stockage, qu'ils observent.
+        try { browser.storage.local.set({ inspectRequest: Date.now() }); } catch (e) { }
+      }
       else if (msg.type === "resetCount") { blockedCount = 0; pushState(); }
       else if (msg.type === "getState") pushState();
     });

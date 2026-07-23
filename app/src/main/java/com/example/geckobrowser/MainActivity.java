@@ -334,6 +334,8 @@ public class MainActivity extends Activity {
             privateMode ? "Quitter la navigation privee" : "Navigation privee",
             "Confidentialite : " + Privacy.levelName(Privacy.level(this)),
             TorSupport.isEnabled(this) ? "Tor : active" : "Tor : desactive",
+            "Analyser la page",
+            "Code source de la page",
             "Filtres et categories",
             "Mes scripts",
             blockerEnabled ? "Desactiver le blocage" : "Activer le blocage"
@@ -355,12 +357,43 @@ public class MainActivity extends Activity {
                     case 9:  togglePrivate(); break;
                     case 10: showPrivacyMenu(); break;
                     case 11: showTorMenu(); break;
-                    case 12: session.loadUri(extPage("search.html") + "?prefs=1"); break;
-                    case 13: session.loadUri(extPage("scripts.html")); break;
-                    case 14: toggleBlocker(); break;
+                    case 12: inspectPage(); break;
+                    case 13: viewSource(); break;
+                    case 14: session.loadUri(extPage("search.html") + "?prefs=1"); break;
+                    case 15: session.loadUri(extPage("scripts.html")); break;
+                    case 16: toggleBlocker(); break;
                 }
             })
             .show();
+    }
+
+    // =======================================================================
+    //  Analyse de page
+    // =======================================================================
+    private void inspectPage() {
+        if (currentUrl.isEmpty() || currentUrl.startsWith("moz-extension://")) {
+            Toast.makeText(this, "Ouvrez d'abord une page web", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (blockerPort == null) {
+            Toast.makeText(this, "Extension non connectee", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        try {
+            JSONObject msg = new JSONObject();
+            msg.put("type", "inspect");
+            blockerPort.postMessage(msg);
+        } catch (Exception e) {
+            Toast.makeText(this, "Analyse indisponible", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void viewSource() {
+        if (currentUrl.isEmpty() || currentUrl.startsWith("moz-extension://")) {
+            Toast.makeText(this, "Ouvrez d'abord une page web", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        session.loadUri("view-source:" + currentUrl);
     }
 
     // =======================================================================

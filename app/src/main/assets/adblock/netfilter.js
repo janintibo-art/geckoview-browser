@@ -343,6 +343,11 @@
       } catch (e) { }
     }));
 
+    panel.appendChild(actionBtn("\uD83D\uDD0E  Analyser la page", () => {
+      panel.style.display = "none";
+      if (window.__inspectPage) window.__inspectPage();
+    }));
+
     panel.appendChild(actionBtn("\uD83D\uDCDC  Mes scripts", () => {
       location.href = browser.runtime.getURL("scripts.html");
     }));
