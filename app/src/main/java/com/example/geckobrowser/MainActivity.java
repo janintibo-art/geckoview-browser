@@ -27,6 +27,9 @@ import org.mozilla.geckoview.GeckoSession;
 import org.mozilla.geckoview.GeckoSessionSettings;
 import org.mozilla.geckoview.GeckoView;
 import org.mozilla.geckoview.WebExtension;
+import org.mozilla.geckoview.WebResponse;
+import org.mozilla.geckoview.AllowOrDeny;
+import org.mozilla.geckoview.GeckoResult;
 
 public class MainActivity extends Activity {
 
@@ -46,6 +49,12 @@ public class MainActivity extends Activity {
     private boolean desktopMode = false;
 
     private SharedPreferences prefs;
+    private Permissions permissions;
+    private android.widget.ProgressBar progress;
+
+    private static final int REQ_FILE = 8123;
+    private GeckoResult<GeckoSession.PromptDelegate.PromptResponse> pendingFile;
+    private GeckoSession.PromptDelegate.FilePrompt pendingFilePrompt;
 
     private static final String EXT_ID = "adblock@geckobrowser";
     private static final String EXT_URL = "resource://android/assets/adblock/";
@@ -83,6 +92,7 @@ public class MainActivity extends Activity {
         shield = findViewById(R.id.shield);
         ImageButton goButton = findViewById(R.id.go_button);
         ImageButton menuButton = findViewById(R.id.menu_button);
+        progress = findViewById(R.id.progress);
 
         if (sRuntime == null) {
             sRuntime = GeckoRuntime.create(this, buildSettings());
@@ -106,6 +116,30 @@ public class MainActivity extends Activity {
             public void onCanGoBack(GeckoSession s, boolean value) {
                 canGoBack = value;
             }
+
+            // Liens mailto:, tel:, geo:, intent:... : deleguer a l'application idoine.
+            @Override
+            public GeckoResult<AllowOrDeny> onLoadRequest(GeckoSession s, LoadRequest request) {
+                String uri = request.uri;
+                if (uri == null) return GeckoResult.fromValue(AllowOrDeny.ALLOW);
+                if (uri.startsWith("http://") || uri.startsWith("https://")
+                        || uri.startsWith("moz-extension://") || uri.startsWith("about:")
+                        || uri.startsWith("data:") || uri.startsWith("blob:")
+                        || uri.startsWith("resource://")) {
+                    return GeckoResult.fromValue(AllowOrDeny.ALLOW);
+                }
+                openScheme(uri);
+                return GeckoResult.fromValue(AllowOrDeny.DENY);
+            }
+
+            // target="_blank" : sans onglets, on ouvre dans la session courante.
+            @Override
+            public GeckoResult<GeckoSession> onNewSession(GeckoSession s, String uri) {
+                if (uri != null && !uri.isEmpty()) {
+                    runOnUiThread(() -> session.loadUri(uri));
+                }
+                return GeckoResult.fromValue(null);
+            }
         });
 
         session.setContentDelegate(new GeckoSession.ContentDelegate() {
@@ -113,7 +147,32 @@ public class MainActivity extends Activity {
             public void onTitleChange(GeckoSession s, String title) {
                 currentTitle = title == null ? "" : title;
             }
+
+            // Fichier que Gecko ne peut pas afficher : on l'enregistre.
+            @Override
+            public void onExternalResponse(GeckoSession s, WebResponse response) {
+                Downloads.save(MainActivity.this, response);
+            }
         });
+
+        session.setProgressDelegate(new GeckoSession.ProgressDelegate() {
+            @Override
+            public void onProgressChange(GeckoSession s, int value) {
+                progress.setProgress(value);
+                progress.setVisibility(value > 0 && value < 100
+                        ? android.view.View.VISIBLE : android.view.View.GONE);
+            }
+
+            @Override
+            public void onPageStop(GeckoSession s, boolean success) {
+                progress.setVisibility(android.view.View.GONE);
+            }
+        });
+
+        session.setPromptDelegate(new Prompts(this, this::startFilePicker));
+
+        permissions = new Permissions(this);
+        session.setPermissionDelegate(permissions);
 
         session.open(sRuntime);
         geckoView.setSession(session);
@@ -138,6 +197,89 @@ public class MainActivity extends Activity {
         });
 
         updateShield();
+    }
+
+    // =======================================================================
+    //  Schemas non web et selection de fichier
+    // =======================================================================
+    private void openScheme(String uri) {
+        try {
+            Intent i;
+            if (uri.startsWith("intent:")) {
+                i = Intent.parseUri(uri, Intent.URI_INTENT_SCHEME);
+            } else {
+                i = new Intent(Intent.ACTION_VIEW, Uri.parse(uri));
+            }
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(i);
+        } catch (Exception e) {
+            Toast.makeText(this, "Aucune application pour ce lien", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void startFilePicker(GeckoSession.PromptDelegate.FilePrompt prompt,
+                                 GeckoResult<GeckoSession.PromptDelegate.PromptResponse> result) {
+        pendingFile = result;
+        pendingFilePrompt = prompt;
+
+        Intent i = new Intent(Intent.ACTION_GET_CONTENT);
+        i.addCategory(Intent.CATEGORY_OPENABLE);
+        i.setType("*/*");
+
+        String[] mimes = prompt.mimeTypes;
+        if (mimes != null && mimes.length > 0) {
+            i.putExtra(Intent.EXTRA_MIME_TYPES, mimes);
+        }
+        if (prompt.type == GeckoSession.PromptDelegate.FilePrompt.Type.MULTIPLE) {
+            i.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+        }
+
+        try {
+            startActivityForResult(Intent.createChooser(i, "Choisir un fichier"), REQ_FILE);
+        } catch (Exception e) {
+            result.complete(prompt.dismiss());
+            pendingFile = null;
+            pendingFilePrompt = null;
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQ_FILE || pendingFile == null) return;
+
+        GeckoResult<GeckoSession.PromptDelegate.PromptResponse> res = pendingFile;
+        GeckoSession.PromptDelegate.FilePrompt prompt = pendingFilePrompt;
+        pendingFile = null;
+        pendingFilePrompt = null;
+
+        if (resultCode != RESULT_OK || data == null) {
+            res.complete(prompt.dismiss());
+            return;
+        }
+
+        try {
+            if (data.getClipData() != null) {
+                android.content.ClipData clip = data.getClipData();
+                Uri[] uris = new Uri[clip.getItemCount()];
+                for (int i = 0; i < clip.getItemCount(); i++) {
+                    uris[i] = clip.getItemAt(i).getUri();
+                }
+                res.complete(prompt.confirm(this, uris));
+            } else if (data.getData() != null) {
+                res.complete(prompt.confirm(this, data.getData()));
+            } else {
+                res.complete(prompt.dismiss());
+            }
+        } catch (Exception e) {
+            res.complete(prompt.dismiss());
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] perms, int[] results) {
+        super.onRequestPermissionsResult(requestCode, perms, results);
+        if (permissions != null) permissions.onAndroidResult(requestCode, results);
     }
 
     // =======================================================================

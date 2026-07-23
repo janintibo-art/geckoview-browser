@@ -57,6 +57,16 @@
             android:background="?android:attr/selectableItemBackground" />
     </LinearLayout>
 
+    <ProgressBar
+        android:id="@+id/progress"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="3dp"
+        android:max="100"
+        android:progress="0"
+        android:visibility="gone"
+        android:indeterminate="false" />
+
     <org.mozilla.geckoview.GeckoView
         android:id="@+id/geckoview"
         android:layout_width="match_parent"
