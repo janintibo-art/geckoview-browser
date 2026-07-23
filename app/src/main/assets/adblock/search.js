@@ -1,6 +1,7 @@
 "use strict";
 
-const { ENGINES, fetchDoc, fetchNews, instantAnswer, resolveBang, hostOf } = window.ENGINE_API;
+const { ENGINES, fetchDoc, fetchNews, instantAnswer, resolveBang, hostOf,
+        activeEngines } = window.ENGINE_API;
 const P = window.PUBLISHERS;
 const C = window.CAT_API;
 
@@ -15,6 +16,8 @@ let showBadge = true;
 let identity = "auto";
 let extra = [], allow = [];
 let cookieCfg = { blockThirdParty: true, stripSent: true, clearOnExit: false };
+let engineOn = {};
+let searxUrl = "";
 
 // ---------------------------------------------------------------------------
 //  Preferences
@@ -39,16 +42,21 @@ async function loadPrefs() {
 
   try {
     const s = await browser.storage.local.get(
-      ["pageCfg", "pageExtra", "pageAllow", "identity", "showBadge", "cookieCfg"]);
+      ["pageCfg", "pageExtra", "pageAllow", "identity", "showBadge", "cookieCfg",
+       "engineOn", "searxUrl"]);
     if (s.pageCfg) pageCfg = Object.assign(pageCfg, s.pageCfg);
     extra = s.pageExtra || [];
     allow = s.pageAllow || [];
     identity = s.identity || "auto";
     showBadge = s.showBadge !== false;
     if (s.cookieCfg) cookieCfg = Object.assign(cookieCfg, s.cookieCfg);
+    engineOn = s.engineOn || {};
+    searxUrl = s.searxUrl || "";
   } catch (e) { }
 
   renderCategories();
+  renderSources();
+  $("#opt-searx").value = searxUrl;
   $("#opt-badge").checked      = showBadge;
   $("#opt-cookies").checked    = pageCfg.cookies;
   $("#opt-clickbait").checked  = pageCfg.clickbait;
@@ -65,6 +73,19 @@ async function loadPrefs() {
 
   filterSet = await C.buildSet("search", catState, extra, allow);
   showStats();
+}
+
+function renderSources() {
+  const box = $("#srcs");
+  box.innerHTML = "";
+  const all = ENGINES.concat([{ id: "searx", label: "SearXNG (instance ci-dessous)" }]);
+  all.forEach(e => {
+    const row = document.createElement("label");
+    row.innerHTML =
+      `<input type="checkbox" data-eng="${e.id}" ${engineOn[e.id] !== false ? "checked" : ""}>
+       <span>${e.label}</span>`;
+    box.appendChild(row);
+  });
 }
 
 async function showStats() {
@@ -92,6 +113,10 @@ async function savePrefs() {
   cookieCfg.stripSent       = $("#opt-csend").checked;
   cookieCfg.clearOnExit     = $("#opt-cexit").checked;
   showBadge = $("#opt-badge").checked;
+  document.querySelectorAll("#srcs input[data-eng]").forEach(cb => {
+    engineOn[cb.dataset.eng] = cb.checked;
+  });
+  searxUrl = $("#opt-searx").value.trim();
   identity = (document.querySelector("#ident input:checked") || {}).value || "auto";
   extra = $("#opt-extra").value.split("\n").map(s => s.trim()).filter(Boolean);
   allow = $("#opt-allow").value.split("\n").map(s => s.trim()).filter(Boolean);
@@ -99,7 +124,8 @@ async function savePrefs() {
   await C.setCatState(catState);
   try {
     await browser.storage.local.set({
-      pageCfg, pageExtra: extra, pageAllow: allow, identity, showBadge, cookieCfg
+      pageCfg, pageExtra: extra, pageAllow: allow, identity, showBadge, cookieCfg,
+      engineOn, searxUrl
     });
   } catch (e) { }
 
@@ -122,7 +148,9 @@ function normUrl(u) {
 }
 
 async function gather(query) {
-  const packs = await Promise.all(ENGINES.map(async eng => {
+  const list = activeEngines(engineOn, searxUrl);
+  if (!list.length) return [];
+  const packs = await Promise.all(list.map(async eng => {
     try {
       const doc = await fetchDoc(eng.url(query));
       return eng.parse(doc).slice(0, 15).map((r, i) => ({ ...r, engine: eng.label, rank: i }));

@@ -135,6 +135,38 @@ const ENGINES = [
   }
 ];
 
+// Instance SearXNG personnelle (URL fournie par l'utilisateur)
+function searxEngine(base) {
+  const root = base.replace(/\/+$/, "");
+  return {
+    id: "searx",
+    label: "SearXNG",
+    url: q => root + "/search?q=" + encodeURIComponent(q),
+    parse: doc => {
+      const out = [];
+      doc.querySelectorAll("article.result, .result, #urls .result").forEach(el => {
+        const a = el.querySelector("h3 a, a.url_wrapper, a[href^='http']");
+        if (!a) return;
+        const url = a.getAttribute("href");
+        if (!url || !url.startsWith("http")) return;
+        out.push({
+          url,
+          title: clean((el.querySelector("h3") || a).textContent),
+          snippet: clean((el.querySelector("p.content, .content") || {}).textContent)
+        });
+      });
+      return out;
+    }
+  };
+}
+
+// Retourne la liste des moteurs actifs selon les preferences
+function activeEngines(enabled, searxUrl) {
+  const list = ENGINES.filter(e => enabled[e.id] !== false);
+  if (searxUrl && enabled.searx !== false) list.push(searxEngine(searxUrl));
+  return list;
+}
+
 // Actualites : flux RSS de sources non concernees par les filtres.
 const NEWS_FEEDS = [
   { name: "Le Monde",     url: "https://www.lemonde.fr/rss/une.xml" },
@@ -222,5 +254,6 @@ function resolveBang(input) {
 }
 
 window.ENGINE_API = {
-  ENGINES, fetchDoc, fetchNews, instantAnswer, resolveBang, hostOf, clean
+  ENGINES, fetchDoc, fetchNews, instantAnswer, resolveBang, hostOf, clean,
+  searxEngine, activeEngines
 };

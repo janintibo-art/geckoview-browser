@@ -1,7 +1,15 @@
 package com.example.geckobrowser;
 
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.net.Uri;
 import android.os.Bundle;
+import android.text.InputType;
 import android.view.KeyEvent;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
@@ -10,36 +18,65 @@ import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.mozilla.geckoview.ContentBlocking;
 import org.mozilla.geckoview.GeckoRuntime;
 import org.mozilla.geckoview.GeckoRuntimeSettings;
 import org.mozilla.geckoview.GeckoSession;
+import org.mozilla.geckoview.GeckoSessionSettings;
 import org.mozilla.geckoview.GeckoView;
 import org.mozilla.geckoview.WebExtension;
 
 public class MainActivity extends Activity {
 
     private static GeckoRuntime sRuntime;
+    private static String searchBase = null;   // moz-extension://<uuid>/search.html
 
     private GeckoSession session;
     private EditText urlBar;
     private TextView shield;
     private boolean canGoBack = false;
+    private String currentUrl = "";
+    private String currentTitle = "";
 
     private WebExtension.Port blockerPort;
     private boolean blockerEnabled = true;
     private int blockedCount = 0;
+    private boolean desktopMode = false;
 
-    private static String searchBase = null;   // moz-extension://<uuid>/search.html
-    private static final String FALLBACK_HOME = "https://html.duckduckgo.com/html/";
+    private SharedPreferences prefs;
+
     private static final String EXT_ID = "adblock@geckobrowser";
     private static final String EXT_URL = "resource://android/assets/adblock/";
+    private static final String FALLBACK_HOME = "https://html.duckduckgo.com/html/";
+
+    // -----------------------------------------------------------------------
+    //  Moteurs disponibles pour la barre d'adresse.
+    //  "%s" est remplace par la requete encodee.
+    // -----------------------------------------------------------------------
+    private static final String[][] ENGINES = {
+        { "Metamoteur integre",  "internal" },
+        { "DuckDuckGo",          "https://duckduckgo.com/?q=%s" },
+        { "Qwant",               "https://www.qwant.com/?q=%s" },
+        { "Ecosia",              "https://www.ecosia.org/search?q=%s" },
+        { "Brave",               "https://search.brave.com/search?q=%s" },
+        { "Startpage",           "https://www.startpage.com/sp/search?query=%s" },
+        { "Mojeek",              "https://www.mojeek.com/search?q=%s" },
+        { "Marginalia",          "https://search.marginalia.nu/search?query=%s" },
+        { "Wikipedia",           "https://fr.wikipedia.org/w/index.php?search=%s" },
+        { "OpenStreetMap",       "https://www.openstreetmap.org/search?query=%s" },
+        { "Google",              "https://www.google.com/search?q=%s" },
+        { "Bing",                "https://www.bing.com/search?q=%s" },
+        { "Personnalise…",       "custom" }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        prefs = getSharedPreferences("geckobrowser", MODE_PRIVATE);
 
         GeckoView geckoView = findViewById(R.id.geckoview);
         urlBar = findViewById(R.id.url_bar);
@@ -49,10 +86,8 @@ public class MainActivity extends Activity {
 
         if (sRuntime == null) {
             sRuntime = GeckoRuntime.create(this, buildSettings());
-            installBlocker();
-        } else {
-            attachBlockerDelegate();
         }
+        installBlocker();
 
         session = new GeckoSession();
 
@@ -62,13 +97,21 @@ public class MainActivity extends Activity {
                                          java.util.List<GeckoSession.PermissionDelegate.ContentPermission> perms,
                                          Boolean hasUserGesture) {
                 if (url != null) {
-                    urlBar.setText(url);
+                    currentUrl = url;
+                    urlBar.setText(url.startsWith("moz-extension://") ? "" : url);
                 }
             }
 
             @Override
             public void onCanGoBack(GeckoSession s, boolean value) {
                 canGoBack = value;
+            }
+        });
+
+        session.setContentDelegate(new GeckoSession.ContentDelegate() {
+            @Override
+            public void onTitleChange(GeckoSession s, String title) {
+                currentTitle = title == null ? "" : title;
             }
         });
 
@@ -81,9 +124,7 @@ public class MainActivity extends Activity {
 
         shield.setOnClickListener(v -> toggleBlocker());
         shield.setOnLongClickListener(v -> {
-            Toast.makeText(this,
-                    blockedCount + " element(s) bloque(s) sur cette session",
-                    Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, blockedCount + " element(s) bloque(s)", Toast.LENGTH_SHORT).show();
             return true;
         });
 
@@ -99,9 +140,240 @@ public class MainActivity extends Activity {
         updateShield();
     }
 
-    // -----------------------------------------------------------------------
-    // Protection anti-pistage native de Gecko
-    // -----------------------------------------------------------------------
+    // =======================================================================
+    //  Menu
+    // =======================================================================
+    private void showMenu() {
+        final String[] items = {
+            "Accueil",
+            "Recharger",
+            "Moteur de recherche : " + engineName(),
+            "Favoris",
+            "Ajouter aux favoris",
+            "Partager la page",
+            "Copier l'adresse",
+            "Ouvrir dans une autre application",
+            desktopMode ? "Version telephone" : "Version ordinateur",
+            "Filtres et categories",
+            "Mes scripts",
+            blockerEnabled ? "Desactiver le blocage" : "Activer le blocage"
+        };
+
+        new AlertDialog.Builder(this)
+            .setTitle("Menu")
+            .setItems(items, (d, which) -> {
+                switch (which) {
+                    case 0:  session.loadUri(homeUrl()); break;
+                    case 1:  session.reload(); break;
+                    case 2:  showEnginePicker(); break;
+                    case 3:  showBookmarks(); break;
+                    case 4:  addBookmark(); break;
+                    case 5:  sharePage(); break;
+                    case 6:  copyUrl(); break;
+                    case 7:  openExternally(); break;
+                    case 8:  toggleDesktop(); break;
+                    case 9:  session.loadUri(extPage("search.html") + "?prefs=1"); break;
+                    case 10: session.loadUri(extPage("scripts.html")); break;
+                    case 11: toggleBlocker(); break;
+                }
+            })
+            .show();
+    }
+
+    // =======================================================================
+    //  Moteurs de recherche
+    // =======================================================================
+    private String engineTemplate() {
+        return prefs.getString("engine", "internal");
+    }
+
+    private String engineName() {
+        String tpl = engineTemplate();
+        for (String[] e : ENGINES) {
+            if (e[1].equals(tpl)) return e[0];
+        }
+        return "Personnalise";
+    }
+
+    private void showEnginePicker() {
+        final String[] names = new String[ENGINES.length];
+        for (int i = 0; i < ENGINES.length; i++) names[i] = ENGINES[i][0];
+
+        int checked = -1;
+        String current = engineTemplate();
+        for (int i = 0; i < ENGINES.length; i++) {
+            if (ENGINES[i][1].equals(current)) { checked = i; break; }
+        }
+
+        new AlertDialog.Builder(this)
+            .setTitle("Moteur de recherche")
+            .setSingleChoiceItems(names, checked, (d, which) -> {
+                String tpl = ENGINES[which][1];
+                d.dismiss();
+                if ("custom".equals(tpl)) {
+                    askCustomEngine();
+                } else {
+                    prefs.edit().putString("engine", tpl).apply();
+                    Toast.makeText(this, "Moteur : " + ENGINES[which][0],
+                            Toast.LENGTH_SHORT).show();
+                }
+            })
+            .setNegativeButton("Fermer", null)
+            .show();
+    }
+
+    private void askCustomEngine() {
+        final EditText input = new EditText(this);
+        input.setInputType(InputType.TYPE_TEXT_VARIATION_URI);
+        input.setHint("https://exemple.org/search?q=%s");
+        String saved = prefs.getString("engineCustom", "");
+        if (!saved.isEmpty()) input.setText(saved);
+
+        new AlertDialog.Builder(this)
+            .setTitle("Moteur personnalise")
+            .setMessage("Utilisez %s a la place de la requete. Exemple pour une "
+                      + "instance SearXNG : https://searx.be/search?q=%s")
+            .setView(input)
+            .setPositiveButton("Valider", (d, w) -> {
+                String tpl = input.getText().toString().trim();
+                if (!tpl.contains("%s")) {
+                    Toast.makeText(this, "Le modele doit contenir %s", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                prefs.edit().putString("engine", tpl).putString("engineCustom", tpl).apply();
+                Toast.makeText(this, "Moteur personnalise enregistre", Toast.LENGTH_SHORT).show();
+            })
+            .setNegativeButton("Annuler", null)
+            .show();
+    }
+
+    private String searchUrl(String query) {
+        String tpl = engineTemplate();
+        String q = Uri.encode(query);
+        if ("internal".equals(tpl)) {
+            return searchBase != null ? searchBase + "?q=" + q : FALLBACK_HOME + "?q=" + q;
+        }
+        return tpl.replace("%s", q);
+    }
+
+    // =======================================================================
+    //  Favoris
+    // =======================================================================
+    private JSONArray bookmarks() {
+        try { return new JSONArray(prefs.getString("bookmarks", "[]")); }
+        catch (Exception e) { return new JSONArray(); }
+    }
+
+    private void addBookmark() {
+        if (currentUrl.isEmpty() || currentUrl.startsWith("moz-extension://")) {
+            Toast.makeText(this, "Rien a enregistrer ici", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        try {
+            JSONArray arr = bookmarks();
+            for (int i = 0; i < arr.length(); i++) {
+                if (currentUrl.equals(arr.getJSONObject(i).optString("url"))) {
+                    Toast.makeText(this, "Deja dans les favoris", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+            }
+            JSONObject o = new JSONObject();
+            o.put("url", currentUrl);
+            o.put("title", currentTitle.isEmpty() ? currentUrl : currentTitle);
+            arr.put(o);
+            prefs.edit().putString("bookmarks", arr.toString()).apply();
+            Toast.makeText(this, "Ajoute aux favoris", Toast.LENGTH_SHORT).show();
+        } catch (Exception e) {
+            Toast.makeText(this, "Echec de l'enregistrement", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void showBookmarks() {
+        final JSONArray arr = bookmarks();
+        if (arr.length() == 0) {
+            Toast.makeText(this, "Aucun favori", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        final String[] titles = new String[arr.length()];
+        for (int i = 0; i < arr.length(); i++) {
+            titles[i] = arr.optJSONObject(i).optString("title");
+        }
+
+        new AlertDialog.Builder(this)
+            .setTitle("Favoris")
+            .setItems(titles, (d, which) -> {
+                String url = arr.optJSONObject(which).optString("url");
+                if (!url.isEmpty()) session.loadUri(url);
+            })
+            .setNeutralButton("Supprimer…", (d, w) -> deleteBookmark(arr, titles))
+            .setNegativeButton("Fermer", null)
+            .show();
+    }
+
+    private void deleteBookmark(final JSONArray arr, String[] titles) {
+        new AlertDialog.Builder(this)
+            .setTitle("Supprimer un favori")
+            .setItems(titles, (d, which) -> {
+                JSONArray outArr = new JSONArray();
+                for (int i = 0; i < arr.length(); i++) {
+                    if (i != which) outArr.put(arr.optJSONObject(i));
+                }
+                prefs.edit().putString("bookmarks", outArr.toString()).apply();
+                Toast.makeText(this, "Favori supprime", Toast.LENGTH_SHORT).show();
+            })
+            .setNegativeButton("Annuler", null)
+            .show();
+    }
+
+    // =======================================================================
+    //  Actions systeme
+    // =======================================================================
+    private void sharePage() {
+        if (currentUrl.isEmpty()) return;
+        Intent i = new Intent(Intent.ACTION_SEND);
+        i.setType("text/plain");
+        i.putExtra(Intent.EXTRA_SUBJECT, currentTitle);
+        i.putExtra(Intent.EXTRA_TEXT, currentUrl);
+        startActivity(Intent.createChooser(i, "Partager la page"));
+    }
+
+    private void copyUrl() {
+        if (currentUrl.isEmpty()) return;
+        ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+        if (cm != null) {
+            cm.setPrimaryClip(ClipData.newPlainText("url", currentUrl));
+            Toast.makeText(this, "Adresse copiee", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void openExternally() {
+        if (currentUrl.isEmpty() || currentUrl.startsWith("moz-extension://")) return;
+        try {
+            Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse(currentUrl));
+            i.addCategory(Intent.CATEGORY_BROWSABLE);
+            startActivity(Intent.createChooser(i, "Ouvrir avec"));
+        } catch (Exception e) {
+            Toast.makeText(this, "Aucune application disponible", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void toggleDesktop() {
+        desktopMode = !desktopMode;
+        GeckoSessionSettings s = session.getSettings();
+        s.setUserAgentMode(desktopMode
+                ? GeckoSessionSettings.USER_AGENT_MODE_DESKTOP
+                : GeckoSessionSettings.USER_AGENT_MODE_MOBILE);
+        s.setViewportMode(desktopMode
+                ? GeckoSessionSettings.VIEWPORT_MODE_DESKTOP
+                : GeckoSessionSettings.VIEWPORT_MODE_MOBILE);
+        session.reload();
+        Toast.makeText(this, desktopMode ? "Version ordinateur" : "Version telephone",
+                Toast.LENGTH_SHORT).show();
+    }
+
+    // =======================================================================
+    //  Extension
+    // =======================================================================
     private GeckoRuntimeSettings buildSettings() {
         ContentBlocking.Settings blocking = new ContentBlocking.Settings.Builder()
                 .antiTracking(ContentBlocking.AntiTracking.AD
@@ -121,91 +393,25 @@ public class MainActivity extends Activity {
                 .build();
     }
 
-    // -----------------------------------------------------------------------
-    // Extension de blocage embarquee dans les assets
-    // -----------------------------------------------------------------------
     private void installBlocker() {
         sRuntime.getWebExtensionController()
                 .ensureBuiltIn(EXT_URL, EXT_ID)
                 .accept(
-                    ext -> bindPort(ext),
+                    this::bindPort,
                     e -> runOnUiThread(() -> Toast.makeText(this,
-                            "Bloqueur indisponible : " + e.getMessage(),
+                            "Extension indisponible : " + e.getMessage(),
                             Toast.LENGTH_LONG).show())
                 );
-    }
-
-    private void attachBlockerDelegate() {
-        sRuntime.getWebExtensionController()
-                .ensureBuiltIn(EXT_URL, EXT_ID)
-                .accept(ext -> bindPort(ext), e -> { });
-    }
-
-    private void showMenu() {
-        final String[] items = {
-            "Accueil / recherche",
-            "Filtres et categories",
-            "Mes scripts",
-            "Recharger la page",
-            blockerEnabled ? "Desactiver le blocage" : "Activer le blocage"
-        };
-
-        new android.app.AlertDialog.Builder(this)
-            .setTitle("Menu")
-            .setItems(items, (dialog, which) -> {
-                switch (which) {
-                    case 0:
-                        session.loadUri(homeUrl());
-                        break;
-                    case 1:
-                        session.loadUri(extPage("search.html") + "?prefs=1");
-                        break;
-                    case 2:
-                        session.loadUri(extPage("scripts.html"));
-                        break;
-                    case 3:
-                        session.reload();
-                        break;
-                    case 4:
-                        toggleBlocker();
-                        break;
-                }
-            })
-            .show();
-    }
-
-    private String extPage(String file) {
-        if (searchBase != null) {
-            return searchBase.replace("search.html", file);
-        }
-        Toast.makeText(this,
-                "Extension non chargee : page indisponible",
-                Toast.LENGTH_SHORT).show();
-        return FALLBACK_HOME;
-    }
-
-    private String homeUrl() {
-        return searchBase != null ? searchBase : FALLBACK_HOME;
-    }
-
-    private String searchUrl(String query) {
-        if (searchBase != null) {
-            return searchBase + "?q=" + android.net.Uri.encode(query);
-        }
-        return "https://html.duckduckgo.com/html/?q=" + android.net.Uri.encode(query);
     }
 
     private void bindPort(WebExtension ext) {
         if (ext == null) return;
 
-        // Recupere l'URL interne de l'extension pour y servir le moteur.
         try {
             if (ext.metaData != null && ext.metaData.baseUrl != null) {
                 searchBase = ext.metaData.baseUrl + "search.html";
                 runOnUiThread(() -> {
-                    if (session != null && urlBar.getText().length() == 0) {
-                        session.loadUri(homeUrl());
-                    }
+                    if (session != null && currentUrl.isEmpty()) session.loadUri(homeUrl());
                 });
             }
         } catch (Throwable ignored) { }
@@ -234,6 +440,16 @@ public class MainActivity extends Activity {
         }, "browser");
     }
 
+    private String homeUrl() {
+        return searchBase != null ? searchBase : FALLBACK_HOME;
+    }
+
+    private String extPage(String file) {
+        if (searchBase != null) return searchBase.replace("search.html", file);
+        Toast.makeText(this, "Extension non chargee", Toast.LENGTH_SHORT).show();
+        return FALLBACK_HOME;
+    }
+
     private void toggleBlocker() {
         blockerEnabled = !blockerEnabled;
         updateShield();
@@ -245,8 +461,7 @@ public class MainActivity extends Activity {
                 blockerPort.postMessage(msg);
             } catch (Exception ignored) { }
         }
-        Toast.makeText(this,
-                blockerEnabled ? "Blocage active" : "Blocage desactive",
+        Toast.makeText(this, blockerEnabled ? "Blocage active" : "Blocage desactive",
                 Toast.LENGTH_SHORT).show();
         session.reload();
     }
@@ -261,15 +476,16 @@ public class MainActivity extends Activity {
         }
     }
 
-    // -----------------------------------------------------------------------
-    // Navigation
-    // -----------------------------------------------------------------------
+    // =======================================================================
+    //  Navigation
+    // =======================================================================
     private void loadFromBar() {
         String input = urlBar.getText().toString().trim();
         if (input.isEmpty()) return;
 
         String url;
-        if (input.startsWith("http://") || input.startsWith("https://")) {
+        if (input.startsWith("http://") || input.startsWith("https://")
+                || input.startsWith("moz-extension://")) {
             url = input;
         } else if (input.contains(".") && !input.contains(" ")) {
             url = "https://" + input;
@@ -283,18 +499,13 @@ public class MainActivity extends Activity {
 
     private void hideKeyboard() {
         InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
-        if (imm != null) {
-            imm.hideSoftInputFromWindow(urlBar.getWindowToken(), 0);
-        }
+        if (imm != null) imm.hideSoftInputFromWindow(urlBar.getWindowToken(), 0);
         urlBar.clearFocus();
     }
 
     @Override
     public void onBackPressed() {
-        if (canGoBack) {
-            session.goBack();
-        } else {
-            super.onBackPressed();
-        }
+        if (canGoBack) session.goBack();
+        else super.onBackPressed();
     }
 }

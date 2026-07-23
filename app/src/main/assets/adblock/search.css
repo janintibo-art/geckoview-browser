@@ -213,3 +213,13 @@ html, body {
   color: var(--dim);
   font-size: 13px;
 }
+
+#prefs input[type=url] {
+  width: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px;
+  font-size: 13px;
+}
