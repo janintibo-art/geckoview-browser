@@ -10,6 +10,24 @@ let nativePort = null;
 const blockedDomains = new Set(SEED_DOMAINS.map(d => d.toLowerCase()));
 const allowDomains = new Set(ALLOWLIST.map(d => d.toLowerCase()));
 
+// Editeurs dont la navigation est bloquee (pilote depuis la page de recherche)
+let navBlock = new Set();
+
+async function loadNavBlock() {
+  try {
+    const s = await browser.storage.local.get("navBlockList");
+    navBlock = new Set((s && s.navBlockList) || []);
+  } catch (e) {
+    navBlock = new Set();
+  }
+}
+
+browser.storage.onChanged.addListener(changes => {
+  if (changes.navBlockList) {
+    navBlock = new Set(changes.navBlockList.newValue || []);
+  }
+});
+
 // Sources distantes au format "hosts" (mises a jour toutes les 24 h)
 const REMOTE_LISTS = [
   "https://adaway.org/hosts.txt",
@@ -122,8 +140,23 @@ browser.webRequest.onBeforeRequest.addListener(
     const host = hostOf(url);
     if (!host || inSet(host, allowDomains)) return {};
 
-    // Ne jamais bloquer la navigation principale : l'utilisateur l'a demandee.
-    if (details.type === "main_frame") return {};
+    // Navigation principale : bloquee uniquement si l'utilisateur a active
+    // le blocage des editeurs filtres depuis la page de recherche.
+    if (details.type === "main_frame") {
+      if (navBlock.size && inSet(host, navBlock)) {
+        return {
+          redirectUrl: "data:text/html;charset=utf-8," + encodeURIComponent(
+            "<html><head><meta name=viewport content='width=device-width'>" +
+            "<style>body{background:#14161a;color:#e8eaee;font:15px sans-serif;" +
+            "padding:40px 22px;line-height:1.6}b{color:#6fae5f}</style></head><body>" +
+            "<p><b>Site filtre</b></p><p>" + host + " figure dans vos listes " +
+            "d'editeurs masques.</p><p style='color:#99a0ad;font-size:13px'>" +
+            "Retirez le domaine dans les filtres du moteur de recherche pour " +
+            "y acceder.</p></body></html>")
+        };
+      }
+      return {};
+    }
 
     // Requete de premiere partie : on ne bloque que sur motif d'URL explicite.
     const originHost = details.documentUrl ? hostOf(details.documentUrl) : "";
@@ -266,5 +299,6 @@ browser.runtime.onMessage.addListener(msg => {
 // Demarrage
 // ---------------------------------------------------------------------------
 connectNative();
+loadNavBlock();
 refreshLists(false);
 setInterval(() => refreshLists(false), REFRESH_MS);

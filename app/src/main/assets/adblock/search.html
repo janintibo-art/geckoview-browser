@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Recherche</title>
+<link rel="stylesheet" href="search.css">
+</head>
+<body>
+
+<header id="head">
+  <form id="form" autocomplete="off">
+    <input id="q" type="search" placeholder="Rechercher sans Bollore" enterkeyhint="search" autofocus>
+    <button id="submit" type="submit" aria-label="Rechercher">&#8594;</button>
+  </form>
+  <div id="tools">
+    <button class="chip" data-scope="web">Web</button>
+    <button class="chip" data-scope="news">Actualites</button>
+    <button class="chip" id="prefs-btn">Filtres</button>
+  </div>
+</header>
+
+<section id="prefs" hidden>
+  <label><input type="checkbox" id="opt-bollore" checked> Masquer les medias du groupe Bollore</label>
+  <label><input type="checkbox" id="opt-farright" checked> Masquer les medias nationalistes / extreme droite</label>
+  <label><input type="checkbox" id="opt-badge" checked> Afficher le proprietaire des autres resultats</label>
+  <label><input type="checkbox" id="opt-navblock"> Bloquer aussi la navigation vers ces sites</label>
+  <div class="field">
+    <span>Domaines a masquer en plus (un par ligne)</span>
+    <textarea id="opt-extra" rows="3" placeholder="exemple.fr"></textarea>
+  </div>
+  <div class="field">
+    <span>Domaines a ne jamais masquer</span>
+    <textarea id="opt-allow" rows="2" placeholder="exemple.fr"></textarea>
+  </div>
+  <button id="prefs-save">Enregistrer</button>
+  <p class="note">
+    La liste Bollore repose sur la propriete du capital, verifiable.
+    La seconde liste est un classement editorial : certains titres la contestent.
+    Les deux sont modifiables dans <code>publishers.js</code>.
+  </p>
+</section>
+
+<main id="out"></main>
+<footer id="foot"></footer>
+
+<script src="publishers.js"></script>
+<script src="engines.js"></script>
+<script src="search.js"></script>
+</body>
+</html>

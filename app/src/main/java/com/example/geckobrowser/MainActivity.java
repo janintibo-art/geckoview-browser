@@ -31,7 +31,8 @@ public class MainActivity extends Activity {
     private boolean blockerEnabled = true;
     private int blockedCount = 0;
 
-    private static final String HOME_URL = "https://duckduckgo.com";
+    private static String searchBase = null;   // moz-extension://<uuid>/search.html
+    private static final String FALLBACK_HOME = "https://html.duckduckgo.com/html/";
     private static final String EXT_ID = "adblock@geckobrowser";
     private static final String EXT_URL = "resource://android/assets/adblock/";
 
@@ -72,7 +73,7 @@ public class MainActivity extends Activity {
 
         session.open(sRuntime);
         geckoView.setSession(session);
-        session.loadUri(HOME_URL);
+        session.loadUri(homeUrl());
 
         goButton.setOnClickListener(v -> loadFromBar());
 
@@ -138,8 +139,32 @@ public class MainActivity extends Activity {
                 .accept(ext -> bindPort(ext), e -> { });
     }
 
+    private String homeUrl() {
+        return searchBase != null ? searchBase : FALLBACK_HOME;
+    }
+
+    private String searchUrl(String query) {
+        if (searchBase != null) {
+            return searchBase + "?q=" + android.net.Uri.encode(query);
+        }
+        return "https://html.duckduckgo.com/html/?q=" + android.net.Uri.encode(query);
+    }
+
     private void bindPort(WebExtension ext) {
         if (ext == null) return;
+
+        // Recupere l'URL interne de l'extension pour y servir le moteur.
+        try {
+            if (ext.metaData != null && ext.metaData.baseUrl != null) {
+                searchBase = ext.metaData.baseUrl + "search.html";
+                runOnUiThread(() -> {
+                    if (session != null && urlBar.getText().length() == 0) {
+                        session.loadUri(homeUrl());
+                    }
+                });
+            }
+        } catch (Throwable ignored) { }
+
         ext.setMessageDelegate(new WebExtension.MessageDelegate() {
             @Override
             public void onConnect(WebExtension.Port port) {
@@ -204,7 +229,7 @@ public class MainActivity extends Activity {
         } else if (input.contains(".") && !input.contains(" ")) {
             url = "https://" + input;
         } else {
-            url = "https://duckduckgo.com/?q=" + android.net.Uri.encode(input);
+            url = searchUrl(input);
         }
 
         session.loadUri(url);
