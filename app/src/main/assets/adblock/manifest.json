@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "GeckoBlock",
-  "version": "4.1",
+  "version": "4.2",
   "description": "Filtrage publicitaire, categories de sites et moteur de recherche",
   "browser_specific_settings": {
     "gecko": {
@@ -193,6 +193,16 @@
       ],
       "js": [
         "history.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "patterns.js"
       ],
       "run_at": "document_idle",
       "all_frames": false
