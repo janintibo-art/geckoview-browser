@@ -657,6 +657,8 @@ public class MainActivity extends Activity {
         new Menus(this, "Page")
             .add("\u2315", "Analyser la page", this::inspectPage)
             .add("\u2039", "Code source", this::viewSource)
+            .add("\u26A0", "Qui parle a qui",
+                 () -> { if (onWebPage()) sendCommand("thirdParty"); })
             .add("\u2630", "Mode lecture", () -> { if (onWebPage()) sendCommand("reader"); })
             .add("\u2913", "Enregistrer en un fichier",
                  () -> { if (onWebPage()) sendCommand("savePage"); })

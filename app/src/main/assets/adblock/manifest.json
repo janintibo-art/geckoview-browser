@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "GeckoBlock",
-  "version": "3.5",
+  "version": "3.6",
   "description": "Filtrage publicitaire, categories de sites et moteur de recherche",
   "browser_specific_settings": {
     "gecko": {
@@ -21,6 +21,7 @@
       "rules.js",
       "categories.js",
       "frontends.js",
+      "publishers.js",
       "background.js"
     ],
     "persistent": true
@@ -142,6 +143,16 @@
       ],
       "js": [
         "watcher.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "thirdparty.js"
       ],
       "run_at": "document_idle",
       "all_frames": false

@@ -701,6 +701,76 @@ browser.runtime.onMessage.addListener(msg => {
     watches = msg.watches || [];
     return browser.storage.local.set({ watches: watches }).then(() => ({ ok: true }));
   }
+  // -------------------------------------------------------------------------
+  //  Rapport « qui parle a qui » : les tiers contactes par une page
+  // -------------------------------------------------------------------------
+  if (msg.type === "thirdParty") {
+    const origin = msg.origin || "";
+    let pageHost = "";
+    try { pageHost = new URL(origin).hostname.replace(/^www\./, ""); } catch (e) { }
+    const pageBase = pageHost ? baseDomain(pageHost) : "";
+
+    const byDomain = new Map();
+    let total = 0;
+
+    for (const e of netLog) {
+      const belongs = (e.doc && e.doc.indexOf(origin) === 0) ||
+                      e.url.indexOf(origin) === 0;
+      if (!belongs) continue;
+      total++;
+
+      const host = hostOf(e.url);
+      if (!host) continue;
+      const base = baseDomain(host);
+      if (base === pageBase) continue;   // premiere partie
+
+      let d = byDomain.get(base);
+      if (!d) {
+        d = {
+          domain: base,
+          hosts: [],
+          count: 0,
+          bytes: 0,
+          blocked: 0,
+          types: {},
+          owner: null,
+          category: null
+        };
+        byDomain.set(base, d);
+      }
+
+      d.count++;
+      if (e.size) d.bytes += e.size;
+      if (e.blocked) d.blocked++;
+      if (d.hosts.indexOf(host) === -1 && d.hosts.length < 6) d.hosts.push(host);
+      d.types[e.type] = (d.types[e.type] || 0) + 1;
+    }
+
+    // Qualification : proprietaire connu, categorie de filtrage, regie
+    for (const d of byDomain.values()) {
+      try { d.owner = ownerOf(d.domain); } catch (e) { d.owner = null; }
+
+      if (inSet(d.domain, adDomains)) d.category = "publicite";
+
+      for (const cat of CAT_API.CATEGORIES) {
+        const list = CAT_API.CAT_DOMAINS[cat.id];
+        if (!list || !list.length) continue;
+        if (CAT_API.hostMatches(d.domain, new Set(list))) {
+          d.category = cat.id === "ads" ? "publicite" : cat.name;
+          break;
+        }
+      }
+    }
+
+    const list = Array.from(byDomain.values()).sort((a, b) => b.count - a.count);
+    return Promise.resolve({
+      page: pageHost,
+      totalRequests: total,
+      thirdParties: list,
+      blockedTotal: list.reduce((n, d) => n + d.blocked, 0)
+    });
+  }
+
   if (msg.type === "netLog") {
     const origin = msg.origin || "";
     const list = netLog.filter(e =>
