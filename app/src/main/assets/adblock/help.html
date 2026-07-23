@@ -393,6 +393,33 @@
 </details>
 
 <details>
+  <summary>Diagnostic d'empreinte <span class="step">nouveau</span></summary>
+  <div class="c">
+    <p><span class="path">Confidentialite &#8250; Diagnostic d'empreinte</span> mesure
+    ce qu'un site peut lire de votre navigateur, et signale les valeurs qui vous
+    singularisent.</p>
+    <p>Six familles sont examinees : identite declaree (agent, langue, plateforme),
+    ecran et fenetre, fuseau horaire et format de date, materiel annonce, empreintes
+    de rendu (canvas, WebGL, audio, polices reconnues), et enfin reseau et stockage,
+    dont un test de fuite WebRTC qui verifie si votre adresse locale s'echappe.</p>
+    <p>Le rapport signale aussi les <b>incoherences</b>, qui sont elles-memes un signal
+    distinctif : un agent annoncant un mobile sur un appareil sans point tactile, ou
+    une protection anti-empreinte apparemment active alors que le canvas renvoie
+    toujours un rendu propre a l'appareil.</p>
+    <p class="warn">La mesure s'execute dans le contexte de la page consultee, pas dans
+    une page de l'extension : les protections ne s'appliquent pas de la meme facon aux
+    deux, et seul ce contexte reflete ce qu'un site observe reellement. Ouvrez donc le
+    diagnostic depuis un site ordinaire, pas depuis l'accueil.</p>
+    <p>Le nombre de points distinctifs n'est pas un score d'anonymat : il compte les
+    valeurs qui sortent de l'ordinaire. Peu de points signifie que vous ressemblez a
+    beaucoup de monde, et c'est precisement cela qui protege.</p>
+    <p>Usage pratique : lancez la mesure, passez au niveau strict dans
+    <span class="path">Confidentialite &#8250; Niveau</span>, relancez, comparez.
+    Vous verrez concretement ce que chaque niveau masque.</p>
+  </div>
+</details>
+
+<details>
   <summary>Tor et adresses .onion</summary>
   <div class="c">
     <p>Necessite Orbot, qui fournit un proxy local. Activation dans
@@ -414,8 +441,6 @@
   <div class="c">
     <p>Les etapes suivantes, dans l'ordre prevu :</p>
     <ul>
-      <li>Page de diagnostic d'empreinte, pour verifier ce que le niveau strict
-      masque reellement</li>
       <li>Sauvegarde de page en un fichier autonome, ressources incorporees</li>
       <li>Synchronisation des listes, scripts et favoris par depot Git</li>
     </ul>

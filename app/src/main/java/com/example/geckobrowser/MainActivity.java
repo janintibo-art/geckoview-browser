@@ -522,6 +522,7 @@ public class MainActivity extends Activity {
             "Redirections vers les facades",
             TorSupport.isEnabled(this) ? "Tor : active" : "Tor : desactive",
             "Effacer toutes les donnees",
+            "Diagnostic d'empreinte",
             "Ce que ce navigateur revele"
         };
 
@@ -535,7 +536,8 @@ public class MainActivity extends Activity {
                     case 3: session.loadUri(extPage("frontends.html")); break;
                     case 4: showTorMenu(); break;
                     case 5: clearAllData(); break;
-                    case 6: privacyInfo(); break;
+                    case 6: if (onWebPage()) sendCommand("fingerprint"); break;
+                    case 7: privacyInfo(); break;
                 }
             })
             .setNegativeButton("Retour", (d, w) -> showMenu())
