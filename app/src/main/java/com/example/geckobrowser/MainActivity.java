@@ -201,6 +201,7 @@ public class MainActivity extends Activity {
 
         updateShield();
         handleWidgetIntent(getIntent());
+        handleIncomingLink(getIntent());
     }
 
     @Override
@@ -208,6 +209,32 @@ public class MainActivity extends Activity {
         super.onNewIntent(intent);
         setIntent(intent);
         handleWidgetIntent(intent);
+        handleIncomingLink(intent);
+    }
+
+    /**
+     * Liens ouverts depuis une autre application, ou depuis un raccourci
+     * epingle sur l'ecran d'accueil. L'application declarait les accepter
+     * sans rien en faire.
+     */
+    private void handleIncomingLink(Intent intent) {
+        if (intent == null) return;
+        if (!Intent.ACTION_VIEW.equals(intent.getAction())) return;
+
+        android.net.Uri data = intent.getData();
+        if (data == null) return;
+
+        String url = data.toString();
+        if (!url.startsWith("http://") && !url.startsWith("https://")) return;
+
+        intent.setData(null);   // eviter de rouvrir au prochain retour
+
+        if (currentUrl.isEmpty() || currentUrl.startsWith("moz-extension://")) {
+            session.loadUri(url);
+        } else {
+            setupSession(privateMode, url);
+            selectTab(tabs.size() - 1);
+        }
     }
 
     /** Actions declenchees depuis un widget de l'ecran d'accueil. */
@@ -678,6 +705,7 @@ public class MainActivity extends Activity {
             .add("\u21BA", "Ne plus rediriger ce service",
                  () -> { if (onWebPage()) sendCommand("noFrontend"); })
             .add("\u270E", "CSS de ce site", () -> { if (onWebPage()) sendCommand("styleThis"); })
+            .add("\u2302", "Ajouter au bureau", this::pinToHome)
             .add("\u2295", "Ajouter aux raccourcis",
                  () -> { if (onWebPage()) sendCommand("addShortcut"); })
             .add("\u21F5", "Creer un flux",
@@ -845,6 +873,22 @@ public class MainActivity extends Activity {
         } catch (Throwable t) {
             Toast.makeText(this, title + " — " + text, Toast.LENGTH_LONG).show();
         }
+    }
+
+    /** Epingle la page courante sur l'ecran d'accueil du telephone. */
+    private void pinToHome() {
+        if (!onWebPage()) return;
+        final EditText input = new EditText(this);
+        input.setSingleLine();
+        input.setText(currentTitle.isEmpty() ? "" : currentTitle);
+
+        Menus.choice(this, "Ajouter au bureau")
+            .setMessage("Nom du raccourci")
+            .setView(input)
+            .setPositiveButton("Ajouter", (d, w) ->
+                Shortcuts.pin(this, currentUrl, input.getText().toString()))
+            .setNegativeButton("Annuler", null)
+            .show();
     }
 
     private void inspectPage() {
