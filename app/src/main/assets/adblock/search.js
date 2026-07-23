@@ -1,5 +1,11 @@
 "use strict";
 
+// Enveloppe indispensable : search.html charge engines.js, categories.js et
+// publishers.js comme scripts classiques, qui partagent la meme portee
+// globale. Sans cette fonction, "const { ENGINES, ... }" redeclarerait des
+// noms deja definis par engines.js, ce qui invalide tout le fichier.
+(function () {
+
 const { ENGINES, fetchDoc, fetchNews, instantAnswer, resolveBang, hostOf,
         activeEngines } = window.ENGINE_API;
 const P = window.PUBLISHERS;
@@ -340,7 +346,15 @@ $("#purge-now").addEventListener("click", async e => {
 });
 
 (async function init() {
-  await loadPrefs();
+  try {
+    await loadPrefs();
+  } catch (e) {
+    // Sans cela, une erreur de chargement laisse une page vide et muette.
+    out.innerHTML = '<div class="msg">Erreur d\'initialisation : ' +
+      String(e && e.message || e) + '</div>';
+    $("#prefs").hidden = false;
+    return;
+  }
   document.querySelector(".chip[data-scope='web']").classList.add("on");
   const wantPrefs = location.hash === "#filtres" ||
                     new URLSearchParams(location.search).get("prefs") === "1";
@@ -353,4 +367,6 @@ $("#purge-now").addEventListener("click", async e => {
   }
   const q = params.get("q");
   if (q) { qBox.value = q; run(q); }
+})();
+
 })();
