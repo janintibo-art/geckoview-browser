@@ -34,6 +34,7 @@
             <div class="nm">
               <b>${esc(svc.name)}</b>
               <span>remplace par ${esc(svc.target)}</span>
+              ${svc.fragile ? '<span class="fragile">instances souvent bloquees a la source : si la page reste vide, changez-en ou decochez</span>' : ""}
             </div>
           </div>
           <select data-inst="${svc.id}">

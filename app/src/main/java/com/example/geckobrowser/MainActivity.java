@@ -466,6 +466,7 @@ public class MainActivity extends Activity {
                  () -> { if (onWebPage()) sendCommand("savePage"); })
             .add("\u221E", "Defilement infini ici",
                  () -> { if (onWebPage()) sendCommand("autopagerHere"); })
+            .add("\u21B6", "Revenir au site d'origine", this::backToOriginal)
             .add("\u21BA", "Ne plus rediriger ce service",
                  () -> { if (onWebPage()) sendCommand("noFrontend"); })
             .add("\u270E", "CSS de ce site", () -> { if (onWebPage()) sendCommand("styleThis"); })
@@ -539,6 +540,23 @@ public class MainActivity extends Activity {
             return false;
         }
         return true;
+    }
+
+    /**
+     * Recharge l'adresse d'origine d'une redirection. Passe par le port plutot
+     * que par la page : une facade en echec n'affiche parfois rien du tout,
+     * et aucun script de contenu n'y est joignable.
+     */
+    private void backToOriginal() {
+        if (blockerPort == null) {
+            Toast.makeText(this, "Extension non connectee", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        try {
+            JSONObject msg = new JSONObject();
+            msg.put("type", "askOriginal");
+            blockerPort.postMessage(msg);
+        } catch (Exception ignored) { }
     }
 
     private void inspectPage() {
@@ -1131,6 +1149,19 @@ public class MainActivity extends Activity {
                                 runOnUiThread(() -> Downloads.saveUrls(
                                         MainActivity.this, urls, ref));
                             }
+                            return;
+                        }
+
+                        if ("navigate".equals(kind)) {
+                            final String dest = json.optString("url", "");
+                            final String note = json.optString("notice", "");
+                            runOnUiThread(() -> {
+                                if (!note.isEmpty()) {
+                                    Toast.makeText(MainActivity.this, note,
+                                            Toast.LENGTH_LONG).show();
+                                }
+                                if (!dest.isEmpty()) session.loadUri(dest);
+                            });
                             return;
                         }
 

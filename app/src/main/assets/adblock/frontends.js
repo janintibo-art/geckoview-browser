@@ -17,8 +17,11 @@ const FRONTENDS = [
       "https://yewtu.be",
       "https://inv.nadeko.net",
       "https://invidious.nerdvpn.de",
-      "https://iv.melmac.space"
+      "https://iv.melmac.space",
+      "https://invidious.f5.si",
+      "https://id.420129.xyz"
     ],
+    fragile: true,
     hosts: [/^(www\.|m\.|music\.)?youtube\.com$/i, /^youtu\.be$/i,
             /^(www\.)?youtube-nocookie\.com$/i],
     map: (u, base) => {

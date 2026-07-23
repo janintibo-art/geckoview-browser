@@ -38,6 +38,7 @@ const COOKIE_EXEMPT = new Set([
 
 const bypass = new Set();    // sites debloques jusqu'au redemarrage
 let lastOriginal = "";       // derniere adresse redirigee vers une facade
+let pendingFrontend = null;   // derniere redirection, pour revenir en arriere
 let bookmarksCache = null;
 let bookmarksWaiting = null;
 
@@ -149,6 +150,19 @@ function connectNative() {
       else if (msg.type === "bookmarks") {
         bookmarksCache = msg.list || [];
         if (bookmarksWaiting) { bookmarksWaiting(bookmarksCache); bookmarksWaiting = null; }
+      }
+      else if (msg.type === "askOriginal") {
+        if (nativePort) {
+          try {
+            nativePort.postMessage({
+              type: "navigate",
+              url: lastOriginal
+                ? lastOriginal + (lastOriginal.indexOf("#") === -1 ? "#direct" : "")
+                : "",
+              notice: lastOriginal ? "" : "Aucune redirection recente"
+            });
+          } catch (e) { }
+        }
       }
       else if (msg.type === "setEngine") {
         // Le moteur choisi dans le menu doit aussi s'appliquer au champ de
@@ -266,10 +280,30 @@ browser.webRequest.onCompleted.addListener(
 browser.webRequest.onErrorOccurred.addListener(
   d => {
     const e = netIndex.get(d.requestId);
-    if (!e) return;
-    e.ms = Date.now() - e.start;
-    e.error = d.error || "erreur";
-    if (/BLOCKED|ABORTED/i.test(e.error)) e.blocked = true;
+    if (e) {
+      e.ms = Date.now() - e.start;
+      e.error = d.error || "erreur";
+      if (/BLOCKED|ABORTED/i.test(e.error)) e.blocked = true;
+    }
+
+    // Une facade injoignable laisse une page vide : on revient a l'original
+    // plutot que d'abandonner l'utilisateur devant un ecran noir.
+    if (d.type === "main_frame" && pendingFrontend &&
+        d.url === pendingFrontend.to &&
+        Date.now() - pendingFrontend.at < 30000 &&
+        !/ABORT/i.test(d.error || "")) {
+      const back = pendingFrontend.from;
+      pendingFrontend = null;
+      if (nativePort) {
+        try {
+          nativePort.postMessage({
+            type: "navigate",
+            url: back + (back.indexOf("#") === -1 ? "#direct" : ""),
+            notice: "Facade injoignable : retour au site d'origine"
+          });
+        } catch (e2) { }
+      }
+    }
   },
   { urls: ["<all_urls>"] }
 );
@@ -296,6 +330,7 @@ browser.webRequest.onBeforeRequest.addListener(
       const fe = resolveFrontend(url);
       if (fe) {
         lastOriginal = url;
+        pendingFrontend = { from: url, to: fe, at: Date.now() };
         return { redirectUrl: fe };
       }
 
@@ -547,6 +582,9 @@ browser.runtime.onMessage.addListener(msg => {
         instances: f.instances, def: f.def !== false
       }))
     });
+  }
+  if (msg.type === "getOriginal") {
+    return Promise.resolve({ url: lastOriginal });
   }
   if (msg.type === "feBack") {
     // Revenir au service d'origine depuis une facade
