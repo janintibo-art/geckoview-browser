@@ -235,3 +235,15 @@ html, body {
   padding: 9px;
   font-size: 13px;
 }
+
+#brand {
+  text-align: center;
+  padding: 26px 20px 6px;
+}
+#brand img {
+  width: 100%;
+  max-width: 300px;
+  height: auto;
+  opacity: .95;
+  border-radius: 14px;
+}

@@ -257,6 +257,8 @@ async function run(query) {
   if (bang) { location.href = bang; return; }
 
   history.replaceState(null, "", "?q=" + encodeURIComponent(query) + "&s=" + scope);
+  const brand = $("#brand");
+  if (brand) brand.style.display = "none";
   out.innerHTML = `<div class="msg"><span class="spin">◐</span> Interrogation des moteurs…</div>`;
   foot.textContent = "";
 

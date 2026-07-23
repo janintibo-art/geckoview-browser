@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "GeckoBlock",
-  "version": "3.1",
+  "version": "3.2",
   "description": "Filtrage publicitaire, categories de sites et moteur de recherche",
   "browser_specific_settings": {
     "gecko": {
@@ -144,7 +144,8 @@
     "styles.html",
     "styles-ui.js",
     "sync.html",
-    "sync-ui.js"
+    "sync-ui.js",
+    "logo.png"
   ],
   "content_security_policy": "script-src 'self' 'unsafe-eval'; object-src 'self'"
 }
