@@ -416,6 +416,35 @@
 </details>
 
 <details>
+  <summary>Identite de l'appareil <span class="step">nouveau</span></summary>
+  <div class="c">
+    <p><span class="path">Page &#8250; Identite de l'appareil</span> : neuf profils
+    prets a l'emploi — telephone et tablette Android, iPhone, iPad, PC Windows sous
+    Firefox ou Chrome, Mac sous Safari, PC Linux — plus une chaine personnalisee.</p>
+    <p>Le remplacement agit sur trois plans a la fois, et c'est ce qui compte :</p>
+    <ul>
+      <li>l'en-tete HTTP envoyee a chaque requete</li>
+      <li><code>navigator.userAgent</code> lu par le JavaScript de la page</li>
+      <li>la mise en page, qui bascule en largeur ordinateur ou telephone</li>
+    </ul>
+    <p>L'extension aligne en plus <code>platform</code>, <code>oscpu</code>,
+    <code>appVersion</code>, <code>vendor</code> et le nombre de points tactiles.
+    Sans cela un site verrait un agent Windows sur une plateforme Linux aarch64 avec
+    cinq points tactiles : la contradiction est facile a reperer et vous singularise
+    davantage que de ne rien changer.</p>
+    <p class="warn">Deux limites a garder en tete. Le moteur reste Gecko : se declarer
+    Chrome ou Safari ne change ni les fonctions disponibles ni le rendu, et un site qui
+    teste les capacites plutot que l'agent verra la difference. Ensuite, aux niveaux
+    renforce et strict, la protection anti-empreinte impose deja son propre agent —
+    superposer un profil recree une incoherence. Verifiez le resultat dans
+    <span class="path">Confidentialite &#8250; Diagnostic d'empreinte</span>, qui
+    signale precisement ce genre de contradiction.</p>
+    <p>Usage courant : forcer la version ordinateur d'un site qui impose une version
+    mobile appauvrie, ou l'inverse.</p>
+  </div>
+</details>
+
+<details>
   <summary>Diagnostic d'empreinte <span class="step">nouveau</span></summary>
   <div class="c">
     <p><span class="path">Confidentialite &#8250; Diagnostic d'empreinte</span> mesure

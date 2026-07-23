@@ -79,8 +79,6 @@ async function loadPrefs() {
   $("#opt-cexit").checked   = cookieCfg.clearOnExit;
   $("#opt-extra").value = extra.join("\n");
   $("#opt-allow").value = allow.join("\n");
-  const radio = document.querySelector(`#ident input[value="${identity}"]`);
-  if (radio) radio.checked = true;
 
   filterSet = await C.buildSet("search", catState, extra, allow);
   showStats();
@@ -132,7 +130,6 @@ async function savePrefs() {
     engineOn[cb.dataset.eng] = cb.checked;
   });
   searxUrl = $("#opt-searx").value.trim();
-  identity = (document.querySelector("#ident input:checked") || {}).value || "auto";
   extra = $("#opt-extra").value.split("\n").map(s => s.trim()).filter(Boolean);
   allow = $("#opt-allow").value.split("\n").map(s => s.trim()).filter(Boolean);
 

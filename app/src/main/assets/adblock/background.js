@@ -47,9 +47,6 @@ const REMOTE_LISTS = [
 const REFRESH_MS = 24 * 60 * 60 * 1000;
 const MAX_ENTRIES = 300000;
 
-const UA_DESKTOP = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0";
-const UA_MOBILE  = "Mozilla/5.0 (Android 14; Mobile; rv:128.0) Gecko/20100101 Firefox/128.0";
-
 // ---------------------------------------------------------------------------
 //  Utilitaires
 // ---------------------------------------------------------------------------
@@ -127,6 +124,13 @@ function connectNative() {
     nativePort.onMessage.addListener(msg => {
       if (!msg) return;
       if (msg.type === "setEnabled") { enabled = !!msg.value; pushState(); }
+      else if (msg.type === "setProfile") {
+        // Le navigateur remplace deja l'agent lui-meme : on ne stocke le profil
+        // que pour aligner les proprietes JavaScript secondaires.
+        try {
+          browser.storage.local.set({ deviceProfile: msg.profile || null });
+        } catch (e) { }
+      }
       else if (msg.type === "cmd" && msg.cmd) {
         // Le menu de l'application n'a pas d'acces direct aux scripts de
         // contenu : on passe par le stockage, qu'ils observent tous.
@@ -331,15 +335,6 @@ browser.webRequest.onBeforeSendHeaders.addListener(
           if (headers[i].name.toLowerCase() === "cookie") headers.splice(i, 1);
         }
       }
-    }
-
-    if (identity === "desktop" || identity === "mobile") {
-      const ua = identity === "desktop" ? UA_DESKTOP : UA_MOBILE;
-      let found = false;
-      for (const h of headers) {
-        if (h.name.toLowerCase() === "user-agent") { h.value = ua; found = true; }
-      }
-      if (!found) headers.push({ name: "User-Agent", value: ua });
     }
 
     return { requestHeaders: headers };

@@ -68,6 +68,52 @@ public class MainActivity extends Activity {
     //  Moteurs disponibles pour la barre d'adresse.
     //  "%s" est remplace par la requete encodee.
     // -----------------------------------------------------------------------
+    // -----------------------------------------------------------------------
+    //  Profils d'appareil : nom, agent utilisateur, plateforme JS,
+    //  points tactiles, mise en page bureau (1) ou mobile (0).
+    // -----------------------------------------------------------------------
+    private static final String[][] PROFILES = {
+        { "Automatique", "", "", "", "0" },
+
+        { "Telephone Android",
+          "Mozilla/5.0 (Android 14; Mobile; rv:140.0) Gecko/20100101 Firefox/140.0",
+          "Linux aarch64", "5", "0" },
+
+        { "Tablette Android",
+          "Mozilla/5.0 (Android 14; Tablet; rv:140.0) Gecko/20100101 Firefox/140.0",
+          "Linux aarch64", "5", "0" },
+
+        { "iPhone",
+          "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 "
+          + "(KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1",
+          "iPhone", "5", "0" },
+
+        { "iPad",
+          "Mozilla/5.0 (iPad; CPU OS 17_5 like Mac OS X) AppleWebKit/605.1.15 "
+          + "(KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1",
+          "iPad", "5", "1" },
+
+        { "PC Windows (Firefox)",
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0",
+          "Win32", "0", "1" },
+
+        { "PC Windows (Chrome)",
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+          + "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+          "Win32", "0", "1" },
+
+        { "Mac (Safari)",
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 "
+          + "(KHTML, like Gecko) Version/17.5 Safari/605.1.15",
+          "MacIntel", "0", "1" },
+
+        { "PC Linux (Firefox)",
+          "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0",
+          "Linux x86_64", "0", "1" },
+
+        { "Personnalise…", "custom", "", "", "1" }
+    };
+
     private static final String[][] ENGINES = {
         { "Metamoteur integre",  "internal" },
         { "DuckDuckGo",          "https://duckduckgo.com/?q=%s" },
@@ -137,6 +183,9 @@ public class MainActivity extends Activity {
     // =======================================================================
     private void setupSession(boolean priv, String target) {
         privateMode = priv;
+
+        int pi = profileIndex();
+        if (pi > 0 && pi < PROFILES.length) desktopMode = "1".equals(PROFILES[pi][4]);
 
         GeckoSessionSettings settings = new GeckoSessionSettings.Builder()
                 .usePrivateMode(priv)
@@ -225,6 +274,7 @@ public class MainActivity extends Activity {
         permissions = new Permissions(this);
         session.setPermissionDelegate(permissions);
 
+        restoreProfile();
         session.open(sRuntime);
         geckoView.setSession(session);
         session.loadUri(target != null ? target : homeUrl());
@@ -367,7 +417,7 @@ public class MainActivity extends Activity {
             "Partager",
             "Copier l'adresse",
             "Ouvrir dans une autre application",
-            desktopMode ? "Version telephone" : "Version ordinateur"
+            "Identite de l'appareil : " + profileName()
         };
 
         new AlertDialog.Builder(this)
@@ -386,7 +436,7 @@ public class MainActivity extends Activity {
                     case 9: sharePage(); break;
                     case 10: copyUrl(); break;
                     case 11: openExternally(); break;
-                    case 12: toggleDesktop(); break;
+                    case 12: showProfilePicker(); break;
                 }
             })
             .setNegativeButton("Retour", (d, w) -> showMenu())
@@ -868,18 +918,125 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void toggleDesktop() {
-        desktopMode = !desktopMode;
+    // =======================================================================
+    //  Identite de l'appareil
+    // =======================================================================
+    private int profileIndex() {
+        return prefs.getInt("profile", 0);
+    }
+
+    private String profileName() {
+        int i = profileIndex();
+        if (i < 0 || i >= PROFILES.length) return "Automatique";
+        if ("custom".equals(PROFILES[i][1])) return "Personnalise";
+        return PROFILES[i][0];
+    }
+
+    private void showProfilePicker() {
+        final String[] names = new String[PROFILES.length];
+        for (int i = 0; i < PROFILES.length; i++) names[i] = PROFILES[i][0];
+
+        new AlertDialog.Builder(this)
+            .setTitle("Identite de l'appareil")
+            .setSingleChoiceItems(names, profileIndex(), (d, which) -> {
+                d.dismiss();
+                if ("custom".equals(PROFILES[which][1])) askCustomProfile(which);
+                else applyProfile(which, PROFILES[which][1], PROFILES[which][2],
+                                  PROFILES[which][3], "1".equals(PROFILES[which][4]));
+            })
+            .setNeutralButton("A savoir", (d, w) -> profileInfo())
+            .setNegativeButton("Retour", (d, w) -> showPageMenu())
+            .show();
+    }
+
+    private void askCustomProfile(final int index) {
+        final EditText input = new EditText(this);
+        input.setHint("Mozilla/5.0 …");
+        input.setText(prefs.getString("profileCustomUa", ""));
+
+        new AlertDialog.Builder(this)
+            .setTitle("Agent utilisateur personnalise")
+            .setMessage("Collez la chaine complete. La mise en page passe en mode "
+                      + "ordinateur.")
+            .setView(input)
+            .setPositiveButton("Appliquer", (d, w) -> {
+                String ua = input.getText().toString().trim();
+                if (ua.isEmpty()) return;
+                prefs.edit().putString("profileCustomUa", ua).apply();
+                applyProfile(index, ua, "", "", true);
+            })
+            .setNegativeButton("Annuler", null)
+            .show();
+    }
+
+    private void applyProfile(int index, String ua, String platform,
+                              String touch, boolean desktop) {
+        prefs.edit().putInt("profile", index).apply();
+        desktopMode = desktop;
+
         GeckoSessionSettings st = session.getSettings();
-        st.setUserAgentMode(desktopMode
+        try {
+            // Chaine vide : Gecko reprend son agent normal.
+            st.setUserAgentOverride(ua.isEmpty() ? null : ua);
+        } catch (Throwable ignored) { }
+
+        st.setUserAgentMode(desktop
                 ? GeckoSessionSettings.USER_AGENT_MODE_DESKTOP
                 : GeckoSessionSettings.USER_AGENT_MODE_MOBILE);
-        st.setViewportMode(desktopMode
+        st.setViewportMode(desktop
                 ? GeckoSessionSettings.VIEWPORT_MODE_DESKTOP
                 : GeckoSessionSettings.VIEWPORT_MODE_MOBILE);
+
+        // Les proprietes JavaScript associees sont alignees par l'extension,
+        // sinon un site reperait la contradiction entre agent et plateforme.
+        if (blockerPort != null) {
+            try {
+                JSONObject p = new JSONObject();
+                p.put("ua", ua);
+                p.put("platform", platform);
+                p.put("touch", touch.isEmpty() ? -1 : Integer.parseInt(touch));
+                p.put("desktop", desktop);
+
+                JSONObject msg = new JSONObject();
+                msg.put("type", "setProfile");
+                msg.put("profile", p);
+                blockerPort.postMessage(msg);
+            } catch (Exception ignored) { }
+        }
+
+        Toast.makeText(this, "Identite : " + profileName(), Toast.LENGTH_SHORT).show();
         session.reload();
-        Toast.makeText(this, desktopMode ? "Version ordinateur" : "Version telephone",
-                Toast.LENGTH_SHORT).show();
+    }
+
+    /** Reapplique le profil apres recreation de la session. */
+    private void restoreProfile() {
+        int i = profileIndex();
+        if (i <= 0 || i >= PROFILES.length) return;
+        String ua = "custom".equals(PROFILES[i][1])
+                ? prefs.getString("profileCustomUa", "") : PROFILES[i][1];
+        if (ua.isEmpty()) return;
+        try {
+            session.getSettings().setUserAgentOverride(ua);
+        } catch (Throwable ignored) { }
+    }
+
+    private void profileInfo() {
+        new AlertDialog.Builder(this)
+            .setTitle("Portee de cette option")
+            .setMessage(
+                "L'agent utilisateur est remplace a la fois dans les en-tetes HTTP et "
+              + "dans navigator.userAgent, et la mise en page bascule en mode "
+              + "ordinateur ou mobile. L'extension aligne aussi la plateforme et les "
+              + "points tactiles annonces, sinon un site repererait la contradiction.\n\n"
+              + "Ce que cela ne fait pas : le moteur reste Gecko. Se declarer Chrome ou "
+              + "Safari ne change ni les fonctions disponibles ni le rendu, et un site "
+              + "qui teste les capacites plutot que l'agent verra la difference.\n\n"
+              + "Attention aussi a la combinaison avec la protection anti-empreinte : "
+              + "aux niveaux renforce et strict, celle-ci impose deja son propre agent. "
+              + "Superposer un profil recree une incoherence, donc un signal distinctif. "
+              + "Verifiez le resultat dans Confidentialite, Diagnostic d'empreinte.")
+            .setPositiveButton("Compris", null)
+            .show();
     }
 
     // =======================================================================
