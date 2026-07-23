@@ -11,11 +11,72 @@
   if (window.top !== window.self) return;   // uniquement le cadre principal
 
   let root = null;
+  const consoleLog = [];      // historique de la console
+  const history = [];         // commandes saisies
+  let histPos = -1;
+  let consoleMode = "page";   // page | sandbox
+  let netEntries = [];
+  let netFilter = "";
+  let netOnly = "";
   let resources = [];
   let filters = new Set();
   let selected = new Set();
   let textFilter = "";
   let customExt = "";
+
+  // -------------------------------------------------------------------------
+  //  Capture des messages emis par la page
+  // -------------------------------------------------------------------------
+  function installLogHook() {
+    const code = `(function(){
+      if (window.__gbHooked) return;
+      window.__gbHooked = true;
+      function send(kind, args) {
+        try {
+          var parts = Array.prototype.map.call(args, function (x) {
+            try {
+              if (x instanceof Error) return x.name + ": " + x.message;
+              if (typeof x === "object" && x !== null) return JSON.stringify(x);
+              return String(x);
+            } catch (e) { return String(x); }
+          });
+          document.dispatchEvent(new CustomEvent("__gbLog",
+            { detail: JSON.stringify({ kind: kind, text: parts.join(" ") }) }));
+        } catch (e) {}
+      }
+      ["log", "info", "warn", "error", "debug"].forEach(function (k) {
+        var orig = console[k];
+        console[k] = function () { send(k, arguments); return orig.apply(console, arguments); };
+      });
+      window.addEventListener("error", function (e) {
+        send("error", [e.message + "  (" + (e.filename || "") + ":" + e.lineno + ")"]);
+      });
+      window.addEventListener("unhandledrejection", function (e) {
+        send("error", ["Promesse rejetee : " + e.reason]);
+      });
+    })();`;
+    try {
+      const el = document.createElement("script");
+      el.textContent = code;
+      (document.head || document.documentElement).appendChild(el);
+      el.remove();
+    } catch (e) { }
+  }
+
+  document.addEventListener("__gbLog", ev => {
+    try {
+      const d = JSON.parse(ev.detail);
+      pushLog(d.kind, d.text);
+    } catch (e) { }
+  });
+
+  function pushLog(kind, text) {
+    consoleLog.push({ kind, text, t: Date.now() });
+    while (consoleLog.length > 400) consoleLog.shift();
+    if (root && tab === "console") appendLogLine(consoleLog[consoleLog.length - 1]);
+  }
+
+  installLogHook();
 
   // -------------------------------------------------------------------------
   //  Classification
@@ -289,6 +350,46 @@
       <pre id="ins-code" class="ins-code">Choisissez « DOM actuel » ou « Source d'origine ».</pre>`;
   }
 
+  function renderConsole() {
+    return `
+      <div class="ins-tools">
+        <button id="ins-cmode" class="ins-b">Contexte : ${consoleMode === "page" ? "page" : "isole"}</button>
+        <button id="ins-cclear" class="ins-b">Effacer</button>
+        <button id="ins-ccopy" class="ins-b">Copier</button>
+      </div>
+      <div id="ins-out" class="ins-out"></div>
+      <div class="ins-tools ins-prompt">
+        <button id="ins-prev" class="ins-b">&#8593;</button>
+        <input id="ins-in" placeholder="Expression JavaScript" autocapitalize="off"
+               autocorrect="off" spellcheck="false">
+        <button id="ins-run" class="ins-b ins-dl">Executer</button>
+      </div>
+      <div class="ins-note">
+        Contexte « page » : acces aux variables du site, soumis a sa politique de
+        securite. Contexte « isole » : toujours disponible, variables du site
+        accessibles via <code>unsafeWindow</code>. Raccourcis : <code>$</code> et
+        <code>$$</code> pour les selecteurs.
+      </div>`;
+  }
+
+  function renderNet() {
+    const types = ["", "xmlhttprequest", "script", "image", "stylesheet",
+                   "font", "media", "sub_frame", "main_frame"];
+    const opts = types.map(t =>
+      `<option value="${t}"${netOnly === t ? " selected" : ""}>${t || "tous types"}</option>`).join("");
+    return `
+      <div class="ins-tools">
+        <button id="ins-nrefresh" class="ins-b">Actualiser</button>
+        <button id="ins-nclear" class="ins-b">Vider</button>
+        <button id="ins-ncopy" class="ins-b">Copier en CSV</button>
+      </div>
+      <div class="ins-tools">
+        <input id="ins-nq" placeholder="Filtrer l'URL" value="${esc(netFilter)}">
+        <select id="ins-ntype" class="ins-sel">${opts}</select>
+      </div>
+      <div id="ins-nlist" class="ins-list"><div class="ins-empty">Chargement…</div></div>`;
+  }
+
   function renderInfo() {
     const metas = Array.from(document.querySelectorAll("meta")).map(m => {
       const k = m.getAttribute("name") || m.getAttribute("property")
@@ -370,6 +471,24 @@
   .ins-empty{color:#99a0ad;padding:24px 0;text-align:center}
   .ins-dl{border-color:#3d5c34!important;color:#8fce7c!important}
   .ins-au{border-color:#3a4d68!important;color:#8ab4f8!important}
+  .ins-out{background:#101216;border:1px solid #2b303a;border-radius:8px;padding:8px;
+    font:11px/1.5 monospace;max-height:44vh;overflow-y:auto;margin-bottom:8px}
+  .ins-l{padding:3px 0;border-bottom:1px solid #191c22;white-space:pre-wrap;
+    word-break:break-word}
+  .ins-l-in{color:#8ab4f8}
+  .ins-l-out{color:#8fce7c}
+  .ins-l-error{color:#e08a72}
+  .ins-l-warn{color:#d9c07c}
+  .ins-l-log,.ins-l-info,.ins-l-debug{color:#cfd4dc}
+  .ins-prompt input{font-family:monospace}
+  .ins-note{font-size:11px;color:#99a0ad;line-height:1.5;margin-top:8px}
+  .ins-note code{color:#e8eaee}
+  .ins-sel{background:#1c1f26;border:1px solid #2b303a;border-radius:8px;color:#e8eaee;
+    padding:8px;font-size:12px}
+  .ins-s-ok{color:#6fae5f}
+  .ins-s-red{color:#d9c07c}
+  .ins-s-err{color:#e08a72}
+  .ins-s-blk{color:#c06a8a}
   .ins-ck{margin-right:7px;vertical-align:middle}
   .ins-u{display:block;cursor:pointer}
   .ins-hits{color:#99a0ad;font-size:12px;align-self:center}`;
@@ -378,10 +497,14 @@
 
   function paint() {
     const body = root.querySelector(".ins-body");
-    body.innerHTML = tab === "res" ? renderResources()
-                   : tab === "code" ? renderCode()
+    body.innerHTML = tab === "res"     ? renderResources()
+                   : tab === "code"    ? renderCode()
+                   : tab === "console" ? renderConsole()
+                   : tab === "net"     ? renderNet()
                    : renderInfo();
     wire();
+    if (tab === "console") paintConsole();
+    if (tab === "net") loadNet();
   }
 
   function wire() {
@@ -469,6 +592,64 @@
     };
     const find = body.querySelector("#ins-find");
     if (find) find.oninput = () => highlight(find.value);
+
+    // --- Console ---
+    const runBtn = body.querySelector("#ins-run");
+    const input = body.querySelector("#ins-in");
+    if (runBtn && input) {
+      const go = () => {
+        const v = input.value;
+        input.value = "";
+        runCode(v);
+      };
+      runBtn.onclick = go;
+      input.onkeydown = e => {
+        if (e.key === "Enter") { e.preventDefault(); go(); }
+        if (e.key === "ArrowUp" && history.length) {
+          histPos = Math.max(0, histPos - 1);
+          input.value = history[histPos] || "";
+        }
+        if (e.key === "ArrowDown" && history.length) {
+          histPos = Math.min(history.length, histPos + 1);
+          input.value = history[histPos] || "";
+        }
+      };
+    }
+    const prev = body.querySelector("#ins-prev");
+    if (prev && input) prev.onclick = () => {
+      if (!history.length) return;
+      histPos = Math.max(0, histPos - 1);
+      input.value = history[histPos] || "";
+      input.focus();
+    };
+    const cmode = body.querySelector("#ins-cmode");
+    if (cmode) cmode.onclick = () => {
+      consoleMode = consoleMode === "page" ? "sandbox" : "page";
+      cmode.textContent = "Contexte : " + (consoleMode === "page" ? "page" : "isole");
+    };
+    const cclear = body.querySelector("#ins-cclear");
+    if (cclear) cclear.onclick = () => { consoleLog.length = 0; paintConsole(); };
+    const ccopy = body.querySelector("#ins-ccopy");
+    if (ccopy) ccopy.onclick = () => {
+      copy(consoleLog.map(l => l.kind + "\t" + l.text).join("\n"));
+      ccopy.textContent = "Copie";
+    };
+
+    // --- Reseau ---
+    const nref = body.querySelector("#ins-nrefresh");
+    if (nref) nref.onclick = () => loadNet();
+    const nclr = body.querySelector("#ins-nclear");
+    if (nclr) nclr.onclick = async () => {
+      try { await browser.runtime.sendMessage({ type: "netClear" }); } catch (e) { }
+      netEntries = [];
+      paintNet();
+    };
+    const ncopy = body.querySelector("#ins-ncopy");
+    if (ncopy) ncopy.onclick = () => { copy(netCsv()); ncopy.textContent = "Copie"; };
+    const nq = body.querySelector("#ins-nq");
+    if (nq) nq.oninput = () => { netFilter = nq.value; paintNet(); };
+    const ntype = body.querySelector("#ins-ntype");
+    if (ntype) ntype.onchange = () => { netOnly = ntype.value; paintNet(); };
   }
 
   function refreshList() {
@@ -485,6 +666,212 @@
 
   function copy(text) {
     try { navigator.clipboard.writeText(text); } catch (e) { }
+  }
+
+  // -------------------------------------------------------------------------
+  //  Console
+  // -------------------------------------------------------------------------
+  function fmt(v, depth) {
+    depth = depth || 0;
+    try {
+      if (v === undefined) return "undefined";
+      if (v === null) return "null";
+      if (v instanceof Error) return v.name + ": " + v.message;
+      if (typeof v === "function") return "\u0192 " + (v.name || "anonyme") + "()";
+      if (typeof v === "string") return depth ? JSON.stringify(v) : v;
+      if (typeof v !== "object") return String(v);
+      if (v.nodeType === 1) {
+        const html = v.outerHTML || "";
+        return html.length > 400 ? html.slice(0, 400) + "…" : html;
+      }
+      if (v.nodeType) return String(v);
+      if (depth > 2) return Array.isArray(v) ? "[…]" : "{…}";
+      if (Array.isArray(v)) {
+        const head = v.slice(0, 40).map(x => fmt(x, depth + 1));
+        return "[" + head.join(", ") + (v.length > 40 ? ", …" + v.length : "") + "]";
+      }
+      if (v instanceof NodeList || v instanceof HTMLCollection) {
+        return fmt(Array.from(v), depth);
+      }
+      const keys = Object.keys(v).slice(0, 40);
+      return "{" + keys.map(k => k + ": " + fmt(v[k], depth + 1)).join(", ") + "}";
+    } catch (e) {
+      return "[non affichable]";
+    }
+  }
+
+  function appendLogLine(entry) {
+    const box = root && root.querySelector("#ins-out");
+    if (!box) return;
+    const div = document.createElement("div");
+    div.className = "ins-l ins-l-" + entry.kind;
+    div.textContent = (entry.kind === "in" ? "\u203A " :
+                       entry.kind === "out" ? "\u2039 " : "") + entry.text;
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function paintConsole() {
+    const box = root.querySelector("#ins-out");
+    if (!box) return;
+    box.innerHTML = "";
+    consoleLog.forEach(appendLogLine);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  // Execution dans le contexte de la page, via un evenement de retour.
+  function runInPageCtx(src) {
+    return new Promise(resolve => {
+      const id = "gb" + Date.now() + Math.random().toString(36).slice(2);
+      const onDone = ev => {
+        try {
+          const d = JSON.parse(ev.detail);
+          if (d.id !== id) return;
+          document.removeEventListener("__gbEval", onDone);
+          resolve(d);
+        } catch (e) { }
+      };
+      document.addEventListener("__gbEval", onDone);
+
+      const wrapper =
+        "(function(){var __id=" + JSON.stringify(id) + ";" +
+        "var $=function(s){return document.querySelector(s)};" +
+        "var $$=function(s){return Array.from(document.querySelectorAll(s))};" +
+        "function reply(ok,val){try{document.dispatchEvent(new CustomEvent('__gbEval'," +
+        "{detail:JSON.stringify({id:__id,ok:ok,val:String(val)})}));}catch(e){}}" +
+        "try{var r;try{r=eval(" + JSON.stringify("(" + src + "\n)") + ");}" +
+        "catch(e){r=eval(" + JSON.stringify(src) + ");}" +
+        "if(r&&typeof r.then==='function'){r.then(function(v){reply(true,v)}," +
+        "function(e){reply(false,e)});}else{" +
+        "reply(true, (r&&r.nodeType===1)?r.outerHTML.slice(0,400):" +
+        "(typeof r==='object'&&r!==null)?JSON.stringify(r):r);}}" +
+        "catch(e){reply(false,e);}})();";
+
+      try {
+        const el = document.createElement("script");
+        el.textContent = wrapper;
+        (document.head || document.documentElement).appendChild(el);
+        el.remove();
+      } catch (e) {
+        document.removeEventListener("__gbEval", onDone);
+        resolve({ ok: false, val: "injection refusee : " + e });
+      }
+
+      setTimeout(() => {
+        document.removeEventListener("__gbEval", onDone);
+        resolve({ ok: false, val: "aucune reponse (politique de securite du site ?)" });
+      }, 4000);
+    });
+  }
+
+  async function runCode(src) {
+    if (!src.trim()) return;
+    pushLog("in", src);
+    history.push(src);
+    histPos = history.length;
+
+    if (consoleMode === "page") {
+      const r = await runInPageCtx(src);
+      pushLog(r.ok ? "out" : "error", r.val);
+      return;
+    }
+
+    try {
+      const $ = sel => document.querySelector(sel);
+      const $$ = sel => Array.from(document.querySelectorAll(sel));
+      const unsafeWindow = window.wrappedJSObject || window;
+      let fn;
+      try {
+        fn = new Function("$", "$$", "unsafeWindow", "return (" + src + "\n)");
+      } catch (e) {
+        fn = new Function("$", "$$", "unsafeWindow", src);
+      }
+      let r = fn($, $$, unsafeWindow);
+      if (r && typeof r.then === "function") r = await r;
+      pushLog("out", fmt(r));
+    } catch (e) {
+      pushLog("error", (e && e.name ? e.name + ": " : "") + (e && e.message ? e.message : e));
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  //  Reseau
+  // -------------------------------------------------------------------------
+  async function loadNet() {
+    try {
+      const res = await browser.runtime.sendMessage({
+        type: "netLog", origin: location.origin
+      });
+      netEntries = (res && res.entries) || [];
+    } catch (e) {
+      netEntries = [];
+    }
+    paintNet();
+  }
+
+  function netFiltered() {
+    return netEntries.filter(e => {
+      if (netOnly && e.type !== netOnly) return false;
+      if (netFilter && e.url.toLowerCase().indexOf(netFilter.toLowerCase()) === -1) return false;
+      return true;
+    }).slice().reverse();
+  }
+
+  function statusClass(e) {
+    if (e.blocked) return "ins-s-blk";
+    if (e.error) return "ins-s-err";
+    if (e.status >= 400) return "ins-s-err";
+    if (e.status >= 300) return "ins-s-red";
+    if (e.status) return "ins-s-ok";
+    return "";
+  }
+
+  function paintNet() {
+    const box = root.querySelector("#ins-nlist");
+    if (!box) return;
+    const list = netFiltered();
+    if (!list.length) {
+      box.innerHTML = '<div class="ins-empty">Aucune requete. Rechargez la page ' +
+        'puis actualisez.</div>';
+      return;
+    }
+    box.innerHTML = list.map((e, i) => `
+      <div class="ins-row">
+        <div class="ins-u">${esc(e.url)}</div>
+        <div class="ins-m">
+          <span class="${statusClass(e)}">${e.blocked ? "bloque"
+            : e.error ? esc(e.error) : (e.status || "…")}</span>
+          <span>${esc(e.method)}</span>
+          <span class="ins-tag">${esc(e.type)}</span>
+          ${e.mime ? `<span>${esc(e.mime)}</span>` : ""}
+          ${e.size ? `<span>${human(e.size)}</span>` : ""}
+          ${e.ms != null ? `<span>${e.ms} ms</span>` : ""}
+        </div>
+        <div class="ins-act">
+          <button data-nopen="${i}">Ouvrir</button>
+          <button data-ncopy="${i}">Copier</button>
+          <button data-nbody="${i}">Reponse</button>
+        </div>
+      </div>`).join("");
+
+    box.querySelectorAll("[data-nopen]").forEach(b => {
+      b.onclick = () => { location.href = netFiltered()[+b.dataset.nopen].url; };
+    });
+    box.querySelectorAll("[data-ncopy]").forEach(b => {
+      b.onclick = () => { copy(netFiltered()[+b.dataset.ncopy].url); b.textContent = "Copie"; };
+    });
+    box.querySelectorAll("[data-nbody]").forEach(b => {
+      b.onclick = () => showResource({ url: netFiltered()[+b.dataset.nbody].url });
+    });
+  }
+
+  function netCsv() {
+    const rows = [["statut", "methode", "type", "mime", "octets", "ms", "url"]];
+    netFiltered().forEach(e => rows.push([
+      e.blocked ? "bloque" : (e.error || e.status || ""),
+      e.method, e.type, e.mime, e.size || "", e.ms == null ? "" : e.ms, e.url
+    ]));
+    return rows.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(",")).join("\n");
   }
 
   function updateSelCount() {
@@ -682,6 +1069,8 @@
       <div class="ins-tabs">
         <button class="ins-tab on" data-tab="res">Ressources</button>
         <button class="ins-tab" data-tab="code">Code</button>
+        <button class="ins-tab" data-tab="console">Console</button>
+        <button class="ins-tab" data-tab="net">Reseau</button>
         <button class="ins-tab" data-tab="info">Infos</button>
       </div>
       <div class="ins-body"></div>`;

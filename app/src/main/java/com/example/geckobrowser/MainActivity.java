@@ -330,7 +330,8 @@ public class MainActivity extends Activity {
             "Confidentialite…",
             "Scripts…",
             "Favoris…",
-            blockerEnabled ? "Desactiver le blocage" : "Activer le blocage"
+            blockerEnabled ? "Desactiver le blocage" : "Activer le blocage",
+            "Aide et tutoriel"
         };
 
         new AlertDialog.Builder(this)
@@ -345,6 +346,7 @@ public class MainActivity extends Activity {
                     case 5: showScriptsMenu(); break;
                     case 6: showBookmarksMenu(); break;
                     case 7: toggleBlocker(); break;
+                    case 8: session.loadUri(extPage("help.html")); break;
                 }
             })
             .show();

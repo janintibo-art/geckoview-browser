@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "GeckoBlock",
-  "version": "2.4",
+  "version": "2.5",
   "description": "Filtrage publicitaire, categories de sites et moteur de recherche",
   "browser_specific_settings": {
     "gecko": {
@@ -96,7 +96,8 @@
     "blocked.html",
     "lists/*.txt",
     "scripts.html",
-    "scripts.js"
+    "scripts.js",
+    "help.html"
   ],
   "content_security_policy": "script-src 'self' 'unsafe-eval'; object-src 'self'"
 }

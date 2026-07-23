@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Aide</title>
+<link rel="stylesheet" href="search.css">
+<style>
+  body { padding-bottom: 40px; }
+  header { padding: 14px 14px 8px; border-bottom: 1px solid var(--line); }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .sub { color: var(--dim); font-size: 13px; }
+  main { padding: 6px 14px; }
+  details {
+    border-bottom: 1px solid var(--line);
+    padding: 12px 0;
+  }
+  summary {
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary::before {
+    content: "+";
+    color: var(--accent);
+    font-weight: 700;
+    width: 14px;
+    flex: 0 0 14px;
+  }
+  details[open] > summary::before { content: "\2212"; }
+  .c { padding: 10px 0 2px 23px; font-size: 14px; color: #c3c8d1; line-height: 1.65; }
+  .c p { margin: 0 0 11px; }
+  .c ul { margin: 0 0 11px; padding-left: 17px; }
+  .c li { margin: 5px 0; }
+  .path {
+    display: inline-block;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 1px 7px;
+    font-size: 12px;
+    color: var(--fg);
+  }
+  code {
+    background: var(--panel);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 12px;
+    color: #8ab4f8;
+  }
+  .warn {
+    border-left: 2px solid var(--warn);
+    padding-left: 11px;
+    color: var(--dim);
+    font-size: 13px;
+    margin: 11px 0;
+  }
+  .step { color: var(--accent); font-size: 12px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Aide et tutoriel</h1>
+  <div class="sub">Tout ce que fait ce navigateur, section par section.</div>
+</header>
+
+<main>
+
+<details open>
+  <summary>Prise en main</summary>
+  <div class="c">
+    <p>Le bouton <span class="path">&#8942;</span> a droite de la barre d'adresse ouvre le
+    menu. Tout passe par la : il n'y a volontairement aucun bouton flottant sur les pages.</p>
+    <ul>
+      <li><b>Page</b> — analyser, code source, mode lecture, defilement infini, partage</li>
+      <li><b>Recherche</b> — moteur par defaut, filtres editoriaux, sources</li>
+      <li><b>Confidentialite</b> — navigation privee, niveau de protection, DNS, Tor</li>
+      <li><b>Scripts</b> — vos scripts utilisateur et leurs commandes</li>
+      <li><b>Favoris</b> — ouvrir, ajouter, supprimer</li>
+    </ul>
+    <p>Le chiffre vert a gauche de la barre d'adresse compte les elements bloques.
+    Un appui le desactive, un appui long affiche le total.</p>
+  </div>
+</details>
+
+<details>
+  <summary>Blocage des publicites et traqueurs</summary>
+  <div class="c">
+    <p>Trois couches travaillent ensemble. La protection anti-pistage de Gecko en mode
+    strict, la meme que Firefox. Une extension qui coupe les requetes vers environ
+    150 domaines embarques, completes au demarrage par les listes d'AdAway et de
+    Peter Lowe, rafraichies toutes les 24 heures. Et un filtrage cosmetique qui masque
+    les emplacements publicitaires avant le premier rendu.</p>
+    <p>Les images bloquees sont remplacees par un pixel transparent, ce qui evite de
+    casser les mises en page.</p>
+    <p class="warn">Si un site casse, le premier reflexe est d'ajouter son domaine dans
+    <span class="path">Recherche &#8250; Filtres &#8250; Domaines a ne jamais filtrer</span>.</p>
+  </div>
+</details>
+
+<details>
+  <summary>Filtres editoriaux et categories</summary>
+  <div class="c">
+    <p>Huit categories de sites, activables separement dans
+    <span class="path">Recherche &#8250; Filtres</span> : publicite, medias du groupe
+    Bollore, medias d'extreme droite, multinationales, reseaux sociaux, football,
+    sport, resolveurs DNS chiffres.</p>
+    <p>Les domaines de chaque categorie sont dans des fichiers texte modifiables,
+    un domaine par ligne, sous <code>app/src/main/assets/adblock/lists/</code>.
+    Vous les editez, vous recompilez, c'est tout.</p>
+    <p class="warn">La liste Bollore repose sur la propriete du capital, verifiable.
+    La liste « extreme droite » est un classement editorial, conteste par plusieurs
+    des titres concernes. Les deux sont modifiables : c'est votre filtre, pas le mien.</p>
+    <p>Une categorie filtree agit a trois endroits : les resultats de recherche, les
+    liens dans les pages, et la navigation elle-meme si vous cochez l'option.</p>
+  </div>
+</details>
+
+<details>
+  <summary>Moteur de recherche</summary>
+  <div class="c">
+    <p>Deux reglages distincts, souvent confondus.</p>
+    <p><b>Le moteur de la barre d'adresse</b> se choisit dans
+    <span class="path">Recherche &#8250; Moteur</span> : metamoteur integre, DuckDuckGo,
+    Qwant, Ecosia, Brave, Startpage, Mojeek, Marginalia, Wikipedia, Google, Bing,
+    ou un modele personnalise ou <code>%s</code> remplace la requete.</p>
+    <p><b>Les sources du metamoteur</b> se cochent dans
+    <span class="path">Recherche &#8250; Filtres &#8250; Sources</span>. Le metamoteur
+    interroge plusieurs moteurs en parallele, fusionne les resultats et remonte ceux
+    sur lesquels ils s'accordent.</p>
+    <p>Raccourcis facon bangs : <code>!w</code> Wikipedia, <code>!yt</code> YouTube,
+    <code>!gh</code> GitHub, <code>!osm</code> OpenStreetMap, <code>!mp</code> Mediapart,
+    <code>!lm</code> Le Monde.</p>
+  </div>
+</details>
+
+<details>
+  <summary>Cookies et consentement</summary>
+  <div class="c">
+    <p>Masquer un bandeau ne refuse rien : sans action, beaucoup de sites considerent
+    l'absence de reponse comme un accord. Le navigateur appelle donc directement les
+    API de refus des plateformes de consentement — Didomi, OneTrust, Cookiebot,
+    Usercentrics, Axeptio, tarteaucitron, Quantcast et une dizaine d'autres — puis
+    retombe sur le clic du bouton s'il le faut.</p>
+    <p>Les cookies tiers sont refuses a la reception, et ne sont pas renvoyes.
+    Une liste d'exemptions protege ce qui casserait sinon : connexions Google,
+    FranceConnect, Stripe, PayPal, captchas.</p>
+    <p>Bouton de purge immediate et option de purge a la fermeture dans
+    <span class="path">Recherche &#8250; Filtres &#8250; Cookies</span>.</p>
+  </div>
+</details>
+
+<details>
+  <summary>Analyse de page</summary>
+  <div class="c">
+    <p><span class="path">Page &#8250; Analyser la page</span> ouvre cinq onglets.</p>
+    <p><b>Ressources</b> — douze categories filtrables, plus un champ d'extensions
+    libre. Tapez <code>webp, avif</code> et vous n'avez plus que celles-la. Chaque
+    entree s'ouvre, se copie, se telecharge. Selection multiple, telechargement groupe,
+    export de la liste en fichier texte, et mesure des tailles par requetes HEAD.</p>
+    <p><b>Code</b> — « DOM actuel » montre la page apres execution du JavaScript,
+    « Source d'origine » retelecharge le HTML brut du serveur. La difference entre les
+    deux est souvent instructive. Recherche avec surlignage et compteur.</p>
+    <p><b>Console</b> — voir la section suivante.</p>
+    <p><b>Reseau</b> — voir la section suivante.</p>
+    <p><b>Infos</b> — doctype, encodage, langue, nombre d'elements, domaines tiers,
+    cookies lisibles, stockage local, et toutes les balises meta.</p>
+  </div>
+</details>
+
+<details>
+  <summary>Console JavaScript <span class="step">nouveau</span></summary>
+  <div class="c">
+    <p>Onglet <b>Console</b> de l'analyseur. Saisissez une expression, appuyez sur
+    Executer. La fleche remonte l'historique.</p>
+    <p>Deux contextes, commutables par le bouton en haut :</p>
+    <ul>
+      <li><b>page</b> — le code s'execute avec les variables du site, comme dans les
+      outils de developpement d'un navigateur de bureau. Soumis a la politique de
+      securite du site : certains la refusent, un message vous le dit.</li>
+      <li><b>isole</b> — toujours disponible, quel que soit le site. Les objets du site
+      restent accessibles via <code>unsafeWindow</code>.</li>
+    </ul>
+    <p>Raccourcis fournis dans les deux modes : <code>$('sel')</code> pour un element,
+    <code>$$('sel')</code> pour un tableau. Les promesses sont attendues
+    automatiquement, les elements DOM affiches en HTML.</p>
+    <p>Les messages emis par la page — <code>console.log</code>, avertissements,
+    erreurs, promesses rejetees — sont captures et affiches au fil de l'eau.</p>
+    <p class="warn">La capture demarre au chargement de l'extension : les tout premiers
+    messages d'une page peuvent manquer. Rechargez avec la console deja ouverte pour
+    les voir.</p>
+  </div>
+</details>
+
+<details>
+  <summary>Journal reseau <span class="step">nouveau</span></summary>
+  <div class="c">
+    <p>Onglet <b>Reseau</b> de l'analyseur : les 250 dernieres requetes de la page,
+    avec statut, methode, type, type MIME, taille, duree.</p>
+    <p>Le filtre par type est la fonction la plus utile. Choisissez
+    <code>xmlhttprequest</code> et vous ne voyez plus que les appels d'API du site —
+    le bouton « Reponse » affiche alors le JSON renvoye. C'est la facon la plus directe
+    de comprendre comment un site charge ses donnees.</p>
+    <p>Les requetes coupees par vos filtres sont marquees <b>bloque</b>, ce qui permet
+    de verifier ce que le blocage fait reellement, et de reperer un faux positif quand
+    un site se comporte mal.</p>
+    <p>Export en CSV pour analyse ailleurs.</p>
+  </div>
+</details>
+
+<details>
+  <summary>Telechargements et extraction audio</summary>
+  <div class="c">
+    <p>Depuis l'onglet Ressources : bouton par ligne, ou telechargement groupe de tout
+    ce que vos filtres affichent. Au-dela de 25 fichiers, une confirmation s'affiche.</p>
+    <p>Les videos et fichiers audio ont un bouton <b>Extraire l'audio</b>. La piste est
+    recopiee sans reencodage — AAC vers <code>.m4a</code>, Opus vers <code>.ogg</code> —
+    et deposee dans le dossier Musique. C'est instantane et sans perte.</p>
+    <p class="warn">Android ne fournit pas d'encodeur MP3, seulement des decodeurs.
+    Le <code>.m4a</code> produit est lu par tout ce qui lit du MP3. Les flux segmentes
+    <code>.m3u8</code> et <code>.mpd</code> ne sont pas pris en charge.</p>
+  </div>
+</details>
+
+<details>
+  <summary>Scripts utilisateur</summary>
+  <div class="c">
+    <p><span class="path">Scripts &#8250; Mes scripts</span> : editeur integre avec
+    modele prerempli, interrupteur par script, import depuis une URL, controle de
+    syntaxe avant enregistrement.</p>
+    <p>En-tetes reconnus : <code>@match</code>, <code>@include</code>,
+    <code>@exclude</code>, <code>@run-at</code>, <code>@require</code>,
+    <code>@noframes</code>, <code>@grant</code>. Ajoutez <code>@world page</code> pour
+    executer dans le contexte du site plutot que dans le bac a sable.</p>
+    <p>API disponible : <code>GM_getValue</code>, <code>GM_setValue</code>,
+    <code>GM_deleteValue</code>, <code>GM_listValues</code>, <code>GM_addStyle</code>,
+    <code>GM_registerMenuCommand</code>, <code>GM_xmlhttpRequest</code>,
+    <code>GM_openInTab</code>, <code>GM_setClipboard</code>, <code>GM_info</code>,
+    <code>unsafeWindow</code>.</p>
+    <p><code>GM_xmlhttpRequest</code> passe par l'extension : pas de restriction CORS,
+    vos scripts peuvent interroger n'importe quel domaine.</p>
+    <p>Les commandes enregistrees apparaissent dans
+    <span class="path">Scripts &#8250; Commandes</span>.</p>
+    <p class="warn">Un script utilisateur a tous les droits sur les pages qu'il touche :
+    cookies, formulaires, contenu. N'importez que du code dont vous comprenez l'effet.</p>
+  </div>
+</details>
+
+<details>
+  <summary>Defilement infini</summary>
+  <div class="c">
+    <p>Sur un site pagine, les pages suivantes s'ajoutent automatiquement quand vous
+    approchez du bas. La detection essaie, dans l'ordre : le lien
+    <code>rel="next"</code>, l'element suivant dans la pagination, les libelles de lien
+    (« suivant », « next », <code>&#187;</code>), puis l'incrementation du parametre
+    d'URL (<code>page=</code>, <code>offset=</code>, <code>/page/2/</code>).</p>
+    <p>Reglages dans <span class="path">Recherche &#8250; Filtres &#8250; Navigation</span> :
+    mode automatique ou bouton « Charger la suite », et limite de pages enchainees.
+    Bascule par site dans <span class="path">Page &#8250; Defilement infini ici</span>.</p>
+    <p>Sur les applications web qui chargent deja en JavaScript, il n'y a pas de lien
+    a detecter : le script ne fait rien.</p>
+  </div>
+</details>
+
+<details>
+  <summary>Confidentialite</summary>
+  <div class="c">
+    <p>Trois niveaux dans <span class="path">Confidentialite &#8250; Niveau</span>,
+    chacun annonce ce qu'il casse avant d'etre applique.</p>
+    <ul>
+      <li><b>Standard</b> — cloisonnement des cookies par site, referent tronque,
+      capteurs coupes. Rien ne casse.</li>
+      <li><b>Renforce</b> — ajoute l'uniformisation de l'empreinte : agent, langue,
+      fuseau, taille d'ecran, canvas. Heure en UTC, langue annoncee en anglais,
+      contenus DRM indisponibles.</li>
+      <li><b>Strict</b> — bandes grises de normalisation, WebGL, WebAudio et
+      WebAssembly coupes, polices du site ignorees. Des applications web cesseront
+      de fonctionner.</li>
+    </ul>
+    <p>S'y ajoutent la navigation privee, l'effacement complet des donnees, et le DNS
+    chiffre au choix entre Quad9, Cloudflare, Mullvad et dns0.eu.</p>
+    <p>Changer de niveau relance l'application : Gecko ne lit ses preferences qu'au
+    demarrage.</p>
+  </div>
+</details>
+
+<details>
+  <summary>Tor et adresses .onion</summary>
+  <div class="c">
+    <p>Necessite Orbot, qui fournit un proxy local. Activation dans
+    <span class="path">Confidentialite &#8250; Tor</span>. La resolution DNS se fait
+    cote Tor, les adresses <code>.onion</code> sont accessibles, et WebRTC comme la
+    prelecture DNS sont coupes car ils contourneraient le proxy.</p>
+    <p>Les telechargements et l'extraction audio passent egalement par Orbot : sans
+    cela, ils reveleraient votre adresse IP reelle.</p>
+    <p class="warn">Ce mode donne l'acces au reseau Tor, pas l'anonymat de Tor Browser.
+    L'anonymat vient de la ressemblance : Tor Browser protege parce que ses utilisateurs
+    sont interchangeables. Ce navigateur est unique par construction — extensions rares,
+    scripts personnels, listes de filtres sur mesure — et tout cela reste mesurable.
+    Excellent contre le pistage commercial ; insuffisant si votre securite en depend.</p>
+  </div>
+</details>
+
+<details>
+  <summary>A venir</summary>
+  <div class="c">
+    <p>Les etapes suivantes, dans l'ordre prevu :</p>
+    <ul>
+      <li>Redirecteur de facades — Twitter vers Nitter, YouTube vers Invidious,
+      Reddit vers Redlib, avec bascule par site</li>
+      <li>CSS par site, facon Stylus : feuilles personnelles injectees avant le
+      premier rendu</li>
+      <li>Extracteur structure : un selecteur CSS, un export CSV ou JSON,
+      pagination comprise</li>
+      <li>Page de diagnostic d'empreinte, pour verifier ce que le niveau strict
+      masque reellement</li>
+      <li>Sauvegarde de page en un fichier autonome, ressources incorporees</li>
+      <li>Synchronisation des listes, scripts et favoris par depot Git</li>
+    </ul>
+  </div>
+</details>
+
+</main>
+</body>
+</html>

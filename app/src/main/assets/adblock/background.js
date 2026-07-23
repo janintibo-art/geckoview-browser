@@ -162,6 +162,79 @@ function pushState() {
 }
 
 // ---------------------------------------------------------------------------
+//  Journal reseau (tampon circulaire, consulte par l'analyseur de page)
+// ---------------------------------------------------------------------------
+const NET_MAX = 400;
+const netLog = [];
+const netIndex = new Map();   // requestId -> entree
+
+function netPush(e) {
+  netLog.push(e);
+  netIndex.set(e.id, e);
+  while (netLog.length > NET_MAX) {
+    const old = netLog.shift();
+    netIndex.delete(old.id);
+  }
+}
+
+browser.webRequest.onBeforeRequest.addListener(
+  d => {
+    netPush({
+      id: d.requestId,
+      url: d.url,
+      method: d.method,
+      type: d.type,
+      doc: d.documentUrl || d.originUrl || d.url,
+      start: Date.now(),
+      status: null,
+      mime: "",
+      size: null,
+      ms: null,
+      blocked: false,
+      error: ""
+    });
+  },
+  { urls: ["<all_urls>"] }
+);
+
+browser.webRequest.onHeadersReceived.addListener(
+  d => {
+    const e = netIndex.get(d.requestId);
+    if (!e) return;
+    e.status = d.statusCode;
+    (d.responseHeaders || []).forEach(h => {
+      const n = h.name.toLowerCase();
+      if (n === "content-type") e.mime = (h.value || "").split(";")[0];
+      if (n === "content-length") e.size = parseInt(h.value, 10);
+    });
+  },
+  { urls: ["<all_urls>"] },
+  ["responseHeaders"]
+);
+
+browser.webRequest.onCompleted.addListener(
+  d => {
+    const e = netIndex.get(d.requestId);
+    if (!e) return;
+    e.ms = Date.now() - e.start;
+    if (e.status == null) e.status = d.statusCode;
+    if (d.fromCache) e.mime = e.mime || "(cache)";
+  },
+  { urls: ["<all_urls>"] }
+);
+
+browser.webRequest.onErrorOccurred.addListener(
+  d => {
+    const e = netIndex.get(d.requestId);
+    if (!e) return;
+    e.ms = Date.now() - e.start;
+    e.error = d.error || "erreur";
+    if (/BLOCKED|ABORTED/i.test(e.error)) e.blocked = true;
+  },
+  { urls: ["<all_urls>"] }
+);
+
+// ---------------------------------------------------------------------------
 //  Blocage des requetes
 // ---------------------------------------------------------------------------
 browser.webRequest.onBeforeRequest.addListener(
@@ -206,6 +279,8 @@ browser.webRequest.onBeforeRequest.addListener(
 
     blockedCount++;
     pushState();
+    const logged = netIndex.get(details.requestId);
+    if (logged) logged.blocked = true;
 
     if (details.type === "image") {
       return { redirectUrl:
@@ -382,6 +457,17 @@ browser.runtime.onMessage.addListener(msg => {
   }
   if (msg.type === "purgeCookies") {
     return purgeCookies().then(n => ({ removed: n }));
+  }
+  if (msg.type === "netLog") {
+    const origin = msg.origin || "";
+    const list = netLog.filter(e =>
+      !origin || (e.doc && e.doc.indexOf(origin) === 0) || e.url.indexOf(origin) === 0);
+    return Promise.resolve({ entries: list.slice(-250) });
+  }
+  if (msg.type === "netClear") {
+    netLog.length = 0;
+    netIndex.clear();
+    return Promise.resolve({ ok: true });
   }
   if (msg.type === "gmCommands") {
     if (nativePort) {
