@@ -1,0 +1,9 @@
+# Liste de démarrage (un domaine par ligne). Ajoute les tiennes ou télécharge une liste complète.
+doubleclick.net
+googlesyndication.com
+googleadservices.com
+google-analytics.com
+adservice.google.com
+ads.yahoo.com
+adnxs.com
+scorecardresearch.com

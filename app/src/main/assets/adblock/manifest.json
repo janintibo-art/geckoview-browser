@@ -1,13 +1,11 @@
 {
   "manifest_version": 2,
   "name": "GeckoBlock",
-  "version": "1.1",
-  "description": "Blocage de publicites, de traqueurs et moteur de recherche filtre",
+  "version": "2.0",
+  "description": "Filtrage publicitaire, categories de sites et moteur de recherche",
 
   "browser_specific_settings": {
-    "gecko": {
-      "id": "adblock@geckobrowser"
-    }
+    "gecko": { "id": "adblock@geckobrowser" }
   },
 
   "permissions": [
@@ -19,7 +17,7 @@
   ],
 
   "background": {
-    "scripts": ["rules.js", "background.js"],
+    "scripts": ["rules.js", "categories.js", "background.js"],
     "persistent": true
   },
 
@@ -29,14 +27,19 @@
       "js": ["content.js"],
       "run_at": "document_start",
       "all_frames": true
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["netfilter.js"],
+      "run_at": "document_end",
+      "all_frames": false
     }
   ],
 
   "web_accessible_resources": [
-    "search.html",
-    "search.css",
-    "search.js",
-    "engines.js",
-    "publishers.js"
+    "search.html", "search.css", "search.js",
+    "engines.js", "publishers.js", "categories.js",
+    "blocked.html",
+    "lists/*.txt"
   ]
 }

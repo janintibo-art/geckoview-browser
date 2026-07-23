@@ -1,0 +1,30 @@
+# Médias du groupe Bolloré (via Canal+ et Louis Hachette Group).
+# Liste indicative et ÉDITABLE : l'actionnariat évolue (scission de Vivendi fin 2024),
+# certains titres sont détenus à 100 %, d'autres via des participations. Ajoute ou retire
+# des domaines selon ton choix (ou mets-en un en liste blanche si besoin).
+
+# --- Info / opinion / TV / radio (groupe Canal+ + presse ex-Lagardère) ---
+cnews.fr
+europe1.fr
+lejdd.fr
+canalplus.com
+canalplus.fr
+mycanal.fr
+cstar.fr
+c8.fr
+dailymotion.com
+
+# --- Presse magazine (Prisma Media) ---
+capital.fr
+gala.fr
+femmeactuelle.fr
+geo.fr
+voici.fr
+programme-tv.net
+teleloisirs.fr
+cuisineactuelle.fr
+caminteresse.fr
+neonmag.fr
+prima.fr
+harpersbazaar.fr
+parismatch.com

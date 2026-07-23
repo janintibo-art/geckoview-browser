@@ -1,0 +1,26 @@
+# Réseaux sociaux. Liste éditable.
+# ATTENTION : au niveau DNS, bloquer ces domaines bloque AUSSI les applications
+# correspondantes (Instagram, TikTok…), pas seulement leurs sites web.
+facebook.com
+fb.com
+fbcdn.net
+messenger.com
+instagram.com
+cdninstagram.com
+tiktok.com
+tiktokcdn.com
+x.com
+twitter.com
+t.co
+twimg.com
+snapchat.com
+sc-cdn.net
+reddit.com
+redd.it
+redditstatic.com
+pinterest.com
+pinterest.fr
+linkedin.com
+tumblr.com
+threads.net
+twitch.tv

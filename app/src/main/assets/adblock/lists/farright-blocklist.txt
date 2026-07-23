@@ -1,0 +1,25 @@
+# Médias couramment DÉCRITS comme d'extrême droite par la presse et la recherche
+# (Fondation Jean-Jaurès, Le Monde, Libération, Télérama, catégories Wikipédia...).
+# ATTENTION : c'est la catégorie la plus SUBJECTIVE et CONTESTÉE. Le classement
+# "extrême droite" est un jugement éditorial, pas un fait objectif ; certains titres
+# le contestent. Liste indicative et ÉDITABLE : ajoute/retire à ta convenance.
+
+# --- France ---
+valeursactuelles.com
+frontieresmedia.fr
+causeur.fr
+bvoltaire.fr
+fdesouche.com
+tvlibertes.com
+ripostelaique.com
+egaliteetreconciliation.fr
+rivarol.com
+omerta.media
+frontpopulaire.fr
+
+# --- International (liste non exhaustive) ---
+breitbart.com
+infowars.com
+thegatewaypundit.com
+rebelnews.com
+compact-online.de

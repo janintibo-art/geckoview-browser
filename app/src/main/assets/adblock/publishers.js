@@ -1,156 +1,81 @@
 "use strict";
 
 // ===========================================================================
-//  publishers.js
-//  Deux listes de nature differente. Modifiez-les librement.
+//  publishers.js -- sert uniquement a etiqueter les resultats.
+//  Les listes de filtrage, elles, vivent dans lists/*.txt (voir categories.js).
 // ===========================================================================
 
-// ---------------------------------------------------------------------------
-//  1) GROUPE BOLLORE  --  critere : propriete du capital (fait verifiable)
-//
-//  Perimetre : Vivendi, Canal+, Havas, Louis Hachette Group, Lagardere,
-//  Prisma Media. Le groupe a ete scinde en quatre entites cotees fin 2024,
-//  Vincent Bollore conservant le controle de l'ensemble.
-//  Verifiez l'actualite du capital : les cessions sont frequentes.
-// ---------------------------------------------------------------------------
+// Propriete du capital : fait verifiable, a relire de temps en temps
+// (la scission de Vivendi fin 2024 a redistribue les entites, le controle
+//  de Vincent Bollore s'exerce desormais via plusieurs societes cotees).
 const OWNERSHIP = {
-  "cnews.fr":                 "Canal+ (Bollore)",
-  "canalplus.com":            "Canal+ (Bollore)",
-  "cstar.fr":                 "Canal+ (Bollore)",
-  "mycanal.fr":               "Canal+ (Bollore)",
-  "europe1.fr":               "Lagardere (Bollore)",
-  "europe2.fr":               "Lagardere (Bollore)",
-  "rfm.fr":                   "Lagardere (Bollore)",
-  "virginradio.fr":           "Lagardere (Bollore)",
-  "lejdd.fr":                 "Lagardere (Bollore)",
-  "parismatch.com":           "Lagardere (Bollore)",
-  "capital.fr":               "Prisma Media (Bollore)",
-  "geo.fr":                   "Prisma Media (Bollore)",
-  "gala.fr":                  "Prisma Media (Bollore)",
-  "voici.fr":                 "Prisma Media (Bollore)",
-  "femmeactuelle.fr":         "Prisma Media (Bollore)",
-  "cuisineactuelle.fr":       "Prisma Media (Bollore)",
-  "caminteresse.fr":          "Prisma Media (Bollore)",
-  "programme-tv.net":         "Prisma Media (Bollore)",
-  "nationalgeographic.fr":    "Prisma Media (Bollore)",
-  "hachette.com":             "Louis Hachette Group (Bollore)",
-  "dailymotion.com":          "Vivendi (Bollore)",
-  "havas.com":                "Havas (Bollore)"
+  "cnews.fr":              "Canal+ / Bollore",
+  "canalplus.com":         "Canal+ / Bollore",
+  "canalplus.fr":          "Canal+ / Bollore",
+  "cstar.fr":              "Canal+ / Bollore",
+  "c8.fr":                 "Canal+ / Bollore",
+  "mycanal.fr":            "Canal+ / Bollore",
+  "europe1.fr":            "Lagardere / Bollore",
+  "lejdd.fr":              "Lagardere / Bollore",
+  "parismatch.com":        "Lagardere / Bollore",
+  "capital.fr":            "Prisma / Bollore",
+  "gala.fr":               "Prisma / Bollore",
+  "geo.fr":                "Prisma / Bollore",
+  "voici.fr":              "Prisma / Bollore",
+  "femmeactuelle.fr":      "Prisma / Bollore",
+  "cuisineactuelle.fr":    "Prisma / Bollore",
+  "caminteresse.fr":       "Prisma / Bollore",
+  "programme-tv.net":      "Prisma / Bollore",
+  "teleloisirs.fr":        "Prisma / Bollore",
+  "neonmag.fr":            "Prisma / Bollore",
+  "prima.fr":              "Prisma / Bollore",
+  "harpersbazaar.fr":      "Prisma / Bollore",
+  "dailymotion.com":       "Vivendi / Bollore",
+
+  // Quelques autres concentrations, a titre indicatif
+  "lefigaro.fr":           "Groupe Dassault",
+  "lexpress.fr":           "Alain Weill",
+  "bfmtv.com":             "CMA CGM (Saade)",
+  "rmc.bfmtv.com":         "CMA CGM (Saade)",
+  "latribune.fr":          "CMA CGM (Saade)",
+  "lopinion.fr":           "Bernard Arnault",
+  "lesechos.fr":           "LVMH (Arnault)",
+  "leparisien.fr":         "LVMH (Arnault)",
+  "liberation.fr":         "Fonds de dotation (Kretinsky)",
+  "elle.fr":               "Czech Media Invest (Kretinsky)",
+  "marianne.net":          "Czech Media Invest (Kretinsky)",
+  "lemonde.fr":            "Groupe Le Monde (Niel, Pigasse, Kretinsky)",
+  "nouvelobs.com":         "Groupe Le Monde",
+  "mediapart.fr":          "Fonds pour une presse libre",
+  "arretsurimages.net":    "Independant (abonnements)",
+  "alternatives-economiques.fr": "Cooperative (Scop)",
+  "lemondediplomatique.fr": "Association de lecteurs"
 };
 
-const BOLLORE_DOMAINS = Object.keys(OWNERSHIP);
-
-// ---------------------------------------------------------------------------
-//  2) MEDIAS NATIONALISTES / EXTREME DROITE
-//
-//  ATTENTION : contrairement a la liste ci-dessus, il s'agit d'un classement
-//  editorial, pas d'un fait comptable. Criteres retenus ici :
-//    (a) le media se revendique lui-meme nationaliste, identitaire ou
-//        "dissident" ; ou
-//    (b) il est classe a l'extreme droite de facon convergente par les
-//        travaux universitaires et la presse de reference.
-//  Plusieurs de ces titres contestent publiquement cette etiquette.
-//  Ajoutez ou retirez ce que vous voulez : c'est votre filtre.
-// ---------------------------------------------------------------------------
-const FARRIGHT_DOMAINS = [
-  // France
-  "valeursactuelles.com",
-  "bvoltaire.fr",
-  "fdesouche.com",
-  "ripostelaique.com",
-  "tvlibertes.com",
-  "lesalonbeige.fr",
-  "egaliteetreconciliation.fr",
-  "rivarol.com",
-  "lincorrect.org",
-  "revue-elements.com",
-  "breizh-info.com",
-  "radiocourtoisie.fr",
-  "livrenoir.fr",
-  "frontieres.eu",
-  "ojim.fr",
-  "medias-presse.info",
-  "reinformation.tv",
-  "contre-info.com",
-  "nouvelle-droite.fr",
-  "institut-iliade.com",
-  // Europe
-  "jungefreiheit.de",
-  "pi-news.net",
-  "nius.de",
-  "tichyseinblick.de",
-  "remix.news",
-  "voiceofeurope.com",
-  "gatesofvienna.net",
-  "elmanifiesto.com",
-  "ilprimatonazionale.it",
-  // Amerique du Nord
-  "breitbart.com",
-  "thegatewaypundit.com",
-  "infowars.com",
-  "vdare.com",
-  "amren.com",
-  "takimag.com",
-  "unz.com",
-  "rebelnews.com",
-  "thepostmillennial.com",
-  "bigleaguepolitics.com",
-  "newsmax.com",
-  "oann.com"
-];
-
-// ---------------------------------------------------------------------------
-//  3) VOS AJOUTS PERSONNELS
-//  Le plus simple : ajoutez ici, cela survit aux mises a jour des listes.
-// ---------------------------------------------------------------------------
-const CUSTOM_BLOCKED = [
-  // "exemple.fr",
-];
-
-// ---------------------------------------------------------------------------
-//  Sources alternatives suggerees en remplacement d'un resultat filtre.
-// ---------------------------------------------------------------------------
 const ALTERNATIVES = [
-  { name: "Le Monde",        domain: "lemonde.fr" },
-  { name: "Mediapart",       domain: "mediapart.fr" },
-  { name: "AFP Factuel",     domain: "factuel.afp.com" },
-  { name: "France Info",     domain: "francetvinfo.fr" },
-  { name: "Radio France",    domain: "radiofrance.fr" },
-  { name: "Liberation",      domain: "liberation.fr" },
+  { name: "Le Monde",         domain: "lemonde.fr" },
+  { name: "Mediapart",        domain: "mediapart.fr" },
+  { name: "AFP Factuel",      domain: "factuel.afp.com" },
+  { name: "France Info",      domain: "francetvinfo.fr" },
+  { name: "Radio France",     domain: "radiofrance.fr" },
+  { name: "Arret sur images", domain: "arretsurimages.net" },
   { name: "Alternatives Eco", domain: "alternatives-economiques.fr" },
-  { name: "Arret sur images", domain: "arretsurimages.net" }
+  { name: "Le Diplo",         domain: "lemondediplomatique.fr" }
 ];
 
-// ---------------------------------------------------------------------------
-//  Assemblage
-// ---------------------------------------------------------------------------
-function buildBlockSet(prefs) {
-  const set = new Set();
-  const p = prefs || {};
-  if (p.blockBollore !== false) BOLLORE_DOMAINS.forEach(d => set.add(d));
-  if (p.blockFarRight !== false) FARRIGHT_DOMAINS.forEach(d => set.add(d));
-  CUSTOM_BLOCKED.forEach(d => set.add(d));
-  (p.extra || []).forEach(d => set.add(d.toLowerCase().trim()));
-  (p.allow || []).forEach(d => set.delete(d.toLowerCase().trim()));
-  return set;
-}
-
-function domainMatches(host, set) {
+function ownerOf(host) {
   if (!host) return null;
   host = host.toLowerCase().replace(/^www\./, "");
-  if (set.has(host)) return host;
+  if (OWNERSHIP[host]) return OWNERSHIP[host];
   let i = host.indexOf(".");
   while (i !== -1) {
     const parent = host.slice(i + 1);
-    if (set.has(parent)) return parent;
+    if (OWNERSHIP[parent]) return OWNERSHIP[parent];
     i = host.indexOf(".", i + 1);
   }
   return null;
 }
 
 if (typeof window !== "undefined") {
-  window.PUBLISHERS = {
-    OWNERSHIP, BOLLORE_DOMAINS, FARRIGHT_DOMAINS,
-    CUSTOM_BLOCKED, ALTERNATIVES, buildBlockSet, domainMatches
-  };
+  window.PUBLISHERS = { OWNERSHIP, ALTERNATIVES, ownerOf };
 }

@@ -1,0 +1,29 @@
+# Résolveurs DNS chiffré (DoH/DoT) connus.
+# Les bloquer force les navigateurs (Chrome, Firefox...) à retomber sur le DNS
+# système, que l'app filtre. Heuristique : certains navigateurs gardent des IP
+# de secours en dur et peuvent parfois passer outre.
+cloudflare-dns.com
+mozilla.cloudflare-dns.com
+chrome.cloudflare-dns.com
+one.one.one.one
+dns.google
+dns.google.com
+dns64.dns.google
+doh.opendns.com
+doh.familyshield.opendns.com
+dns.quad9.net
+dns9.quad9.net
+dns10.quad9.net
+dns11.quad9.net
+dns.adguard.com
+dns-family.adguard.com
+dns-unfiltered.adguard.com
+doh.cleanbrowsing.org
+doh.dns.sb
+dns.nextdns.io
+firefox.dns.nextdns.io
+doh.libredns.gr
+dns.digitale-gesellschaft.ch
+odvr.nic.cz
+doh.mullvad.net
+dns.controld.com

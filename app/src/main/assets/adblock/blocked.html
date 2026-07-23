@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Site filtre</title>
+<style>
+  body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+         background:#14161a; color:#e8eaee; text-align:center;
+         font:15px/1.6 -apple-system,Roboto,"Segoe UI",sans-serif; }
+  .box { max-width:400px; padding:34px 24px; }
+  .icon { font-size:46px; margin-bottom:10px; color:#6fae5f; }
+  h1 { font-size:20px; margin:0 0 8px; }
+  .host { font-weight:700; font-size:17px; word-break:break-all; margin:0 0 4px; }
+  .via { color:#99a0ad; font-size:13px; margin:0 0 26px; }
+  button { margin:5px; padding:11px 20px; border-radius:9px; font-size:14px; border:0; }
+  #back { background:#6fae5f; color:#10130f; font-weight:600; }
+  #go { background:transparent; border:1px solid #2b303a; color:#99a0ad; }
+  .note { color:#5f6874; font-size:12px; margin-top:22px; line-height:1.5; }
+</style>
+</head>
+<body>
+<div class="box">
+  <div class="icon">&#9960;</div>
+  <h1>Site filtre</h1>
+  <p class="host" id="host"></p>
+  <p class="via" id="via"></p>
+  <button id="back">Retour</button>
+  <button id="go">Voir quand meme</button>
+  <p class="note">
+    « Voir quand meme » debloque ce site jusqu'au redemarrage du navigateur.
+    Pour le retirer definitivement, modifiez la liste dans les filtres.
+  </p>
+</div>
+<script>
+  const p = new URLSearchParams(location.search);
+  const host = p.get("host") || "";
+  const via = p.get("via") || "";
+  const to = p.get("to") || "";
+
+  document.getElementById("host").textContent = host;
+  document.getElementById("via").textContent =
+    via && via !== host ? "correspond a la regle : " + via : "";
+
+  document.getElementById("back").onclick = () => {
+    if (history.length > 1) history.back();
+    else location.href = browser.runtime.getURL("search.html");
+  };
+
+  document.getElementById("go").onclick = async () => {
+    try { await browser.runtime.sendMessage({ type: "bypass", host: host }); } catch (e) {}
+    location.href = to || ("https://" + host);
+  };
+</script>
+</body>
+</html>

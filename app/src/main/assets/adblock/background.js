@@ -1,34 +1,29 @@
 "use strict";
 
-// ---------------------------------------------------------------------------
-// Etat
-// ---------------------------------------------------------------------------
+// ===========================================================================
+//  background.js
+//  Trois roles :
+//   1. blocage des requetes publicitaires et de pistage (GeckoBlock)
+//   2. blocage de la navigation par categories (portage de NetFilter)
+//   3. identite du navigateur et remontee des compteurs vers l'app
+// ===========================================================================
+
 let enabled = true;
 let blockedCount = 0;
 let nativePort = null;
 
-const blockedDomains = new Set(SEED_DOMAINS.map(d => d.toLowerCase()));
+const adDomains = new Set(SEED_DOMAINS.map(d => d.toLowerCase()));
 const allowDomains = new Set(ALLOWLIST.map(d => d.toLowerCase()));
 
-// Editeurs dont la navigation est bloquee (pilote depuis la page de recherche)
-let navBlock = new Set();
+let navSet = new Set();      // categories bloquant la navigation
+let hideSet = new Set();     // categories masquees dans les pages/resultats
+let catState = {};
+let userExtra = [];
+let userAllow = [];
+let identity = "auto";       // auto | desktop | mobile
 
-async function loadNavBlock() {
-  try {
-    const s = await browser.storage.local.get("navBlockList");
-    navBlock = new Set((s && s.navBlockList) || []);
-  } catch (e) {
-    navBlock = new Set();
-  }
-}
+const bypass = new Set();    // sites debloques jusqu'au redemarrage
 
-browser.storage.onChanged.addListener(changes => {
-  if (changes.navBlockList) {
-    navBlock = new Set(changes.navBlockList.newValue || []);
-  }
-});
-
-// Sources distantes au format "hosts" (mises a jour toutes les 24 h)
 const REMOTE_LISTS = [
   "https://adaway.org/hosts.txt",
   "https://pgl.yoyo.org/adservers/serverlist.php?hostformat=hosts&showintro=0&mimetype=plaintext"
@@ -36,73 +31,87 @@ const REMOTE_LISTS = [
 const REFRESH_MS = 24 * 60 * 60 * 1000;
 const MAX_ENTRIES = 300000;
 
+const UA_DESKTOP = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0";
+const UA_MOBILE  = "Mozilla/5.0 (Android 14; Mobile; rv:128.0) Gecko/20100101 Firefox/128.0";
+
 // ---------------------------------------------------------------------------
-// Utilitaires
+//  Utilitaires
 // ---------------------------------------------------------------------------
 function hostOf(url) {
-  try {
-    return new URL(url).hostname.toLowerCase();
-  } catch (e) {
-    return "";
-  }
+  try { return new URL(url).hostname.toLowerCase().replace(/^www\./, ""); }
+  catch (e) { return ""; }
 }
 
-// Retourne le domaine enregistrable approximatif (suffisant pour le 1st-party)
 function baseDomain(host) {
-  const parts = host.split(".");
-  if (parts.length <= 2) return host;
-  const twoLevel = ["co.uk", "com.au", "co.jp", "com.br", "co.nz", "org.uk", "gov.uk", "ac.uk"];
-  const last2 = parts.slice(-2).join(".");
-  if (twoLevel.includes(last2) && parts.length >= 3) {
-    return parts.slice(-3).join(".");
-  }
-  return last2;
+  const p = host.split(".");
+  if (p.length <= 2) return host;
+  const two = ["co.uk", "com.au", "co.jp", "com.br", "co.nz", "org.uk", "gov.uk", "ac.uk"];
+  const last2 = p.slice(-2).join(".");
+  return (two.includes(last2) && p.length >= 3) ? p.slice(-3).join(".") : last2;
 }
 
 function inSet(host, set) {
-  if (!host) return false;
+  if (!host || !set.size) return false;
   if (set.has(host)) return true;
-  let idx = host.indexOf(".");
-  while (idx !== -1) {
-    const parent = host.slice(idx + 1);
-    if (set.has(parent)) return true;
-    idx = host.indexOf(".", idx + 1);
+  let i = host.indexOf(".");
+  while (i !== -1) {
+    if (set.has(host.slice(i + 1))) return true;
+    i = host.indexOf(".", i + 1);
   }
   return false;
 }
 
 function matchesPattern(url) {
-  for (const re of URL_PATTERNS) {
-    if (re.test(url)) return true;
-  }
+  for (const re of URL_PATTERNS) if (re.test(url)) return true;
   return false;
 }
 
 // ---------------------------------------------------------------------------
-// Pont natif vers l'application Android
+//  Categories
+// ---------------------------------------------------------------------------
+async function rebuildSets() {
+  catState = await CAT_API.getCatState();
+  try {
+    const s = await browser.storage.local.get(["pageExtra", "pageAllow", "identity"]);
+    userExtra = (s && s.pageExtra) || [];
+    userAllow = (s && s.pageAllow) || [];
+    identity = (s && s.identity) || "auto";
+  } catch (e) { }
+
+  navSet = await CAT_API.buildSet("nav", catState, userExtra, userAllow);
+  hideSet = await CAT_API.buildSet("search", catState, userExtra, userAllow);
+
+  // Les domaines de la categorie "ads" alimentent aussi le filtre reseau.
+  (CAT_API.CAT_DOMAINS.ads || []).forEach(d => adDomains.add(d));
+
+  // Liste partagee avec les scripts de contenu et la page de recherche.
+  try { await browser.storage.local.set({ hideList: Array.from(hideSet) }); }
+  catch (e) { }
+
+  pushState();
+}
+
+browser.storage.onChanged.addListener(changes => {
+  if (changes.catState || changes.pageExtra || changes.pageAllow || changes.identity) {
+    rebuildSets();
+  }
+});
+
+// ---------------------------------------------------------------------------
+//  Pont natif vers l'application
 // ---------------------------------------------------------------------------
 function connectNative() {
   try {
     nativePort = browser.runtime.connectNative("browser");
     nativePort.onMessage.addListener(msg => {
       if (!msg) return;
-      if (msg.type === "setEnabled") {
-        enabled = !!msg.value;
-        pushState();
-      } else if (msg.type === "resetCount") {
-        blockedCount = 0;
-        pushState();
-      } else if (msg.type === "getState") {
-        pushState();
-      }
+      if (msg.type === "setEnabled") { enabled = !!msg.value; pushState(); }
+      else if (msg.type === "resetCount") { blockedCount = 0; pushState(); }
+      else if (msg.type === "getState") pushState();
     });
-    nativePort.onDisconnect.addListener(() => {
-      nativePort = null;
-    });
+    nativePort.onDisconnect.addListener(() => { nativePort = null; });
     pushState();
-  } catch (e) {
-    nativePort = null;
-  }
+  } catch (e) { nativePort = null; }
 }
 
 let pushTimer = null;
@@ -113,19 +122,15 @@ function pushState() {
     if (!nativePort) return;
     try {
       nativePort.postMessage({
-        type: "state",
-        blocked: blockedCount,
-        enabled: enabled,
-        rules: blockedDomains.size
+        type: "state", blocked: blockedCount, enabled: enabled,
+        rules: adDomains.size + navSet.size
       });
-    } catch (e) {
-      nativePort = null;
-    }
+    } catch (e) { nativePort = null; }
   }, 250);
 }
 
 // ---------------------------------------------------------------------------
-// Blocage reseau
+//  Blocage des requetes
 // ---------------------------------------------------------------------------
 browser.webRequest.onBeforeRequest.addListener(
   details => {
@@ -133,53 +138,46 @@ browser.webRequest.onBeforeRequest.addListener(
 
     const url = details.url;
     if (url.startsWith("data:") || url.startsWith("blob:") ||
-        url.startsWith("moz-extension:") || url.startsWith("about:")) {
-      return {};
-    }
+        url.startsWith("moz-extension:") || url.startsWith("about:")) return {};
 
     const host = hostOf(url);
-    if (!host || inSet(host, allowDomains)) return {};
+    if (!host) return {};
 
-    // Navigation principale : bloquee uniquement si l'utilisateur a active
-    // le blocage des editeurs filtres depuis la page de recherche.
+    // --- Navigation principale : categories de sites ---
     if (details.type === "main_frame") {
-      if (navBlock.size && inSet(host, navBlock)) {
+      if (bypass.has(host)) return {};
+      const hit = CAT_API.hostMatches(host, navSet);
+      if (hit) {
+        blockedCount++;
+        pushState();
         return {
-          redirectUrl: "data:text/html;charset=utf-8," + encodeURIComponent(
-            "<html><head><meta name=viewport content='width=device-width'>" +
-            "<style>body{background:#14161a;color:#e8eaee;font:15px sans-serif;" +
-            "padding:40px 22px;line-height:1.6}b{color:#6fae5f}</style></head><body>" +
-            "<p><b>Site filtre</b></p><p>" + host + " figure dans vos listes " +
-            "d'editeurs masques.</p><p style='color:#99a0ad;font-size:13px'>" +
-            "Retirez le domaine dans les filtres du moteur de recherche pour " +
-            "y acceder.</p></body></html>")
+          redirectUrl: browser.runtime.getURL("blocked.html") +
+            "?host=" + encodeURIComponent(host) +
+            "&via=" + encodeURIComponent(hit) +
+            "&to=" + encodeURIComponent(url)
         };
       }
       return {};
     }
 
-    // Requete de premiere partie : on ne bloque que sur motif d'URL explicite.
+    if (inSet(host, allowDomains)) return {};
+
     const originHost = details.documentUrl ? hostOf(details.documentUrl) : "";
     const firstParty = originHost && baseDomain(originHost) === baseDomain(host);
 
     let block = false;
-    if (inSet(host, blockedDomains)) {
-      block = true;
-    } else if (!firstParty && matchesPattern(url)) {
-      block = true;
-    }
+    if (inSet(host, adDomains)) block = true;
+    else if (inSet(host, navSet)) block = true;      // ressources des sites filtres
+    else if (!firstParty && matchesPattern(url)) block = true;
 
     if (!block) return {};
 
     blockedCount++;
     pushState();
 
-    // Image/frame : reponse vide pour eviter les trous de mise en page.
     if (details.type === "image") {
-      return {
-        redirectUrl:
-          "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
-      };
+      return { redirectUrl:
+        "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" };
     }
     if (details.type === "sub_frame") {
       return { redirectUrl: "data:text/html,<html><body></body></html>" };
@@ -190,16 +188,30 @@ browser.webRequest.onBeforeRequest.addListener(
   ["blocking"]
 );
 
-// Suppression des en-tetes de pistage sortants
+// ---------------------------------------------------------------------------
+//  En-tetes : pistage et identite du navigateur
+// ---------------------------------------------------------------------------
 browser.webRequest.onBeforeSendHeaders.addListener(
   details => {
-    if (!enabled) return {};
     const headers = details.requestHeaders.filter(h => {
       const n = h.name.toLowerCase();
-      return n !== "x-client-data" && n !== "dnt-hash";
+      return n !== "x-client-data";
     });
-    headers.push({ name: "DNT", value: "1" });
-    headers.push({ name: "Sec-GPC", value: "1" });
+
+    if (enabled) {
+      headers.push({ name: "DNT", value: "1" });
+      headers.push({ name: "Sec-GPC", value: "1" });
+    }
+
+    if (identity === "desktop" || identity === "mobile") {
+      const ua = identity === "desktop" ? UA_DESKTOP : UA_MOBILE;
+      let found = false;
+      for (const h of headers) {
+        if (h.name.toLowerCase() === "user-agent") { h.value = ua; found = true; }
+      }
+      if (!found) headers.push({ name: "User-Agent", value: ua });
+    }
+
     return { requestHeaders: headers };
   },
   { urls: ["<all_urls>"] },
@@ -207,98 +219,90 @@ browser.webRequest.onBeforeSendHeaders.addListener(
 );
 
 // ---------------------------------------------------------------------------
-// Listes distantes
+//  Listes distantes de publicite
 // ---------------------------------------------------------------------------
-function parseHostsFile(text) {
+function parseHosts(text) {
   const out = [];
-  const lines = text.split("\n");
-  for (let i = 0; i < lines.length; i++) {
-    let line = lines[i];
-    const hash = line.indexOf("#");
-    if (hash !== -1) line = line.slice(0, hash);
+  for (let line of text.split("\n")) {
+    const h = line.indexOf("#");
+    if (h !== -1) line = line.slice(0, h);
     line = line.trim();
     if (!line) continue;
     const parts = line.split(/\s+/);
-    let domain = parts.length >= 2 ? parts[1] : parts[0];
-    if (!domain) continue;
-    domain = domain.toLowerCase();
-    if (domain === "localhost" || domain === "localhost.localdomain" ||
-        domain === "broadcasthost" || domain === "0.0.0.0" || domain === "::1") {
-      continue;
-    }
-    if (domain.indexOf(".") === -1) continue;
-    out.push(domain);
+    let d = (parts.length >= 2 ? parts[1] : parts[0]).toLowerCase();
+    if (!d || d.indexOf(".") === -1) continue;
+    if (["localhost", "localhost.localdomain", "broadcasthost", "0.0.0.0", "::1"].includes(d)) continue;
+    out.push(d);
   }
   return out;
 }
 
-function ingest(domains) {
-  for (const d of domains) {
-    if (blockedDomains.size >= MAX_ENTRIES) break;
-    if (!allowDomains.has(d)) blockedDomains.add(d);
+function ingest(list) {
+  for (const d of list) {
+    if (adDomains.size >= MAX_ENTRIES) break;
+    if (!allowDomains.has(d)) adDomains.add(d);
   }
 }
 
-async function refreshLists(force) {
+async function refreshLists() {
   try {
     const store = await browser.storage.local.get(["ts", "domains"]);
-    const fresh = store.ts && Date.now() - store.ts < REFRESH_MS;
-
-    if (fresh && Array.isArray(store.domains) && !force) {
+    if (store.ts && Date.now() - store.ts < REFRESH_MS && Array.isArray(store.domains)) {
       ingest(store.domains);
       pushState();
       return;
     }
-
     const collected = [];
     for (const url of REMOTE_LISTS) {
       try {
-        const resp = await fetch(url, { cache: "no-cache" });
-        if (!resp.ok) continue;
-        const text = await resp.text();
-        const parsed = parseHostsFile(text);
-        collected.push(...parsed);
-      } catch (e) {
-        // source indisponible : on continue avec les autres
-      }
+        const r = await fetch(url, { cache: "no-cache" });
+        if (r.ok) collected.push(...parseHosts(await r.text()));
+      } catch (e) { }
     }
-
     if (collected.length) {
       ingest(collected);
-      await browser.storage.local.set({
-        ts: Date.now(),
-        domains: collected.slice(0, MAX_ENTRIES)
-      });
+      await browser.storage.local.set({ ts: Date.now(), domains: collected.slice(0, MAX_ENTRIES) });
     } else if (Array.isArray(store.domains)) {
       ingest(store.domains);
     }
     pushState();
-  } catch (e) {
-    pushState();
-  }
+  } catch (e) { pushState(); }
 }
 
 // ---------------------------------------------------------------------------
-// Messages des scripts de contenu
+//  Messages des pages internes et scripts de contenu
 // ---------------------------------------------------------------------------
 browser.runtime.onMessage.addListener(msg => {
-  if (msg && msg.type === "cosmetic") {
+  if (!msg) return;
+  if (msg.type === "cosmetic") {
     blockedCount += msg.count || 0;
     pushState();
   }
-  if (msg && msg.type === "getConfig") {
+  if (msg.type === "getConfig") {
     return Promise.resolve({
       enabled: enabled,
       selectors: COSMETIC_SELECTORS,
       overlays: OVERLAY_SELECTORS
     });
   }
+  if (msg.type === "bypass" && msg.host) {
+    bypass.add(String(msg.host).toLowerCase().replace(/^www\./, ""));
+    return Promise.resolve({ ok: true });
+  }
+  if (msg.type === "stats") {
+    return Promise.resolve({
+      blocked: blockedCount,
+      adRules: adDomains.size,
+      navRules: navSet.size,
+      categories: catState
+    });
+  }
 });
 
 // ---------------------------------------------------------------------------
-// Demarrage
+//  Demarrage
 // ---------------------------------------------------------------------------
 connectNative();
-loadNavBlock();
-refreshLists(false);
-setInterval(() => refreshLists(false), REFRESH_MS);
+rebuildSets();
+refreshLists();
+setInterval(refreshLists, REFRESH_MS);

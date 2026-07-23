@@ -10,7 +10,7 @@
 
 <header id="head">
   <form id="form" autocomplete="off">
-    <input id="q" type="search" placeholder="Rechercher sans Bollore" enterkeyhint="search" autofocus>
+    <input id="q" type="search" placeholder="Rechercher" enterkeyhint="search" autofocus>
     <button id="submit" type="submit" aria-label="Rechercher">&#8594;</button>
   </form>
   <div id="tools">
@@ -21,29 +21,46 @@
 </header>
 
 <section id="prefs" hidden>
-  <label><input type="checkbox" id="opt-bollore" checked> Masquer les medias du groupe Bollore</label>
-  <label><input type="checkbox" id="opt-farright" checked> Masquer les medias nationalistes / extreme droite</label>
-  <label><input type="checkbox" id="opt-badge" checked> Afficher le proprietaire des autres resultats</label>
-  <label><input type="checkbox" id="opt-navblock"> Bloquer aussi la navigation vers ces sites</label>
+  <h3>Categories filtrees</h3>
+  <div id="cats"></div>
+
+  <h3>Comportement</h3>
+  <label><input type="checkbox" id="opt-badge" checked> Afficher le proprietaire des medias</label>
+  <label><input type="checkbox" id="opt-cookies" checked> Masquer les bannieres cookies</label>
+  <label><input type="checkbox" id="opt-clickbait" checked> Masquer les blocs de clickbait</label>
+  <label><input type="checkbox" id="opt-cleanurls" checked> Nettoyer les URL de suivi</label>
+  <label><input type="checkbox" id="opt-hidesearch" checked> Masquer les sites filtres dans les recherches externes</label>
+
+  <h3>Identite du navigateur</h3>
+  <div id="ident">
+    <label><input type="radio" name="id" value="auto" checked> Automatique</label>
+    <label><input type="radio" name="id" value="mobile"> Telephone</label>
+    <label><input type="radio" name="id" value="desktop"> Ordinateur</label>
+  </div>
+
   <div class="field">
-    <span>Domaines a masquer en plus (un par ligne)</span>
+    <span>Domaines a filtrer en plus (un par ligne)</span>
     <textarea id="opt-extra" rows="3" placeholder="exemple.fr"></textarea>
   </div>
   <div class="field">
-    <span>Domaines a ne jamais masquer</span>
+    <span>Domaines a ne jamais filtrer</span>
     <textarea id="opt-allow" rows="2" placeholder="exemple.fr"></textarea>
   </div>
+
   <button id="prefs-save">Enregistrer</button>
   <p class="note">
-    La liste Bollore repose sur la propriete du capital, verifiable.
-    La seconde liste est un classement editorial : certains titres la contestent.
-    Les deux sont modifiables dans <code>publishers.js</code>.
+    Les domaines de chaque categorie sont dans <code>assets/adblock/lists/*.txt</code>,
+    un par ligne. La liste Bollore repose sur la propriete du capital ;
+    la liste « extreme droite » est un classement editorial, conteste par
+    plusieurs des titres concernes.
   </p>
+  <p class="note" id="stats"></p>
 </section>
 
 <main id="out"></main>
 <footer id="foot"></footer>
 
+<script src="categories.js"></script>
 <script src="publishers.js"></script>
 <script src="engines.js"></script>
 <script src="search.js"></script>

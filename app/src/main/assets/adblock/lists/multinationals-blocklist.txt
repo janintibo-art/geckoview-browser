@@ -1,0 +1,45 @@
+# Grandes multinationales (sites de marques). Liste indicative et ÉDITABLE.
+# NOTE : j'ai VOLONTAIREMENT exclu les géants d'infrastructure (Google, Amazon,
+# Microsoft, Apple, Meta, Cloudflare...) car les bloquer au DNS casse une énorme
+# partie du web (connexions, CDN, vidéos intégrées). Ajoute-les toi-même si tu y tiens.
+
+# --- Alimentaire / boissons ---
+mcdonalds.com
+kfc.com
+burgerking.com
+subway.com
+nestle.com
+coca-cola.com
+coca-colacompany.com
+pepsi.com
+pepsico.com
+danone.com
+mondelezinternational.com
+unilever.com
+kelloggs.com
+mars.com
+redbull.com
+starbucks.com
+
+# --- Mode / distribution ---
+nike.com
+adidas.com
+zara.com
+hm.com
+primark.com
+uniqlo.com
+shein.com
+gap.com
+
+# --- Énergie / pétrole ---
+totalenergies.com
+shell.com
+bp.com
+exxonmobil.com
+chevron.com
+
+# --- Divers ---
+loreal.com
+pg.com
+philipmorrisinternational.com
+nestleusa.com

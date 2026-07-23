@@ -1,51 +1,98 @@
 "use strict";
 
-const { ENGINES, fetchDoc, fetchNews, instantAnswer, resolveBang, hostOf, clean } = window.ENGINE_API;
+const { ENGINES, fetchDoc, fetchNews, instantAnswer, resolveBang, hostOf } = window.ENGINE_API;
 const P = window.PUBLISHERS;
+const C = window.CAT_API;
 
-const $ = sel => document.querySelector(sel);
+const $ = s => document.querySelector(s);
 const out = $("#out"), foot = $("#foot"), qBox = $("#q");
 
 let scope = "web";
-let prefs = {
-  blockBollore: true,
-  blockFarRight: true,
-  showBadge: true,
-  navBlock: false,
-  extra: [],
-  allow: []
-};
+let catState = {};
+let filterSet = new Set();
+let pageCfg = { hideSearch: true, cookies: true, clickbait: true, cleanurls: true, hideAll: false };
+let showBadge = true;
+let identity = "auto";
+let extra = [], allow = [];
 
 // ---------------------------------------------------------------------------
 //  Preferences
 // ---------------------------------------------------------------------------
+function renderCategories() {
+  const box = $("#cats");
+  box.innerHTML = "";
+  C.CATEGORIES.forEach(cat => {
+    const n = (C.CAT_DOMAINS[cat.id] || []).length;
+    const row = document.createElement("label");
+    row.innerHTML =
+      `<input type="checkbox" data-cat="${cat.id}" ${catState[cat.id] ? "checked" : ""}>
+       <span>${cat.name} <i class="count">${n}</i>${
+         cat.warn ? `<em class="warn">${cat.warn}</em>` : ""}</span>`;
+    box.appendChild(row);
+  });
+}
+
 async function loadPrefs() {
+  catState = await C.getCatState();
+  await C.loadAllCategories();
+
   try {
-    const s = await browser.storage.local.get("searchPrefs");
-    if (s && s.searchPrefs) prefs = Object.assign(prefs, s.searchPrefs);
-  } catch (e) { /* stockage indisponible */ }
-  $("#opt-bollore").checked  = prefs.blockBollore;
-  $("#opt-farright").checked = prefs.blockFarRight;
-  $("#opt-badge").checked    = prefs.showBadge;
-  $("#opt-navblock").checked = prefs.navBlock;
-  $("#opt-extra").value      = (prefs.extra || []).join("\n");
-  $("#opt-allow").value      = (prefs.allow || []).join("\n");
+    const s = await browser.storage.local.get(
+      ["pageCfg", "pageExtra", "pageAllow", "identity", "showBadge"]);
+    if (s.pageCfg) pageCfg = Object.assign(pageCfg, s.pageCfg);
+    extra = s.pageExtra || [];
+    allow = s.pageAllow || [];
+    identity = s.identity || "auto";
+    showBadge = s.showBadge !== false;
+  } catch (e) { }
+
+  renderCategories();
+  $("#opt-badge").checked      = showBadge;
+  $("#opt-cookies").checked    = pageCfg.cookies;
+  $("#opt-clickbait").checked  = pageCfg.clickbait;
+  $("#opt-cleanurls").checked  = pageCfg.cleanurls;
+  $("#opt-hidesearch").checked = pageCfg.hideSearch;
+  $("#opt-extra").value = extra.join("\n");
+  $("#opt-allow").value = allow.join("\n");
+  const radio = document.querySelector(`#ident input[value="${identity}"]`);
+  if (radio) radio.checked = true;
+
+  filterSet = await C.buildSet("search", catState, extra, allow);
+  showStats();
+}
+
+async function showStats() {
+  try {
+    const st = await browser.runtime.sendMessage({ type: "stats" });
+    if (st) {
+      $("#stats").textContent =
+        `${st.adRules} regles publicitaires · ${st.navRules} domaines filtres · ` +
+        `${st.blocked} elements bloques depuis le demarrage`;
+    }
+  } catch (e) { }
 }
 
 async function savePrefs() {
-  prefs.blockBollore  = $("#opt-bollore").checked;
-  prefs.blockFarRight = $("#opt-farright").checked;
-  prefs.showBadge     = $("#opt-badge").checked;
-  prefs.navBlock      = $("#opt-navblock").checked;
-  prefs.extra = $("#opt-extra").value.split("\n").map(s => s.trim()).filter(Boolean);
-  prefs.allow = $("#opt-allow").value.split("\n").map(s => s.trim()).filter(Boolean);
+  document.querySelectorAll("#cats input[data-cat]").forEach(cb => {
+    catState[cb.dataset.cat] = cb.checked;
+  });
+  pageCfg.cookies    = $("#opt-cookies").checked;
+  pageCfg.clickbait  = $("#opt-clickbait").checked;
+  pageCfg.cleanurls  = $("#opt-cleanurls").checked;
+  pageCfg.hideSearch = $("#opt-hidesearch").checked;
+  showBadge = $("#opt-badge").checked;
+  identity = (document.querySelector("#ident input:checked") || {}).value || "auto";
+  extra = $("#opt-extra").value.split("\n").map(s => s.trim()).filter(Boolean);
+  allow = $("#opt-allow").value.split("\n").map(s => s.trim()).filter(Boolean);
+
+  await C.setCatState(catState);
   try {
-    await browser.storage.local.set({ searchPrefs: prefs });
-    // Transmet la liste au bloqueur reseau si le blocage navigation est actif.
     await browser.storage.local.set({
-      navBlockList: prefs.navBlock ? Array.from(P.buildBlockSet(prefs)) : []
+      pageCfg, pageExtra: extra, pageAllow: allow, identity, showBadge
     });
-  } catch (e) { /* ignore */ }
+  } catch (e) { }
+
+  filterSet = await C.buildSet("search", catState, extra, allow);
   $("#prefs").hidden = true;
   if (qBox.value.trim()) run(qBox.value.trim());
 }
@@ -59,50 +106,38 @@ function normUrl(u) {
     x.hash = "";
     ["utm_source","utm_medium","utm_campaign","utm_term","utm_content",
      "gclid","fbclid","ref","spm"].forEach(p => x.searchParams.delete(p));
-    let s = x.toString();
-    return s.replace(/\/$/, "").replace(/^https?:\/\/(www\.)?/, "");
+    return x.toString().replace(/\/$/, "").replace(/^https?:\/\/(www\.)?/, "");
   } catch (e) { return u; }
 }
 
 async function gather(query) {
-  const jobs = ENGINES.map(async eng => {
+  const packs = await Promise.all(ENGINES.map(async eng => {
     try {
       const doc = await fetchDoc(eng.url(query));
-      return eng.parse(doc).slice(0, 15).map((r, i) => ({
-        ...r, engine: eng.label, rank: i
-      }));
-    } catch (e) {
-      return [];
-    }
-  });
-  const packs = await Promise.all(jobs);
+      return eng.parse(doc).slice(0, 15).map((r, i) => ({ ...r, engine: eng.label, rank: i }));
+    } catch (e) { return []; }
+  }));
   return packs.flat();
 }
 
 function merge(raw) {
-  const byKey = new Map();
+  const map = new Map();
   for (const r of raw) {
     if (!r.url || !r.title) continue;
     const key = normUrl(r.url);
-    if (byKey.has(key)) {
-      const ex = byKey.get(key);
+    if (map.has(key)) {
+      const ex = map.get(key);
       if (!ex.sources.includes(r.engine)) ex.sources.push(r.engine);
       ex.score += 1 / (r.rank + 2);
-      if (r.snippet && r.snippet.length > (ex.snippet || "").length) ex.snippet = r.snippet;
+      if (r.snippet && r.snippet.length > ex.snippet.length) ex.snippet = r.snippet;
     } else {
-      byKey.set(key, {
-        url: r.url,
-        title: r.title,
-        snippet: r.snippet || "",
-        host: hostOf(r.url),
-        sources: [r.engine],
-        score: 1 / (r.rank + 1)
+      map.set(key, {
+        url: r.url, title: r.title, snippet: r.snippet || "",
+        host: hostOf(r.url), sources: [r.engine], score: 1 / (r.rank + 1)
       });
     }
   }
-
-  const list = Array.from(byKey.values());
-  // Bonus d'accord inter-moteurs, malus de sur-representation d'un domaine.
+  const list = Array.from(map.values());
   const seen = {};
   list.forEach(r => {
     r.score += (r.sources.length - 1) * 0.6;
@@ -113,18 +148,12 @@ function merge(raw) {
 }
 
 function applyFilter(list) {
-  const blockSet = P.buildBlockSet(prefs);
   const kept = [], removed = [];
   for (const r of list) {
-    const hit = P.domainMatches(r.host, blockSet);
-    if (hit) {
-      r.blockedBy = hit;
-      r.owner = P.OWNERSHIP[hit] || "classe extreme droite";
-      removed.push(r);
-    } else {
-      r.owner = P.OWNERSHIP[P.domainMatches(r.host, new Set(P.BOLLORE_DOMAINS))] || null;
-      kept.push(r);
-    }
+    const hit = C.hostMatches(r.host, filterSet);
+    r.owner = P.ownerOf(r.host);
+    if (hit) { r.rule = hit; removed.push(r); }
+    else kept.push(r);
   }
   return { kept, removed };
 }
@@ -138,8 +167,7 @@ function esc(s) {
 }
 
 function renderResult(r) {
-  const badge = (prefs.showBadge && r.owner)
-    ? `<span class="owner">— ${esc(r.owner)}</span>` : "";
+  const badge = (showBadge && r.owner) ? `<span class="owner">— ${esc(r.owner)}</span>` : "";
   return `<div class="res">
     <div class="host">${esc(r.host)} ${badge}</div>
     <a class="t" href="${esc(r.url)}">${esc(r.title)}</a>
@@ -150,19 +178,12 @@ function renderResult(r) {
 
 function renderFiltered(removed) {
   if (!removed.length) return "";
-  const byOwner = {};
-  removed.forEach(r => {
-    byOwner[r.owner] = byOwner[r.owner] || new Set();
-    byOwner[r.owner].add(r.host);
-  });
-  const lines = Object.entries(byOwner)
-    .map(([owner, hosts]) => `<li>${esc(Array.from(hosts).join(", "))} <i>(${esc(owner)})</i></li>`)
-    .join("");
+  const hosts = Array.from(new Set(removed.map(r => r.host)));
   const alts = P.ALTERNATIVES.slice(0, 5)
     .map(a => `<a href="https://${a.domain}">${esc(a.name)}</a>`).join("");
   return `<div class="filtered">
-    <b>${removed.length} resultat(s) masque(s)</b> par vos filtres :
-    <ul>${lines}</ul>
+    <b>${removed.length} resultat(s) masque(s)</b> :
+    ${esc(hosts.slice(0, 8).join(", "))}${hosts.length > 8 ? "…" : ""}
     <div class="alts">${alts}</div>
     <button id="reveal">Afficher quand meme</button>
   </div>`;
@@ -210,13 +231,10 @@ async function run(query) {
                  : `<div class="msg">Tous les resultats ont ete filtres.</div>`);
 
   const btn = $("#reveal");
-  if (btn) {
-    btn.onclick = () => {
-      btn.closest(".filtered").insertAdjacentHTML(
-        "afterend", removed.map(renderResult).join(""));
-      btn.remove();
-    };
-  }
+  if (btn) btn.onclick = () => {
+    btn.closest(".filtered").insertAdjacentHTML("afterend", removed.map(renderResult).join(""));
+    btn.remove();
+  };
 
   const engines = new Set();
   merged.forEach(r => r.sources.forEach(s => engines.add(s)));
@@ -244,18 +262,20 @@ document.querySelectorAll(".chip[data-scope]").forEach(c => {
 
 $("#prefs-btn").addEventListener("click", () => {
   $("#prefs").hidden = !$("#prefs").hidden;
+  if (!$("#prefs").hidden) showStats();
 });
 $("#prefs-save").addEventListener("click", savePrefs);
 
 (async function init() {
   await loadPrefs();
   document.querySelector(".chip[data-scope='web']").classList.add("on");
+  if (location.hash === "#filtres") $("#prefs").hidden = false;
   const params = new URLSearchParams(location.search);
-  const q = params.get("q");
   if (params.get("s")) {
     scope = params.get("s");
     document.querySelectorAll(".chip[data-scope]").forEach(x =>
       x.classList.toggle("on", x.dataset.scope === scope));
   }
+  const q = params.get("q");
   if (q) { qBox.value = q; run(q); }
 })();

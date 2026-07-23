@@ -175,3 +175,30 @@ html, body {
 @keyframes r { to { transform: rotate(360deg); } }
 
 #foot { padding: 0 12px 30px; font-size: 12px; color: var(--dim); }
+
+/* --- ajouts : categories, identite --- */
+#prefs h3 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--dim);
+  margin: 16px 0 8px;
+}
+#prefs h3:first-child { margin-top: 0; }
+#cats label span { display: block; }
+.count {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--dim);
+  margin-left: 5px;
+}
+.warn {
+  display: block;
+  font-style: normal;
+  font-size: 11px;
+  color: var(--warn);
+  margin-top: 2px;
+  line-height: 1.4;
+}
+#ident { display: flex; gap: 14px; flex-wrap: wrap; }
+#ident label { margin-bottom: 4px; font-size: 13px; }
