@@ -56,10 +56,17 @@
   function killStickyBanners() {
     if (!active) return;
     const vh = window.innerHeight;
-    const nodes = document.querySelectorAll("div,section,aside");
+    // Presel ection par attribut : appeler getComputedStyle sur tous les div
+    // d'une page lourde provoquait des recalculs de mise en page a repetition.
+    const nodes = document.querySelectorAll(
+      "[class*='sticky'],[class*='fixed'],[class*='banner'],[class*='bandeau']," +
+      "[class*='promo'],[class*='newsletter'],[class*='subscribe'],[class*='ad']," +
+      "[id*='sticky'],[id*='fixed'],[id*='banner'],[style*='fixed']");
     let n = 0;
+    let scanned = 0;
     for (const el of nodes) {
-      if (n > 40) break; // garde-fou de performance
+      if (n > 40 || scanned > 300) break;
+      scanned++;
       const cs = window.getComputedStyle(el);
       if (cs.position !== "fixed" && cs.position !== "sticky") continue;
       const r = el.getBoundingClientRect();

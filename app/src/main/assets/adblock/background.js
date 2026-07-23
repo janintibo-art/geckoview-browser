@@ -20,7 +20,6 @@ let hideSet = new Set();     // categories masquees dans les pages/resultats
 let catState = {};
 let userExtra = [];
 let userAllow = [];
-let identity = "auto";       // auto | desktop | mobile
 let cookieCfg = {
   blockThirdParty: true,   // refuser les cookies tiers
   stripSent: true,         // ne pas renvoyer de cookie aux tiers
@@ -67,7 +66,9 @@ const REMOTE_LISTS = [
   "https://pgl.yoyo.org/adservers/serverlist.php?hostformat=hosts&showintro=0&mimetype=plaintext"
 ];
 const REFRESH_MS = 24 * 60 * 60 * 1000;
-const MAX_ENTRIES = 300000;
+// Environ 120 000 domaines couvrent les listes AdAway et Peter Lowe reunies,
+// pour a peu pres 12 Mo en memoire. Au-dela, le gain est marginal sur telephone.
+const MAX_ENTRIES = 120000;
 
 // ---------------------------------------------------------------------------
 //  Utilitaires
@@ -109,10 +110,9 @@ async function rebuildSets() {
   catState = await CAT_API.getCatState();
   try {
     const s = await browser.storage.local.get(
-      ["pageExtra", "pageAllow", "identity", "cookieCfg"]);
+      ["pageExtra", "pageAllow", "cookieCfg"]);
     userExtra = (s && s.pageExtra) || [];
     userAllow = (s && s.pageAllow) || [];
-    identity = (s && s.identity) || "auto";
     if (s && s.cookieCfg) cookieCfg = Object.assign(cookieCfg, s.cookieCfg);
   } catch (e) { }
 
@@ -132,7 +132,7 @@ async function rebuildSets() {
 browser.storage.onChanged.addListener(changes => {
   if (changes.feCfg) loadFrontends();
   if (changes.catState || changes.pageExtra || changes.pageAllow ||
-      changes.identity || changes.cookieCfg) {
+      changes.cookieCfg) {
     rebuildSets();
   }
 });

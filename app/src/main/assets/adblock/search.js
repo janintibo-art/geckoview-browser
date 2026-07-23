@@ -20,7 +20,6 @@ let filterSet = new Set();
 let pageCfg = { hideSearch: true, cookies: true, clickbait: true, cleanurls: true,
                 hideAll: false, autopager: true, autopagerMode: "auto", autopagerMax: 20 };
 let showBadge = true;
-let identity = "auto";
 let extra = [], allow = [];
 let cookieCfg = { blockThirdParty: true, stripSent: true, clearOnExit: false };
 let engineOn = {};
@@ -50,12 +49,11 @@ async function loadPrefs() {
 
   try {
     const s = await browser.storage.local.get(
-      ["pageCfg", "pageExtra", "pageAllow", "identity", "showBadge", "cookieCfg",
+      ["pageCfg", "pageExtra", "pageAllow", "showBadge", "cookieCfg",
        "engineOn", "searxUrl", "engineTemplate"]);
     if (s.pageCfg) pageCfg = Object.assign(pageCfg, s.pageCfg);
     extra = s.pageExtra || [];
     allow = s.pageAllow || [];
-    identity = s.identity || "auto";
     showBadge = s.showBadge !== false;
     if (s.cookieCfg) cookieCfg = Object.assign(cookieCfg, s.cookieCfg);
     engineOn = s.engineOn || {};
@@ -155,7 +153,7 @@ async function savePrefs() {
   await C.setCatState(catState);
   try {
     await browser.storage.local.set({
-      pageCfg, pageExtra: extra, pageAllow: allow, identity, showBadge, cookieCfg,
+      pageCfg, pageExtra: extra, pageAllow: allow, showBadge, cookieCfg,
       engineOn, searxUrl
     });
   } catch (e) { }
