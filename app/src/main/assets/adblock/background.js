@@ -369,6 +369,21 @@ browser.runtime.onMessage.addListener(msg => {
   if (msg.type === "purgeCookies") {
     return purgeCookies().then(n => ({ removed: n }));
   }
+  if (msg.type === "gmFetch") {
+    return (async () => {
+      try {
+        const init = { method: msg.method || "GET", headers: msg.headers || {} };
+        if (msg.data) init.body = msg.data;
+        const r = await fetch(msg.url, init);
+        const body = await r.text();
+        const headers = {};
+        r.headers.forEach((v, k) => { headers[k] = v; });
+        return { status: r.status, statusText: r.statusText, body, headers, finalUrl: r.url };
+      } catch (e) {
+        return { error: String(e) };
+      }
+    })();
+  }
   if (msg.type === "stats") {
     return Promise.resolve({
       blocked: blockedCount,

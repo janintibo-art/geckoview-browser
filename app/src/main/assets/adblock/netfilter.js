@@ -343,6 +343,10 @@
       } catch (e) { }
     }));
 
+    panel.appendChild(actionBtn("\uD83D\uDCDC  Mes scripts", () => {
+      location.href = browser.runtime.getURL("scripts.html");
+    }));
+
     panel.appendChild(actionBtn("\u2699  Categories et listes", () => {
       location.href = browser.runtime.getURL("search.html") + "#filtres";
     }));

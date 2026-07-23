@@ -3,4 +3,5 @@
     <string name="app_name">GeckoBrowser</string>
     <string name="url_hint">Rechercher ou saisir une adresse</string>
     <string name="go">Aller</string>
+    <string name="menu">Menu</string>
 </resources>

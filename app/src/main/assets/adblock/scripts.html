@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mes scripts</title>
+<link rel="stylesheet" href="search.css">
+<style>
+  #head { padding: 12px; }
+  h1 { font-size: 17px; margin: 0 0 10px; }
+  .row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 2px; border-bottom: 1px solid var(--line);
+  }
+  .row .info { flex: 1; min-width: 0; }
+  .row .nm { font-size: 14px; color: var(--fg); font-weight: 500; }
+  .row .mt { font-size: 11px; color: var(--dim); margin-top: 2px;
+             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row button {
+    background: transparent; border: 1px solid var(--line);
+    border-radius: 7px; color: var(--dim); padding: 5px 10px; font-size: 12px;
+  }
+  .sw { width: 40px; text-align: center; font-size: 17px; cursor: pointer;
+        background: none; border: 0; }
+  .on  { color: var(--accent); }
+  .off { color: #4a5058; }
+  #editor { display: none; padding: 12px; }
+  #code {
+    width: 100%; min-height: 46vh; background: #101216; color: #cfd4dc;
+    border: 1px solid var(--line); border-radius: 9px; padding: 10px;
+    font: 12px/1.5 monospace; resize: vertical; white-space: pre;
+    overflow-wrap: normal; overflow-x: auto;
+  }
+  .bar { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .bar button { flex: 1 1 auto; padding: 10px; border-radius: 8px; border: 0;
+                font-size: 13px; }
+  .primary { background: var(--accent); color: #10130f; font-weight: 600; }
+  .sec { background: transparent; border: 1px solid var(--line) !important; color: var(--dim); }
+  .danger { background: transparent; border: 1px solid #5a3230 !important; color: #d97757; }
+  #msg { font-size: 12px; color: var(--dim); margin-top: 10px; min-height: 16px; }
+</style>
+</head>
+<body>
+
+<header id="head">
+  <h1>Mes scripts</h1>
+  <div class="bar">
+    <button id="new" class="primary">Nouveau script</button>
+    <button id="import" class="sec">Importer une URL</button>
+  </div>
+</header>
+
+<main id="list"></main>
+
+<section id="editor">
+  <textarea id="code" spellcheck="false"></textarea>
+  <div class="bar">
+    <button id="save" class="primary">Enregistrer</button>
+    <button id="cancel" class="sec">Annuler</button>
+    <button id="delete" class="danger">Supprimer</button>
+  </div>
+  <div id="msg"></div>
+</section>
+
+<footer id="foot" style="padding:16px 12px 40px;font-size:12px;color:var(--dim);line-height:1.6">
+  En-tetes reconnus : @name, @match, @include, @exclude, @run-at, @require,
+  @noframes, @grant. API disponible : GM_getValue, GM_setValue, GM_deleteValue,
+  GM_listValues, GM_addStyle, GM_registerMenuCommand, GM_xmlhttpRequest,
+  GM_openInTab, GM_setClipboard, GM_info, unsafeWindow.
+  Ajoutez <code>// @world page</code> pour executer dans le contexte de la page.
+</footer>
+
+<script src="scripts.js"></script>
+</body>
+</html>

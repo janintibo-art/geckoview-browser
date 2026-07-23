@@ -45,6 +45,7 @@ public class MainActivity extends Activity {
         urlBar = findViewById(R.id.url_bar);
         shield = findViewById(R.id.shield);
         ImageButton goButton = findViewById(R.id.go_button);
+        ImageButton menuButton = findViewById(R.id.menu_button);
 
         if (sRuntime == null) {
             sRuntime = GeckoRuntime.create(this, buildSettings());
@@ -76,6 +77,7 @@ public class MainActivity extends Activity {
         session.loadUri(homeUrl());
 
         goButton.setOnClickListener(v -> loadFromBar());
+        menuButton.setOnClickListener(v -> showMenu());
 
         shield.setOnClickListener(v -> toggleBlocker());
         shield.setOnLongClickListener(v -> {
@@ -137,6 +139,46 @@ public class MainActivity extends Activity {
         sRuntime.getWebExtensionController()
                 .ensureBuiltIn(EXT_URL, EXT_ID)
                 .accept(ext -> bindPort(ext), e -> { });
+    }
+
+    private void showMenu() {
+        final String[] items = {
+            "Accueil / recherche",
+            "Filtres et categories",
+            "Mes scripts",
+            "Recharger la page",
+            blockerEnabled ? "Desactiver le blocage" : "Activer le blocage"
+        };
+
+        new android.app.AlertDialog.Builder(this)
+            .setTitle("Menu")
+            .setItems(items, (dialog, which) -> {
+                switch (which) {
+                    case 0:
+                        session.loadUri(homeUrl());
+                        break;
+                    case 1:
+                        session.loadUri(extPage("search.html") + "#filtres");
+                        break;
+                    case 2:
+                        session.loadUri(extPage("scripts.html"));
+                        break;
+                    case 3:
+                        session.reload();
+                        break;
+                    case 4:
+                        toggleBlocker();
+                        break;
+                }
+            })
+            .show();
+    }
+
+    private String extPage(String file) {
+        if (searchBase != null) {
+            return searchBase.replace("search.html", file);
+        }
+        return FALLBACK_HOME;
     }
 
     private String homeUrl() {
