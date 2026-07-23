@@ -637,6 +637,8 @@ public class MainActivity extends Activity {
             .add("\u26D4", blockerEnabled ? "Desactiver le blocage" : "Activer le blocage",
                  blockerEnabled ? blockedCount + " elements bloques" : "blocage inactif",
                  this::toggleBlocker)
+            .sub("\u231A", "Historique", null,
+                 () -> session.loadUri(extPage("history.html")))
             .sub("\u21F5", "Mes flux", null,
                  () -> session.loadUri(extPage("feeds.html")))
             .sub("\u2630", "File de lecture", null,

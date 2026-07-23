@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Historique</title>
+<link rel="stylesheet" href="search.css">
+<style>
+  header { padding: 14px 14px 8px; border-bottom: 1px solid var(--line); }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .sub { color: var(--dim); font-size: 13px; line-height: 1.5; }
+  main { padding: 8px 14px 40px; }
+
+  .tools { display: flex; gap: 8px; margin: 10px 0 6px; }
+  .tools input {
+    flex: 1; background: var(--bg); color: var(--fg);
+    border: 1px solid var(--line); border-radius: 8px; padding: 10px; font-size: 14px;
+  }
+  .tools button {
+    padding: 9px 13px; border: 1px solid var(--line); border-radius: 8px;
+    background: transparent; color: var(--dim); font-size: 12px; white-space: nowrap;
+  }
+  .tools button.on { color: var(--accent); border-color: var(--accent); }
+
+  .day { font-size: 11px; text-transform: uppercase; letter-spacing: .05em;
+         color: var(--dim); margin: 16px 0 4px; }
+
+  .e { border-bottom: 1px solid var(--line); padding: 10px 0; }
+  .e a { color: var(--fg); text-decoration: none; font-size: 14px;
+         display: block; word-break: break-word; line-height: 1.4; }
+  .e .mt { font-size: 11px; color: var(--dim); margin-top: 2px;
+           white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .e .snip {
+    margin-top: 6px; font-size: 12px; line-height: 1.55; color: #b9bfc9;
+    background: var(--panel); border-left: 2px solid var(--line);
+    border-radius: 0 6px 6px 0; padding: 6px 9px;
+  }
+  .e .acts { margin-top: 6px; }
+  .e .acts button {
+    padding: 3px 9px; border: 1px solid var(--line); border-radius: 6px;
+    background: transparent; color: var(--dim); font-size: 11px;
+  }
+  mark { background: var(--accent); color: #10130f; border-radius: 2px; }
+
+  .cfg { background: var(--panel); border: 1px solid var(--line);
+         border-radius: 10px; padding: 12px 14px; margin: 10px 0 4px; }
+  .cfg label { display: flex; gap: 9px; align-items: flex-start;
+               font-size: 14px; margin: 8px 0; }
+  .cfg textarea {
+    width: 100%; background: var(--bg); color: var(--fg);
+    border: 1px solid var(--line); border-radius: 8px; padding: 8px;
+    font: 12px monospace; resize: vertical; margin-top: 4px;
+  }
+  .cfg .row { display: flex; gap: 8px; margin-top: 10px; }
+  .cfg .row button { flex: 1; padding: 9px; border-radius: 8px; border: 0;
+                     font-size: 13px; background: var(--accent); color: #10130f;
+                     font-weight: 600; }
+  .cfg .row .danger { background: transparent;
+                      border: 1px solid #5a3230 !important; color: #d97757;
+                      font-weight: 400; }
+  #msg { font-size: 12px; color: var(--dim); min-height: 16px; margin: 6px 0; }
+  .tot { font-size: 12px; color: var(--dim); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Historique</h1>
+  <div class="sub">Les pages consultees, et si vous le souhaitez, leur contenu.</div>
+</header>
+
+<main>
+  <div class="tools">
+    <input id="q" type="search" placeholder="Rechercher un titre, un site, un texte">
+    <button id="settings">Reglages</button>
+  </div>
+  <div class="tot" id="tot"></div>
+  <div id="msg"></div>
+
+  <section class="cfg" id="cfg" hidden>
+    <label><input type="checkbox" id="c-on">
+      <span>Conserver un historique des pages visitees</span></label>
+    <label><input type="checkbox" id="c-txt">
+      <span>Indexer aussi le texte des pages, pour la recherche plein texte</span></label>
+    <div>
+      <span style="font-size:13px;color:var(--dim)">Sites a ne jamais enregistrer
+      (un par ligne)</span>
+      <textarea id="c-ex" rows="3" placeholder="banque.fr"></textarea>
+    </div>
+    <div class="row">
+      <button id="c-save">Enregistrer</button>
+      <button id="c-clear" class="danger">Tout effacer</button>
+    </div>
+    <p class="note" style="margin-top:12px">
+      La navigation privee n'est jamais enregistree, quels que soient ces reglages.
+      L'historique reste sur cet appareil et n'est pas inclus dans la synchronisation.
+    </p>
+  </section>
+
+  <div id="list"></div>
+</main>
+
+<script src="history-ui.js"></script>
+</body>
+</html>

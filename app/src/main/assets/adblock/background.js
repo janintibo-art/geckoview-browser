@@ -306,6 +306,43 @@ async function checkAllWatches(force) {
 }
 
 // ---------------------------------------------------------------------------
+//  Historique
+//  Conserve localement, jamais transmis. Le texte des pages n'est indexe
+//  que si l'utilisateur l'a demande explicitement.
+// ---------------------------------------------------------------------------
+let history = [];
+const HIST_MAX = 800;
+
+async function loadHistory() {
+  try {
+    const s = await browser.storage.local.get("history");
+    history = (s && s.history) || [];
+  } catch (e) { history = []; }
+}
+
+async function histAdd(entry) {
+  if (!entry || !entry.url) return { ok: false };
+  await loadHistory();
+
+  // Une meme adresse revisitee met a jour l'entree plutot que d'en creer une
+  const i = history.findIndex(h => h.url === entry.url);
+  if (i !== -1) {
+    const old = history[i];
+    entry.visits = (old.visits || 1) + 1;
+    if (!entry.text && old.text) entry.text = old.text;
+    history.splice(i, 1);
+  } else {
+    entry.visits = 1;
+  }
+
+  history.unshift(entry);
+  while (history.length > HIST_MAX) history.pop();
+
+  try { await browser.storage.local.set({ history: history }); } catch (e) { }
+  return { ok: true, size: history.length };
+}
+
+// ---------------------------------------------------------------------------
 //  Flux maison : releve des nouvelles entrees
 // ---------------------------------------------------------------------------
 let feeds = [];
@@ -794,6 +831,16 @@ browser.runtime.onMessage.addListener(msg => {
       try { browser.storage.local.set({ feCfg: feCfg }); } catch (e) { }
     }
     return Promise.resolve({ ok: true, original: lastOriginal });
+  }
+  if (msg.type === "histAdd") {
+    return histAdd(msg.entry);
+  }
+  if (msg.type === "histList") {
+    return loadHistory().then(() => ({ history: history }));
+  }
+  if (msg.type === "histSave") {
+    history = msg.history || [];
+    return browser.storage.local.set({ history: history }).then(() => ({ ok: true }));
   }
   if (msg.type === "feedList") {
     return loadFeeds().then(() => ({ feeds: feeds }));
