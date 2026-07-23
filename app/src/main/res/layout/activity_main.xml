@@ -1,75 +1,108 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical">
+    android:background="#0B0D10">
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:padding="6dp"
-        android:background="#212121">
+        android:layout_height="match_parent"
+        android:orientation="vertical">
 
-        <TextView
-            android:id="@+id/shield"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:minWidth="42dp"
-            android:gravity="center"
-            android:paddingStart="6dp"
-            android:paddingEnd="6dp"
-            android:paddingTop="8dp"
-            android:paddingBottom="8dp"
-            android:text="0"
-            android:textStyle="bold"
-            android:textSize="13sp"
-            android:textColor="#4CAF50"
-            android:background="?android:attr/selectableItemBackground" />
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:padding="6dp"
+            android:background="#171A20">
 
-        <EditText
-            android:id="@+id/url_bar"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:hint="@string/url_hint"
-            android:textColor="#FFFFFF"
-            android:textColorHint="#9E9E9E"
-            android:inputType="textUri"
-            android:imeOptions="actionGo"
-            android:maxLines="1" />
+            <TextView
+                android:id="@+id/shield"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="42dp"
+                android:gravity="center"
+                android:paddingStart="6dp"
+                android:paddingEnd="6dp"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp"
+                android:text="0"
+                android:textStyle="bold"
+                android:textSize="13sp"
+                android:textColor="#6FAE5F"
+                android:background="?android:attr/selectableItemBackground" />
 
-        <ImageButton
-            android:id="@+id/menu_button"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:src="@android:drawable/ic_menu_more"
-            android:contentDescription="@string/menu"
-            android:background="?android:attr/selectableItemBackground" />
+            <EditText
+                android:id="@+id/url_bar"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="@string/url_hint"
+                android:textColor="#E8EAEE"
+                android:textColorHint="#8A9099"
+                android:textSize="15sp"
+                android:inputType="textUri"
+                android:imeOptions="actionGo"
+                android:maxLines="1" />
 
-        <ImageButton
-            android:id="@+id/go_button"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:src="@android:drawable/ic_menu_send"
-            android:contentDescription="@string/go"
-            android:background="?android:attr/selectableItemBackground" />
+            <ImageButton
+                android:id="@+id/menu_button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:src="@android:drawable/ic_menu_more"
+                android:contentDescription="@string/menu"
+                android:background="?android:attr/selectableItemBackground" />
+
+            <ImageButton
+                android:id="@+id/go_button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:src="@android:drawable/ic_menu_send"
+                android:contentDescription="@string/go"
+                android:background="?android:attr/selectableItemBackground" />
+        </LinearLayout>
+
+        <ProgressBar
+            android:id="@+id/progress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="3dp"
+            android:max="100"
+            android:progress="0"
+            android:visibility="gone"
+            android:indeterminate="false" />
+
+        <org.mozilla.geckoview.GeckoView
+            android:id="@+id/geckoview"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
     </LinearLayout>
 
-    <ProgressBar
-        android:id="@+id/progress"
-        style="?android:attr/progressBarStyleHorizontal"
+    <!-- Ecran de demarrage : masque le temps de chargement de l'extension -->
+    <LinearLayout
+        android:id="@+id/splash"
         android:layout_width="match_parent"
-        android:layout_height="3dp"
-        android:max="100"
-        android:progress="0"
-        android:visibility="gone"
-        android:indeterminate="false" />
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:background="#0B0D10"
+        android:clickable="true"
+        android:focusable="true">
 
-    <org.mozilla.geckoview.GeckoView
-        android:id="@+id/geckoview"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1" />
-</LinearLayout>
+        <ImageView
+            android:layout_width="270dp"
+            android:layout_height="wrap_content"
+            android:adjustViewBounds="true"
+            android:src="@drawable/brand_logo"
+            android:contentDescription="@string/app_name" />
+
+        <ProgressBar
+            android:layout_width="26dp"
+            android:layout_height="26dp"
+            android:layout_marginTop="28dp"
+            android:indeterminateTint="#6FAE5F" />
+    </LinearLayout>
+
+</FrameLayout>

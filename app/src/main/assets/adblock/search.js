@@ -344,6 +344,25 @@ $("#purge-now").addEventListener("click", async e => {
   setTimeout(() => { btn.textContent = "Purger les cookies maintenant"; }, 2600);
 });
 
+async function firstRun() {
+  try {
+    const s = await browser.storage.local.get("seenWelcome");
+    if (s && s.seenWelcome) return;
+    await browser.storage.local.set({ seenWelcome: true });
+    out.innerHTML = `
+      <div class="card welcome">
+        <h2>Bienvenue</h2>
+        <p>Cette page est votre moteur : il interroge plusieurs sources a la fois,
+        fusionne les resultats et applique vos filtres editoriaux.</p>
+        <p style="margin-top:9px">Le bouton <b>Filtres</b> ci-dessus regle les
+        categories masquees et les sources interrogees. Le menu du navigateur,
+        en haut a droite, donne acces au reste — analyse de page, scripts, styles,
+        confidentialite.</p>
+        <p style="margin-top:11px"><a href="help.html">Ouvrir le tutoriel</a></p>
+      </div>`;
+  } catch (e) { }
+}
+
 (async function init() {
   try {
     await loadPrefs();
@@ -366,6 +385,7 @@ $("#purge-now").addEventListener("click", async e => {
   }
   const q = params.get("q");
   if (q) { qBox.value = q; run(q); }
+  else await firstRun();
 })();
 
 })();

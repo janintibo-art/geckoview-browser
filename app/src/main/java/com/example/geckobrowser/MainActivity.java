@@ -55,6 +55,8 @@ public class MainActivity extends Activity {
     private org.json.JSONArray gmCommands = new org.json.JSONArray();
     private Permissions permissions;
     private android.widget.ProgressBar progress;
+    private android.view.View splash;
+    private boolean homeLoaded = false;
 
     private static final int REQ_FILE = 8123;
     private GeckoResult<GeckoSession.PromptDelegate.PromptResponse> pendingFile;
@@ -149,6 +151,7 @@ public class MainActivity extends Activity {
         ImageButton goButton = findViewById(R.id.go_button);
         ImageButton menuButton = findViewById(R.id.menu_button);
         progress = findViewById(R.id.progress);
+        splash = findViewById(R.id.splash);
 
         if (sRuntime == null) {
             sRuntime = GeckoRuntime.create(this, buildSettings());
@@ -302,6 +305,7 @@ public class MainActivity extends Activity {
             @Override
             public void onPageStop(GeckoSession s, boolean success) {
                 progress.setVisibility(android.view.View.GONE);
+                hideSplash();
             }
         });
 
@@ -313,7 +317,22 @@ public class MainActivity extends Activity {
         restoreProfile();
         session.open(sRuntime);
         geckoView.setSession(session);
-        session.loadUri(target != null ? target : homeUrl());
+
+        if (target != null) {
+            session.loadUri(target);
+        } else if (searchBase != null) {
+            session.loadUri(homeUrl());
+        } else {
+            // L'extension n'est pas encore prete : sans cette attente, le premier
+            // lancement afficherait le moteur de repli au lieu du notre.
+            new android.os.Handler(getMainLooper()).postDelayed(() -> {
+                if (!homeLoaded) {
+                    homeLoaded = true;
+                    session.loadUri(homeUrl());
+                    hideSplash();
+                }
+            }, 5000);
+        }
 
 
         if (old != null) {
@@ -408,166 +427,90 @@ public class MainActivity extends Activity {
     //  Menu
     // =======================================================================
     private void showMenu() {
-        final String[] items = {
-            "Accueil",
-            "Recharger",
-            "Page…",
-            "Recherche…",
-            "Confidentialite…",
-            "Scripts et styles…",
-            "Favoris…",
-            blockerEnabled ? "Desactiver le blocage" : "Activer le blocage",
-            "Synchronisation",
-            "Aide et tutoriel"
-        };
-
-        new AlertDialog.Builder(this)
-            .setTitle("Menu")
-            .setItems(items, (d, which) -> {
-                switch (which) {
-                    case 0: session.loadUri(homeUrl()); break;
-                    case 1: session.reload(); break;
-                    case 2: showPageMenu(); break;
-                    case 3: showSearchMenu(); break;
-                    case 4: showPrivacyMenu(); break;
-                    case 5: showScriptsMenu(); break;
-                    case 6: showBookmarksMenu(); break;
-                    case 7: toggleBlocker(); break;
-                    case 8: session.loadUri(extPage("sync.html")); break;
-                    case 9: session.loadUri(extPage("help.html")); break;
-                }
-            })
+        new Menus(this, "GeckoBrowser")
+            .add("\u2302", "Accueil", () -> session.loadUri(homeUrl()))
+            .add("\u21BB", "Recharger", () -> session.reload())
+            .sub("\u25A4", "Page", pageHost(), this::showPageMenu)
+            .sub("\u2315", "Recherche", engineName(), this::showSearchMenu)
+            .sub("\u26E8", "Confidentialite",
+                 Privacy.levelName(Privacy.level(this))
+                   + (TorSupport.isEnabled(this) ? " \u00B7 Tor" : "")
+                   + (privateMode ? " \u00B7 prive" : ""),
+                 this::showPrivacyMenu)
+            .sub("\u2699", "Scripts et styles", null, this::showScriptsMenu)
+            .sub("\u2605", "Favoris", bookmarks().length() + " enregistre(s)",
+                 this::showBookmarksMenu)
+            .add("\u26D4", blockerEnabled ? "Desactiver le blocage" : "Activer le blocage",
+                 blockerEnabled ? blockedCount + " elements bloques" : "blocage inactif",
+                 this::toggleBlocker)
+            .add("\u21C4", "Synchronisation", () -> session.loadUri(extPage("sync.html")))
+            .add("\u24D8", "Aide et tutoriel", () -> session.loadUri(extPage("help.html")))
             .show();
+    }
+
+    private String pageHost() {
+        if (currentUrl.isEmpty() || currentUrl.startsWith("moz-extension://")) return null;
+        try {
+            String h = android.net.Uri.parse(currentUrl).getHost();
+            return h == null ? null : h.replaceFirst("^www\\.", "");
+        } catch (Exception e) { return null; }
     }
 
     // -----------------------------------------------------------------------
     private void showPageMenu() {
-        final String[] items = {
-            "Analyser la page",
-            "Code source",
-            "Mode lecture",
-            "Defilement infini ici",
-            "Ne plus rediriger ce service",
-            "Enregistrer en un fichier",
-            "CSS de ce site",
-            "Masquer un element (pointeur)",
-            "Masquer ce site",
-            "Partager",
-            "Copier l'adresse",
-            "Ouvrir dans une autre application",
-            "Identite de l'appareil : " + profileName()
-        };
-
-        new AlertDialog.Builder(this)
-            .setTitle("Page")
-            .setItems(items, (d, which) -> {
-                switch (which) {
-                    case 0: inspectPage(); break;
-                    case 1: viewSource(); break;
-                    case 2: if (onWebPage()) sendCommand("reader"); break;
-                    case 3: if (onWebPage()) sendCommand("autopagerHere"); break;
-                    case 4: if (onWebPage()) sendCommand("noFrontend"); break;
-                    case 5: if (onWebPage()) sendCommand("savePage"); break;
-                    case 6: if (onWebPage()) sendCommand("styleThis"); break;
-                    case 7: if (onWebPage()) sendCommand("pickElement"); break;
-                    case 8: if (onWebPage()) sendCommand("hideSite"); break;
-                    case 9: sharePage(); break;
-                    case 10: copyUrl(); break;
-                    case 11: openExternally(); break;
-                    case 12: showProfilePicker(); break;
-                }
-            })
-            .setNegativeButton("Retour", (d, w) -> showMenu())
+        new Menus(this, "Page")
+            .add("\u2315", "Analyser la page", this::inspectPage)
+            .add("\u2039", "Code source", this::viewSource)
+            .add("\u2630", "Mode lecture", () -> { if (onWebPage()) sendCommand("reader"); })
+            .add("\u2913", "Enregistrer en un fichier",
+                 () -> { if (onWebPage()) sendCommand("savePage"); })
+            .add("\u221E", "Defilement infini ici",
+                 () -> { if (onWebPage()) sendCommand("autopagerHere"); })
+            .add("\u21BA", "Ne plus rediriger ce service",
+                 () -> { if (onWebPage()) sendCommand("noFrontend"); })
+            .add("\u270E", "CSS de ce site", () -> { if (onWebPage()) sendCommand("styleThis"); })
+            .add("\u25CE", "Masquer un element",
+                 () -> { if (onWebPage()) sendCommand("pickElement"); })
+            .add("\u2298", "Masquer ce site", () -> { if (onWebPage()) sendCommand("hideSite"); })
+            .add("\u21AA", "Partager", this::sharePage)
+            .add("\u29C9", "Copier l'adresse", this::copyUrl)
+            .add("\u2197", "Ouvrir ailleurs", this::openExternally)
+            .sub("\u25A3", "Identite de l'appareil", profileName(), this::showProfilePicker)
+            .back(this::showMenu)
             .show();
     }
 
     // -----------------------------------------------------------------------
     private void showSearchMenu() {
-        final String[] items = {
-            "Moteur : " + engineName(),
-            "Filtres et categories",
-            "Sources du metamoteur"
-        };
-
-        new AlertDialog.Builder(this)
-            .setTitle("Recherche")
-            .setItems(items, (d, which) -> {
-                switch (which) {
-                    case 0: showEnginePicker(); break;
-                    case 1:
-                    case 2: session.loadUri(extPage("search.html") + "?prefs=1"); break;
-                }
-            })
-            .setNegativeButton("Retour", (d, w) -> showMenu())
+        new Menus(this, "Recherche")
+            .sub("\u2315", "Moteur", engineName(), this::showEnginePicker)
+            .add("\u2611", "Filtres et categories",
+                 () -> session.loadUri(extPage("search.html") + "?prefs=1"))
+            .add("\u229E", "Sources du metamoteur",
+                 () -> session.loadUri(extPage("search.html") + "?prefs=1"))
+            .back(this::showMenu)
             .show();
     }
 
     // -----------------------------------------------------------------------
     private void showScriptsMenu() {
-        final String[] items = {
-            "Mes scripts",
-            "Mes styles CSS",
-            "Commandes des scripts (" + gmCommands.length() + ")"
-        };
-
-        new AlertDialog.Builder(this)
-            .setTitle("Scripts et styles")
-            .setItems(items, (d, which) -> {
-                if (which == 0) session.loadUri(extPage("scripts.html"));
-                else if (which == 1) session.loadUri(extPage("styles.html"));
-                else showScriptCommands();
-            })
-            .setNegativeButton("Retour", (d, w) -> showMenu())
+        new Menus(this, "Scripts et styles")
+            .add("\u2328", "Mes scripts", () -> session.loadUri(extPage("scripts.html")))
+            .add("\u270E", "Mes styles CSS", () -> session.loadUri(extPage("styles.html")))
+            .add("\u2318", "Commandes des scripts",
+                 gmCommands.length() + " disponible(s)", this::showScriptCommands)
+            .back(this::showMenu)
             .show();
     }
 
     // -----------------------------------------------------------------------
     private void showBookmarksMenu() {
-        final String[] items = { "Ouvrir un favori", "Ajouter cette page" };
-
-        new AlertDialog.Builder(this)
-            .setTitle("Favoris")
-            .setItems(items, (d, which) -> {
-                if (which == 0) showBookmarks();
-                else addBookmark();
-            })
-            .setNegativeButton("Retour", (d, w) -> showMenu())
+        new Menus(this, "Favoris")
+            .add("\u2605", "Ouvrir un favori", bookmarks().length() + " enregistre(s)",
+                 this::showBookmarks)
+            .add("\u2606", "Ajouter cette page", this::addBookmark)
+            .back(this::showMenu)
             .show();
-    }
-
-    // =======================================================================
-    //  Analyse de page
-    // =======================================================================
-    /** Transmet une action a la page via l'extension. */
-    private void sendCommand(String cmd) {
-        if (blockerPort == null) {
-            Toast.makeText(this, "Extension non connectee", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        try {
-            JSONObject msg = new JSONObject();
-            msg.put("type", "cmd");
-            msg.put("cmd", cmd);
-            blockerPort.postMessage(msg);
-        } catch (Exception e) {
-            Toast.makeText(this, "Action indisponible", Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    private boolean onWebPage() {
-        if (currentUrl.isEmpty() || currentUrl.startsWith("moz-extension://")) {
-            Toast.makeText(this, "Ouvrez d'abord une page web", Toast.LENGTH_SHORT).show();
-            return false;
-        }
-        return true;
-    }
-
-    private void inspectPage() {
-        if (onWebPage()) sendCommand("inspect");
-    }
-
-    private void viewSource() {
-        if (onWebPage()) session.loadUri("view-source:" + currentUrl);
     }
 
     private void showScriptCommands() {
@@ -582,7 +525,7 @@ public class MainActivity extends Activity {
             JSONObject o = gmCommands.optJSONObject(i);
             labels[i] = o == null ? "?" : o.optString("label", "?");
         }
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this, R.style.GeckoDialog)
             .setTitle("Commandes des scripts")
             .setItems(labels, (d, which) -> {
                 JSONObject o = gmCommands.optJSONObject(which);
@@ -605,42 +548,32 @@ public class MainActivity extends Activity {
     }
 
     private void showPrivacyMenu() {
-        final String[] items = {
-            privateMode ? "Quitter la navigation privee" : "Navigation privee",
-            "Niveau de protection : " + Privacy.levelName(Privacy.level(this)),
-            "DNS chiffre : " + (prefs.getBoolean("doh", false) ? "actif" : "inactif"),
-            "Redirections vers les facades",
-            TorSupport.isEnabled(this) ? "Tor : active" : "Tor : desactive",
-            "Effacer toutes les donnees",
-            "Diagnostic d'empreinte",
-            "Ce que ce navigateur revele"
-        };
-
-        new AlertDialog.Builder(this)
-            .setTitle("Confidentialite")
-            .setItems(items, (d, which) -> {
-                switch (which) {
-                    case 0: togglePrivate(); break;
-                    case 1: showLevelPicker(); break;
-                    case 2: toggleDoh(); break;
-                    case 3: session.loadUri(extPage("frontends.html")); break;
-                    case 4: showTorMenu(); break;
-                    case 5: clearAllData(); break;
-                    case 6: if (onWebPage()) sendCommand("fingerprint"); break;
-                    case 7: privacyInfo(); break;
-                }
-            })
-            .setNegativeButton("Retour", (d, w) -> showMenu())
+        new Menus(this, "Confidentialite")
+            .add("\u25D1", privateMode ? "Quitter la navigation privee" : "Navigation privee",
+                 this::togglePrivate)
+            .sub("\u26E8", "Niveau de protection",
+                 Privacy.levelName(Privacy.level(this)), this::showLevelPicker)
+            .sub("\u2318", "DNS chiffre",
+                 prefs.getBoolean("doh", false) ? "actif" : "inactif", this::toggleDoh)
+            .add("\u21BA", "Redirections vers les facades",
+                 () -> session.loadUri(extPage("frontends.html")))
+            .sub("\u2609", "Tor",
+                 TorSupport.isEnabled(this) ? "active" : "desactive", this::showTorMenu)
+            .add("\u2327", "Effacer toutes les donnees", this::clearAllData)
+            .add("\u25CE", "Diagnostic d'empreinte",
+                 () -> { if (onWebPage()) sendCommand("fingerprint"); })
+            .add("\u24D8", "Ce que ce navigateur revele", this::privacyInfo)
+            .back(this::showMenu)
             .show();
     }
 
     private void showLevelPicker() {
         final String[] names = { "Standard", "Renforce", "Strict" };
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this, R.style.GeckoDialog)
             .setTitle("Niveau de protection")
             .setSingleChoiceItems(names, Privacy.level(this), (d, which) -> {
                 d.dismiss();
-                new AlertDialog.Builder(this)
+                new AlertDialog.Builder(this, R.style.GeckoDialog)
                     .setTitle(names[which])
                     .setMessage(Privacy.sideEffects(which)
                             + "\n\nL'application va redemarrer.")
@@ -671,7 +604,7 @@ public class MainActivity extends Activity {
             "https://dns.mullvad.net/dns-query",
             "https://zero.dns0.eu/"
         };
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this, R.style.GeckoDialog)
             .setTitle("Resolveur DNS chiffre")
             .setItems(names, (d, which) -> {
                 prefs.edit().putBoolean("doh", true)
@@ -684,7 +617,7 @@ public class MainActivity extends Activity {
     }
 
     private void clearAllData() {
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this, R.style.GeckoDialog)
             .setTitle("Effacer toutes les donnees ?")
             .setMessage("Cookies, cache, stockage local et sessions ouvertes. "
                       + "Vos favoris, scripts et filtres sont conserves.")
@@ -704,7 +637,7 @@ public class MainActivity extends Activity {
     }
 
     private void privacyInfo() {
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this, R.style.GeckoDialog)
             .setTitle("Ce que ce navigateur revele")
             .setMessage(
                 "Le niveau renforce uniformise ce qu'un site peut lire de votre "
@@ -732,38 +665,22 @@ public class MainActivity extends Activity {
     // =======================================================================
     private void showTorMenu() {
         final boolean on = TorSupport.isEnabled(this);
-        final String[] items = {
-            on ? "Desactiver le routage Tor" : "Activer le routage Tor",
-            "Verifier la connexion Tor",
-            "Lancer Orbot",
-            "A propos de ce mode"
-        };
-
-        new AlertDialog.Builder(this)
-            .setTitle(on ? "Tor : active" : "Tor : desactive")
-            .setItems(items, (d, which) -> {
-                switch (which) {
-                    case 0:
-                        TorSupport.toggle(this);
-                        break;
-                    case 1:
-                        session.loadUri("https://check.torproject.org/");
-                        break;
-                    case 2:
-                        if (TorSupport.isOrbotInstalled(this)) TorSupport.startOrbot(this);
-                        else TorSupport.offerInstall(this);
-                        break;
-                    case 3:
-                        torInfo();
-                        break;
-                }
+        new Menus(this, on ? "Tor : active" : "Tor : desactive")
+            .add("\u2609", on ? "Desactiver le routage Tor" : "Activer le routage Tor",
+                 () -> TorSupport.toggle(this))
+            .add("\u2713", "Verifier la connexion",
+                 () -> session.loadUri("https://check.torproject.org/"))
+            .add("\u25B6", "Lancer Orbot", () -> {
+                if (TorSupport.isOrbotInstalled(this)) TorSupport.startOrbot(this);
+                else TorSupport.offerInstall(this);
             })
-            .setNegativeButton("Retour", (d, w) -> showPrivacyMenu())
+            .add("\u24D8", "A propos de ce mode", this::torInfo)
+            .back(this::showPrivacyMenu)
             .show();
     }
 
     private void torInfo() {
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this, R.style.GeckoDialog)
             .setTitle("Ce que fait ce mode")
             .setMessage(
                 "Le trafic est envoye au proxy SOCKS d'Orbot, avec resolution DNS "
@@ -804,7 +721,7 @@ public class MainActivity extends Activity {
             if (ENGINES[i][1].equals(current)) { checked = i; break; }
         }
 
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this, R.style.GeckoDialog)
             .setTitle("Moteur de recherche")
             .setSingleChoiceItems(names, checked, (d, which) -> {
                 String tpl = ENGINES[which][1];
@@ -828,7 +745,7 @@ public class MainActivity extends Activity {
         String saved = prefs.getString("engineCustom", "");
         if (!saved.isEmpty()) input.setText(saved);
 
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this, R.style.GeckoDialog)
             .setTitle("Moteur personnalise")
             .setMessage("Utilisez %s a la place de la requete. Exemple pour une "
                       + "instance SearXNG : https://searx.be/search?q=%s")
@@ -898,7 +815,7 @@ public class MainActivity extends Activity {
             titles[i] = arr.optJSONObject(i).optString("title");
         }
 
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this, R.style.GeckoDialog)
             .setTitle("Favoris")
             .setItems(titles, (d, which) -> {
                 String url = arr.optJSONObject(which).optString("url");
@@ -910,7 +827,7 @@ public class MainActivity extends Activity {
     }
 
     private void deleteBookmark(final JSONArray arr, String[] titles) {
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this, R.style.GeckoDialog)
             .setTitle("Supprimer un favori")
             .setItems(titles, (d, which) -> {
                 JSONArray outArr = new JSONArray();
@@ -974,7 +891,7 @@ public class MainActivity extends Activity {
         final String[] names = new String[PROFILES.length];
         for (int i = 0; i < PROFILES.length; i++) names[i] = PROFILES[i][0];
 
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this, R.style.GeckoDialog)
             .setTitle("Identite de l'appareil")
             .setSingleChoiceItems(names, profileIndex(), (d, which) -> {
                 d.dismiss();
@@ -992,7 +909,7 @@ public class MainActivity extends Activity {
         input.setHint("Mozilla/5.0 …");
         input.setText(prefs.getString("profileCustomUa", ""));
 
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this, R.style.GeckoDialog)
             .setTitle("Agent utilisateur personnalise")
             .setMessage("Collez la chaine complete. La mise en page passe en mode "
                       + "ordinateur.")
@@ -1059,7 +976,7 @@ public class MainActivity extends Activity {
     }
 
     private void profileInfo() {
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this, R.style.GeckoDialog)
             .setTitle("Portee de cette option")
             .setMessage(
                 "L'agent utilisateur est remplace a la fois dans les en-tetes HTTP et "
@@ -1124,7 +1041,10 @@ public class MainActivity extends Activity {
             if (ext.metaData != null && ext.metaData.baseUrl != null) {
                 searchBase = ext.metaData.baseUrl + "search.html";
                 runOnUiThread(() -> {
-                    if (session != null && currentUrl.isEmpty()) session.loadUri(homeUrl());
+                    if (session != null && !homeLoaded && currentUrl.isEmpty()) {
+                        homeLoaded = true;
+                        session.loadUri(homeUrl());
+                    }
                 });
             }
         } catch (Throwable ignored) { }
@@ -1223,6 +1143,13 @@ public class MainActivity extends Activity {
                 });
             }
         }, "browser");
+    }
+
+    private void hideSplash() {
+        if (splash == null || splash.getVisibility() != android.view.View.VISIBLE) return;
+        splash.animate().alpha(0f).setDuration(220)
+              .withEndAction(() -> splash.setVisibility(android.view.View.GONE))
+              .start();
     }
 
     private String homeUrl() {

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Boites de dialogue du menu : fond sombre, accent vert de la marque -->
+    <style name="GeckoDialog" parent="@android:style/Theme.Material.Dialog.Alert">
+        <item name="android:windowBackground">@drawable/dialog_bg</item>
+        <item name="android:colorAccent">#6FAE5F</item>
+        <item name="android:textColorPrimary">#E8EAEE</item>
+        <item name="android:textColorSecondary">#99A0AD</item>
+        <item name="android:windowTitleStyle">@style/GeckoDialogTitle</item>
+        <item name="android:listDivider">@android:color/transparent</item>
+    </style>
+
+    <style name="GeckoDialogTitle" parent="@android:style/TextAppearance.Material.DialogWindowTitle">
+        <item name="android:textColor">#E8EAEE</item>
+        <item name="android:textSize">17sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
+</resources>

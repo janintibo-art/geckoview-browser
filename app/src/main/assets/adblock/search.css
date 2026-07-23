@@ -247,3 +247,15 @@ html, body {
   opacity: .95;
   border-radius: 14px;
 }
+
+/* --- accueil --- */
+#brand { text-align: center; padding: 30px 20px 10px; }
+#brand img {
+  width: 100%;
+  max-width: 320px;
+  height: auto;
+  border-radius: 16px;
+}
+.welcome { border-left-color: var(--accent); }
+.welcome h2 { font-size: 16px; margin: 0 0 7px; }
+.welcome p { font-size: 13px; line-height: 1.65; }

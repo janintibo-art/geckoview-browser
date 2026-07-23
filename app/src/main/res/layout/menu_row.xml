@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:background="@drawable/menu_row_bg"
+    android:paddingStart="18dp"
+    android:paddingEnd="18dp"
+    android:paddingTop="13dp"
+    android:paddingBottom="13dp">
+
+    <TextView
+        android:id="@+id/m_icon"
+        android:layout_width="30dp"
+        android:layout_height="wrap_content"
+        android:textColor="#6FAE5F"
+        android:textSize="17sp"
+        android:gravity="center" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:layout_marginStart="10dp"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/m_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#E8EAEE"
+            android:textSize="15sp" />
+
+        <TextView
+            android:id="@+id/m_value"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#8A9099"
+            android:textSize="12sp"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/m_chevron"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="\u203A"
+        android:textColor="#5A6068"
+        android:textSize="17sp"
+        android:visibility="gone" />
+</LinearLayout>
