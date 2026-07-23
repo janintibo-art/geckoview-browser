@@ -169,6 +169,8 @@
     deux est souvent instructive. Recherche avec surlignage et compteur.</p>
     <p><b>Console</b> — voir la section suivante.</p>
     <p><b>Reseau</b> — voir la section suivante.</p>
+    <p><b>Extraire</b> — transforme la page en tableau exportable, section dediee
+    plus bas.</p>
     <p><b>Infos</b> — doctype, encodage, langue, nombre d'elements, domaines tiers,
     cookies lisibles, stockage local, et toutes les balises meta.</p>
   </div>
@@ -211,6 +213,34 @@
     de verifier ce que le blocage fait reellement, et de reperer un faux positif quand
     un site se comporte mal.</p>
     <p>Export en CSV pour analyse ailleurs.</p>
+  </div>
+</details>
+
+<details>
+  <summary>Extracteur structure <span class="step">nouveau</span></summary>
+  <div class="c">
+    <p>Onglet <b>Extraire</b> de l'analyseur : transforme une page en tableau.
+    Vous designez l'element repete — une carte de produit, un resultat, une ligne —
+    puis les colonnes a en tirer.</p>
+    <p><b>Deviner</b> cherche le conteneur dont les enfants se ressemblent le plus et
+    en deduit le selecteur. <b>Pointer</b> vous laisse toucher l'element directement
+    sur la page ; le compteur indique combien d'elements le selecteur attrape, ce qui
+    permet de verifier qu'il vise bien toute la liste et pas une seule ligne.
+    <b>Colonnes auto</b> propose titre, lien, image et prix a partir de la premiere
+    ligne trouvee.</p>
+    <p>Chaque colonne prend un nom, un selecteur relatif a la ligne — vide pour viser
+    la ligne entiere — et le type de valeur : texte, lien, image, HTML, ou un attribut
+    nomme. Les liens et images sortent en adresses absolues.</p>
+    <p>Le champ <b>Pages a suivre</b> enchaine la pagination en reutilisant la meme
+    detection que le defilement infini : lien <code>rel="next"</code>, element suivant
+    dans la pagination, libelles, ou incrementation du parametre d'URL. Les pages
+    suivantes sont recuperees et analysees sans quitter celle-ci.</p>
+    <p>Export en CSV ou JSON dans les telechargements, ou copie du CSV dans le
+    presse-papiers. L'apercu montre les premieres lignes au fil de la saisie.</p>
+    <p class="warn">Les pages qui construisent leur contenu en JavaScript apres
+    chargement ne se pretent pas au suivi de pagination : la page courante s'extrait
+    bien, les suivantes reviennent vides. Dans ce cas, laissez « Pages a suivre » a 1
+    et faites defiler manuellement.</p>
   </div>
 </details>
 
@@ -384,8 +414,6 @@
   <div class="c">
     <p>Les etapes suivantes, dans l'ordre prevu :</p>
     <ul>
-      <li>Extracteur structure : un selecteur CSS, un export CSV ou JSON,
-      pagination comprise</li>
       <li>Page de diagnostic d'empreinte, pour verifier ce que le niveau strict
       masque reellement</li>
       <li>Sauvegarde de page en un fichier autonome, ressources incorporees</li>

@@ -18,6 +18,11 @@
   let netEntries = [];
   let netFilter = "";
   let netOnly = "";
+  let exRow = "";
+  let exCols = [];
+  let exPages = 1;
+  let exData = [];
+  let exBusy = false;
   let resources = [];
   let filters = new Set();
   let selected = new Set();
@@ -390,6 +395,313 @@
       <div id="ins-nlist" class="ins-list"><div class="ins-empty">Chargement…</div></div>`;
   }
 
+  // -------------------------------------------------------------------------
+  //  Extracteur structure
+  // -------------------------------------------------------------------------
+  const ATTRS = ["texte", "lien", "image", "html", "attribut"];
+
+  function renderExtract() {
+    const cols = exCols.map((c, i) => `
+      <div class="ins-col">
+        <input data-cn="${i}" placeholder="nom" value="${esc(c.name)}">
+        <input data-cs="${i}" placeholder="selecteur (vide = la ligne)" value="${esc(c.sel)}">
+        <select data-ca="${i}" class="ins-sel">
+          ${ATTRS.map(a => `<option value="${a}"${c.attr === a ? " selected" : ""}>${a}</option>`).join("")}
+        </select>
+        <input data-cx="${i}" placeholder="nom de l'attribut" value="${esc(c.extra || "")}"
+               style="${c.attr === "attribut" ? "" : "display:none"}">
+        <button data-cd="${i}" class="ins-b">&times;</button>
+      </div>`).join("");
+
+    return `
+      <div class="ins-tools">
+        <input id="ex-row" placeholder="Selecteur des lignes" value="${esc(exRow)}">
+      </div>
+      <div class="ins-tools">
+        <button id="ex-auto" class="ins-b">Deviner</button>
+        <button id="ex-pick" class="ins-b">Pointer</button>
+        <button id="ex-autocol" class="ins-b">Colonnes auto</button>
+        <button id="ex-addcol" class="ins-b">+ colonne</button>
+      </div>
+
+      <div id="ex-cols">${cols}</div>
+
+      <div class="ins-tools">
+        <span class="ins-hits">Pages a suivre</span>
+        <input id="ex-pages" type="number" min="1" max="50" value="${exPages}"
+               style="max-width:80px">
+        <button id="ex-run" class="ins-b ins-dl">Extraire</button>
+      </div>
+
+      <div id="ex-status" class="ins-note"></div>
+      <div id="ex-prev" class="ins-prev"></div>
+
+      <div class="ins-tools">
+        <button id="ex-csv" class="ins-b">Enregistrer en CSV</button>
+        <button id="ex-json" class="ins-b">Enregistrer en JSON</button>
+        <button id="ex-copy" class="ins-b">Copier</button>
+      </div>
+      <div class="ins-note">
+        Le selecteur des lignes designe un element repete : une carte de produit,
+        un resultat, une ligne de tableau. Chaque colonne prend un selecteur relatif
+        a cette ligne — laissez-le vide pour viser la ligne elle-meme.
+      </div>`;
+  }
+
+  // Devine le conteneur repete et en deduit le selecteur des lignes
+  function exAuto() {
+    const box = findContainer(document);
+    if (!box) return;
+    const kids = Array.from(box.children);
+    if (kids.length < 2) return;
+
+    const sig = {};
+    kids.forEach(k => { const g = signatureOf(k); sig[g] = (sig[g] || 0) + 1; });
+    let best = "", n = 0;
+    Object.keys(sig).forEach(k => { if (sig[k] > n) { n = sig[k]; best = k; } });
+
+    const sample = kids.find(k => signatureOf(k) === best);
+    if (!sample) return;
+
+    const parent = cssPath(box);
+    const cls = classOf(sample);
+    exRow = parent + " > " + sample.tagName.toLowerCase() + (cls ? "." + cls : "");
+    if (!exCols.length) exAutoCols();
+  }
+
+  function signatureOf(el) {
+    return el.tagName + "." + classOf(el);
+  }
+
+  function classOf(el) {
+    const raw = (el.className && el.className.toString ? el.className.toString() : "");
+    const good = raw.trim().split(/\s+/)
+      .filter(c => c && c.length < 26 && !/^\d/.test(c) && !/^(css|sc|emotion)-/i.test(c));
+    return good.length ? good[0] : "";
+  }
+
+  function exRows() {
+    if (!exRow) return [];
+    try { return Array.from(document.querySelectorAll(exRow)); }
+    catch (e) { return []; }
+  }
+
+  // Propose des colonnes a partir de la premiere ligne trouvee
+  function exAutoCols() {
+    const rows = exRows();
+    if (!rows.length) return;
+    const r = rows[0];
+    const cols = [];
+
+    const h = r.querySelector("h1, h2, h3, h4, [class*='title'], [class*='titre']");
+    if (h) cols.push({ name: "titre", sel: tagSel(h, r), attr: "texte" });
+
+    const a = r.querySelector("a[href]");
+    if (a) {
+      if (!h) cols.push({ name: "titre", sel: tagSel(a, r), attr: "texte" });
+      cols.push({ name: "lien", sel: tagSel(a, r), attr: "lien" });
+    }
+
+    const img = r.querySelector("img[src], img[data-src]");
+    if (img) cols.push({ name: "image", sel: tagSel(img, r), attr: "image" });
+
+    const price = Array.from(r.querySelectorAll("*")).find(x =>
+      x.children.length === 0 && /[\d\s]{1,9}[,.]?\d{0,2}\s?(€|EUR|\$|£)/.test(x.textContent || ""));
+    if (price) cols.push({ name: "prix", sel: tagSel(price, r), attr: "texte" });
+
+    if (!cols.length) cols.push({ name: "texte", sel: "", attr: "texte" });
+    exCols = cols;
+  }
+
+  // Selecteur court d'un descendant, relatif a sa ligne
+  function tagSel(el, root) {
+    const cls = classOf(el);
+    let sel = el.tagName.toLowerCase() + (cls ? "." + CSS.escape(cls) : "");
+    try {
+      if (root.querySelectorAll(sel).length >= 1) return sel;
+    } catch (e) { }
+    return el.tagName.toLowerCase();
+  }
+
+  // -------------------------------------------------------------------------
+  function cellValue(row, col, base) {
+    let el = row;
+    if (col.sel) {
+      try { el = row.querySelector(col.sel); } catch (e) { el = null; }
+    }
+    if (!el) return "";
+
+    switch (col.attr) {
+      case "lien": {
+        const a = el.matches("a[href]") ? el : el.querySelector("a[href]");
+        if (!a) return "";
+        try { return new URL(a.getAttribute("href"), base).href; }
+        catch (e) { return a.getAttribute("href") || ""; }
+      }
+      case "image": {
+        const im = el.matches("img") ? el : el.querySelector("img");
+        if (!im) return "";
+        const v = im.getAttribute("src") || im.getAttribute("data-src") || "";
+        try { return v ? new URL(v, base).href : ""; } catch (e) { return v; }
+      }
+      case "html":
+        return (el.innerHTML || "").trim();
+      case "attribut":
+        return el.getAttribute(col.extra || "") || "";
+      default:
+        return (el.innerText || el.textContent || "").replace(/\s+/g, " ").trim();
+    }
+  }
+
+  function extractFrom(root, base) {
+    let rows = [];
+    try { rows = Array.from(root.querySelectorAll(exRow)); } catch (e) { return []; }
+    return rows.map(r => {
+      const o = {};
+      exCols.forEach(c => { o[c.name || "colonne"] = cellValue(r, c, base); });
+      return o;
+    });
+  }
+
+  function exPreview() {
+    const box = root && root.querySelector("#ex-prev");
+    if (!box) return;
+    const rows = exRows();
+    const st = root.querySelector("#ex-status");
+    if (st) st.textContent = exRow
+      ? rows.length + " ligne(s) reconnue(s) sur cette page"
+      : "Indiquez un selecteur, ou appuyez sur Deviner.";
+    if (!rows.length || !exCols.length) { box.innerHTML = ""; return; }
+
+    const sample = rows.slice(0, 5).map(r => {
+      const o = {};
+      exCols.forEach(c => { o[c.name || "colonne"] = cellValue(r, c, location.href); });
+      return o;
+    });
+    box.innerHTML = tableHtml(sample);
+  }
+
+  function tableHtml(list) {
+    if (!list.length) return "";
+    const keys = Object.keys(list[0]);
+    return '<table class="ins-t"><thead><tr>' +
+      keys.map(k => "<th>" + esc(k) + "</th>").join("") +
+      "</tr></thead><tbody>" +
+      list.map(o => "<tr>" + keys.map(k =>
+        "<td>" + esc(String(o[k] || "").slice(0, 90)) + "</td>").join("") + "</tr>").join("") +
+      "</tbody></table>";
+  }
+
+  // -------------------------------------------------------------------------
+  //  Page suivante (detection compacte, meme principe que le defilement infini)
+  // -------------------------------------------------------------------------
+  const NEXT_RE = /^(suivant|suivante|page suivante|next|next page|older|plus ancien|»|›|→|>>|>)$/i;
+
+  function nextLink(doc, base) {
+    const abs2 = u => { try { return new URL(u, base).href; } catch (e) { return null; } };
+
+    let el = doc.querySelector("link[rel~='next'][href], a[rel~='next'][href]");
+    if (el) { const u = abs2(el.getAttribute("href")); if (u) return u; }
+
+    const cur = doc.querySelector(
+      ".pagination .active, .pagination .current, [aria-current='page'], .page-numbers.current");
+    if (cur) {
+      let sib = cur.nextElementSibling;
+      while (sib) {
+        const a = sib.matches("a[href]") ? sib : sib.querySelector("a[href]");
+        if (a) { const u = abs2(a.getAttribute("href")); if (u) return u; }
+        sib = sib.nextElementSibling;
+      }
+    }
+
+    for (const a of doc.querySelectorAll("a[href]")) {
+      const t = (a.textContent || a.getAttribute("aria-label") || "").replace(/\s+/g, " ").trim();
+      if (t.length <= 24 && NEXT_RE.test(t)) {
+        const u = abs2(a.getAttribute("href"));
+        if (u && u !== base) return u;
+      }
+    }
+
+    try {
+      const u = new URL(base);
+      for (const k of ["page", "p", "pg", "start", "offset"]) {
+        const v = u.searchParams.get(k);
+        if (v && /^\d+$/.test(v)) {
+          const step = (k === "start" || k === "offset") ? Math.max(1, exRows().length) : 1;
+          u.searchParams.set(k, String(parseInt(v, 10) + step));
+          return u.href;
+        }
+      }
+      const m = u.pathname.match(/\/page\/(\d+)\/?$/i);
+      if (m) {
+        u.pathname = u.pathname.replace(/\/page\/\d+\/?$/i,
+          "/page/" + (parseInt(m[1], 10) + 1) + "/");
+        return u.href;
+      }
+    } catch (e) { }
+    return null;
+  }
+
+  async function exRun() {
+    if (exBusy) return;
+    if (!exRow || !exCols.length) return;
+    exBusy = true;
+
+    const st = root.querySelector("#ex-status");
+    exData = extractFrom(document, location.href);
+    if (st) st.textContent = "Page 1 : " + exData.length + " ligne(s)";
+
+    let url = nextLink(document, location.href);
+    const seenUrls = new Set([location.href]);
+
+    for (let i = 1; i < exPages && url && !seenUrls.has(url); i++) {
+      seenUrls.add(url);
+      if (st) st.textContent = "Page " + (i + 1) + " en cours…";
+      let doc = null;
+      try {
+        const res = await browser.runtime.sendMessage({
+          type: "gmFetch", url: url, method: "GET"
+        });
+        if (res && res.body) doc = new DOMParser().parseFromString(res.body, "text/html");
+      } catch (e) { }
+      if (!doc) break;
+
+      const part = extractFrom(doc, url);
+      if (!part.length) break;
+      exData = exData.concat(part);
+      if (st) st.textContent = "Page " + (i + 1) + " : " + exData.length + " ligne(s) au total";
+      url = nextLink(doc, url);
+    }
+
+    if (st) st.textContent = exData.length + " ligne(s) extraite(s)";
+    const box = root.querySelector("#ex-prev");
+    if (box) box.innerHTML = tableHtml(exData.slice(0, 30)) +
+      (exData.length > 30 ? '<div class="ins-note">Apercu des 30 premieres lignes.</div>' : "");
+    exBusy = false;
+  }
+
+  // -------------------------------------------------------------------------
+  function toCsv(list) {
+    if (!list.length) return "";
+    const keys = Object.keys(list[0]);
+    const q = v => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
+    return [keys.map(q).join(",")]
+      .concat(list.map(o => keys.map(k => q(o[k])).join(",")))
+      .join("\n");
+  }
+
+  async function exSave(kind) {
+    if (!exData.length) return;
+    let host = "page";
+    try { host = location.hostname.replace(/^www\./, ""); } catch (e) { }
+    const name = host + "-extraction." + (kind === "csv" ? "csv" : "json");
+    const text = kind === "csv" ? toCsv(exData) : JSON.stringify(exData, null, 2);
+    try {
+      await browser.runtime.sendMessage({ type: "downloadText", name: name, text: text });
+    } catch (e) { }
+    return name;
+  }
+
   function renderInfo() {
     const metas = Array.from(document.querySelectorAll("meta")).map(m => {
       const k = m.getAttribute("name") || m.getAttribute("property")
@@ -489,6 +801,15 @@
   .ins-s-red{color:#d9c07c}
   .ins-s-err{color:#e08a72}
   .ins-s-blk{color:#c06a8a}
+  .ins-col{display:flex;gap:5px;margin-bottom:6px;flex-wrap:wrap;align-items:center}
+  .ins-col input{flex:1 1 90px;min-width:0;background:#1c1f26;border:1px solid #2b303a;
+    border-radius:7px;color:#e8eaee;padding:7px;font-size:12px}
+  .ins-col .ins-b{flex:0 0 auto;padding:7px 11px}
+  .ins-prev{overflow-x:auto;margin:10px 0}
+  .ins-prev table{min-width:100%}
+  .ins-prev th{text-align:left;color:#6fae5f;font-weight:600;font-size:11px;
+    padding:5px 6px;border-bottom:1px solid #2b303a;white-space:nowrap}
+  .ins-prev td{font-size:11px;max-width:190px}
   .ins-ck{margin-right:7px;vertical-align:middle}
   .ins-u{display:block;cursor:pointer}
   .ins-hits{color:#99a0ad;font-size:12px;align-self:center}`;
@@ -501,10 +822,12 @@
                    : tab === "code"    ? renderCode()
                    : tab === "console" ? renderConsole()
                    : tab === "net"     ? renderNet()
+                   : tab === "extract" ? renderExtract()
                    : renderInfo();
     wire();
     if (tab === "console") paintConsole();
     if (tab === "net") loadNet();
+    if (tab === "extract") { if (!exRow) exAuto(); exPreview(); }
   }
 
   function wire() {
@@ -650,6 +973,167 @@
     if (nq) nq.oninput = () => { netFilter = nq.value; paintNet(); };
     const ntype = body.querySelector("#ins-ntype");
     if (ntype) ntype.onchange = () => { netOnly = ntype.value; paintNet(); };
+
+    // --- Extraire ---
+    const exr = body.querySelector("#ex-row");
+    if (exr) exr.oninput = () => { exRow = exr.value.trim(); exPreview(); };
+
+    const exa = body.querySelector("#ex-auto");
+    if (exa) exa.onclick = () => { exAuto(); paint(); };
+
+    const exp = body.querySelector("#ex-pick");
+    if (exp) exp.onclick = () => exPick();
+
+    const exac = body.querySelector("#ex-autocol");
+    if (exac) exac.onclick = () => { exAutoCols(); paint(); };
+
+    const exadd = body.querySelector("#ex-addcol");
+    if (exadd) exadd.onclick = () => {
+      exCols.push({ name: "colonne" + (exCols.length + 1), sel: "", attr: "texte" });
+      paint();
+    };
+
+    body.querySelectorAll("[data-cn]").forEach(inp => {
+      inp.oninput = () => { exCols[+inp.dataset.cn].name = inp.value; exPreview(); };
+    });
+    body.querySelectorAll("[data-cs]").forEach(inp => {
+      inp.oninput = () => { exCols[+inp.dataset.cs].sel = inp.value.trim(); exPreview(); };
+    });
+    body.querySelectorAll("[data-ca]").forEach(sel => {
+      sel.onchange = () => {
+        const i = +sel.dataset.ca;
+        exCols[i].attr = sel.value;
+        const x = body.querySelector(`[data-cx="${i}"]`);
+        if (x) x.style.display = sel.value === "attribut" ? "" : "none";
+        exPreview();
+      };
+    });
+    body.querySelectorAll("[data-cx]").forEach(inp => {
+      inp.oninput = () => { exCols[+inp.dataset.cx].extra = inp.value.trim(); exPreview(); };
+    });
+    body.querySelectorAll("[data-cd]").forEach(b => {
+      b.onclick = () => { exCols.splice(+b.dataset.cd, 1); paint(); };
+    });
+
+    const expg = body.querySelector("#ex-pages");
+    if (expg) expg.oninput = () => {
+      exPages = Math.max(1, Math.min(50, parseInt(expg.value, 10) || 1));
+    };
+
+    const exrun = body.querySelector("#ex-run");
+    if (exrun) exrun.onclick = async () => {
+      exrun.textContent = "Extraction…";
+      await exRun();
+      exrun.textContent = "Extraire";
+    };
+
+    const excsv = body.querySelector("#ex-csv");
+    if (excsv) excsv.onclick = async () => {
+      const n = await exSave("csv");
+      excsv.textContent = n ? "Enregistre" : "Rien a enregistrer";
+      setTimeout(() => { excsv.textContent = "Enregistrer en CSV"; }, 2500);
+    };
+    const exjson = body.querySelector("#ex-json");
+    if (exjson) exjson.onclick = async () => {
+      const n = await exSave("json");
+      exjson.textContent = n ? "Enregistre" : "Rien a enregistrer";
+      setTimeout(() => { exjson.textContent = "Enregistrer en JSON"; }, 2500);
+    };
+    const excopy = body.querySelector("#ex-copy");
+    if (excopy) excopy.onclick = () => {
+      if (!exData.length) { excopy.textContent = "Rien a copier"; return; }
+      copy(toCsv(exData));
+      excopy.textContent = "Copie";
+      setTimeout(() => { excopy.textContent = "Copier"; }, 2500);
+    };
+  }
+
+  // -------------------------------------------------------------------------
+  //  Pointeur de ligne : designer l'element repete sur la page
+  // -------------------------------------------------------------------------
+  function exPick() {
+    const saved = root.style.display;
+    root.style.display = "none";
+
+    const ov = document.createElement("div");
+    ov.style.cssText = "position:fixed;z-index:2147483646;pointer-events:none;" +
+      "display:none;background:rgba(138,180,248,.2);border:2px solid #8ab4f8";
+    document.documentElement.appendChild(ov);
+
+    const tip = document.createElement("div");
+    tip.style.cssText = "position:fixed;left:0;right:0;bottom:0;z-index:2147483647;" +
+      "background:#14161a;border-top:1px solid #2b303a;padding:10px 12px 14px;" +
+      "font:12px -apple-system,Roboto,sans-serif;color:#e8eaee";
+    tip.innerHTML = '<div id="xp-s" style="font-family:monospace;font-size:11px;' +
+      'color:#8ab4f8;word-break:break-all;margin-bottom:8px">Touchez un element repete</div>' +
+      '<div style="display:flex;gap:6px">' +
+      '<button data-x="up" style="flex:1;padding:9px;border:1px solid #2b303a;' +
+      'border-radius:7px;background:#1c1f26;color:#e8eaee">Parent</button>' +
+      '<button data-x="ok" style="flex:1;padding:9px;border:1px solid #3d5c34;' +
+      'border-radius:7px;background:#1c1f26;color:#8fce7c">Valider</button>' +
+      '<button data-x="no" style="flex:1;padding:9px;border:1px solid #2b303a;' +
+      'border-radius:7px;background:transparent;color:#99a0ad">Annuler</button></div>';
+    document.documentElement.appendChild(tip);
+
+    let cur = null;
+
+    const selOf = el => {
+      if (!el) return "";
+      const cls = classOf(el);
+      const tag = el.tagName.toLowerCase();
+      // On vise la fratrie : un selecteur qui attrape plusieurs elements
+      const parentSel = el.parentElement ? cssPath(el.parentElement) : "";
+      const base = tag + (cls ? "." + CSS.escape(cls) : "");
+      const full = parentSel ? parentSel + " > " + base : base;
+      try {
+        return document.querySelectorAll(full).length > 1 ? full : base;
+      } catch (e) { return base; }
+    };
+
+    const show = () => {
+      const s2 = cur ? selOf(cur) : "";
+      let n = 0;
+      try { n = s2 ? document.querySelectorAll(s2).length : 0; } catch (e) { }
+      tip.querySelector("#xp-s").textContent = s2
+        ? s2 + "   —   " + n + " element(s)" : "Touchez un element repete";
+      if (cur) {
+        const r = cur.getBoundingClientRect();
+        Object.assign(ov.style, {
+          display: "block", left: r.left + "px", top: r.top + "px",
+          width: r.width + "px", height: r.height + "px"
+        });
+      }
+    };
+
+    const onTap = e => {
+      if (tip.contains(e.target)) return;
+      e.preventDefault(); e.stopPropagation();
+      cur = e.target;
+      show();
+    };
+
+    const finish = keep => {
+      document.removeEventListener("click", onTap, true);
+      ov.remove(); tip.remove();
+      root.style.display = saved || "flex";
+      if (keep && cur) {
+        exRow = selOf(cur);
+        exCols = [];
+        exAutoCols();
+        paint();
+      }
+    };
+
+    tip.addEventListener("click", e => {
+      const a = e.target.getAttribute && e.target.getAttribute("data-x");
+      if (!a) return;
+      e.preventDefault(); e.stopPropagation();
+      if (a === "no") finish(false);
+      if (a === "ok") finish(true);
+      if (a === "up" && cur && cur.parentElement) { cur = cur.parentElement; show(); }
+    }, true);
+
+    document.addEventListener("click", onTap, true);
   }
 
   function refreshList() {
@@ -1071,6 +1555,7 @@
         <button class="ins-tab" data-tab="code">Code</button>
         <button class="ins-tab" data-tab="console">Console</button>
         <button class="ins-tab" data-tab="net">Reseau</button>
+        <button class="ins-tab" data-tab="extract">Extraire</button>
         <button class="ins-tab" data-tab="info">Infos</button>
       </div>
       <div class="ins-body"></div>`;
