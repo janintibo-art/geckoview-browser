@@ -637,6 +637,8 @@ public class MainActivity extends Activity {
             .add("\u26D4", blockerEnabled ? "Desactiver le blocage" : "Activer le blocage",
                  blockerEnabled ? blockedCount + " elements bloques" : "blocage inactif",
                  this::toggleBlocker)
+            .sub("\u21F5", "Mes flux", null,
+                 () -> session.loadUri(extPage("feeds.html")))
             .sub("\u2630", "File de lecture", null,
                  () -> session.loadUri(extPage("queue.html")))
             .sub("\u23F1", "Surveillances", null,
@@ -672,6 +674,8 @@ public class MainActivity extends Activity {
             .add("\u21BA", "Ne plus rediriger ce service",
                  () -> { if (onWebPage()) sendCommand("noFrontend"); })
             .add("\u270E", "CSS de ce site", () -> { if (onWebPage()) sendCommand("styleThis"); })
+            .add("\u21F5", "Creer un flux",
+                 () -> { if (onWebPage()) sendCommand("makeFeed"); })
             .add("\u2611", "Lire plus tard",
                  () -> { if (onWebPage()) sendCommand("readLater"); })
             .add("\u2913", "Archiver cette version",

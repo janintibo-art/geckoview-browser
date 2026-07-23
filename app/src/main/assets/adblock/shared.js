@@ -224,8 +224,153 @@ var GB = (function () {
     return mainBlocks(doc).join("\n");
   }
 
+  // -------------------------------------------------------------------------
+  //  Pointeur d'element
+  //  Trois variantes de ce code coexistaient : styles, extracteur et
+  //  surveillance. Celle-ci est la version commune, utilisee par les
+  //  nouveaux outils ; les trois autres suivront.
+  // -------------------------------------------------------------------------
+  function selectorOf(el, opts) {
+    if (!el || el.nodeType !== 1) return "";
+    const wantMany = opts && opts.repeated;
+
+    if (!wantMany && el.id && /^[A-Za-z][\w-]*$/.test(el.id)) {
+      return "#" + CSS.escape(el.id);
+    }
+
+    const parts = [];
+    let cur = el;
+    let depth = 0;
+
+    while (cur && cur.nodeType === 1 && cur !== document.documentElement && depth < 6) {
+      if (!wantMany && cur.id && /^[A-Za-z][\w-]*$/.test(cur.id)) {
+        parts.unshift("#" + CSS.escape(cur.id));
+        break;
+      }
+
+      let sel = cur.tagName.toLowerCase();
+      const raw = (cur.className && cur.className.toString
+                   ? cur.className.toString() : "").trim();
+      const good = raw.split(/\s+/).filter(c =>
+        c && c.length < 26 && !/^\d/.test(c) && !/^(css|sc|emotion)-/i.test(c));
+
+      if (good.length) {
+        sel += "." + good.slice(0, 2).map(c => CSS.escape(c)).join(".");
+      } else if (cur.parentElement && !wantMany) {
+        const same = Array.from(cur.parentElement.children)
+          .filter(x => x.tagName === cur.tagName);
+        if (same.length > 1) sel += ":nth-of-type(" + (same.indexOf(cur) + 1) + ")";
+      }
+
+      parts.unshift(sel);
+
+      const full = parts.join(" > ");
+      let n = 0;
+      try { n = document.querySelectorAll(full).length; } catch (e) { }
+      // Un element unique suffit, sauf si l'on cherche une serie repetee
+      if (n === 1 && !wantMany) break;
+      if (wantMany && n > 1 && depth > 0) break;
+
+      cur = cur.parentElement;
+      depth++;
+    }
+    return parts.join(" > ");
+  }
+
+  /**
+   * Ouvre le pointeur et resout avec { element, selector, count }, ou null.
+   * opts : { hint, color, repeated }
+   */
+  function pick(opts) {
+    opts = opts || {};
+    const color = opts.color || "#6fae5f";
+
+    return new Promise(resolve => {
+      let current = null;
+
+      const ov = document.createElement("div");
+      ov.style.cssText = "position:fixed;z-index:2147483646;pointer-events:none;" +
+        "display:none;border:2px solid " + color + ";border-radius:3px;" +
+        "background:" + color + "22";
+      document.documentElement.appendChild(ov);
+
+      const bar = document.createElement("div");
+      bar.style.cssText = "position:fixed;left:0;right:0;bottom:0;z-index:2147483647;" +
+        "background:#14161a;border-top:1px solid #2b303a;padding:11px 12px 15px;" +
+        "color:#e8eaee;font:12px/1.5 -apple-system,Roboto,sans-serif";
+      bar.innerHTML =
+        '<div style="font-weight:600;margin-bottom:5px">' +
+        (opts.hint || "Touchez un element") + "</div>" +
+        '<div id="gbp-sel" style="font-family:monospace;font-size:11px;color:#8ab4f8;' +
+        'word-break:break-all;min-height:16px"></div>' +
+        '<div id="gbp-n" style="color:#99a0ad;font-size:11px;margin:2px 0 9px"></div>' +
+        '<div style="display:flex;gap:6px">' +
+        '<button data-a="up" style="flex:1;padding:9px;border:1px solid #2b303a;' +
+        'border-radius:7px;background:#1c1f26;color:#e8eaee">Parent</button>' +
+        '<button data-a="ok" style="flex:1;padding:9px;border:1px solid #3d5c34;' +
+        'border-radius:7px;background:#1c1f26;color:#8fce7c">Valider</button>' +
+        '<button data-a="no" style="flex:1;padding:9px;border:1px solid #2b303a;' +
+        'border-radius:7px;background:transparent;color:#99a0ad">Annuler</button></div>';
+      document.documentElement.appendChild(bar);
+
+      function show() {
+        if (!current) return;
+        const sel = selectorOf(current, opts);
+        let n = 0;
+        try { n = sel ? document.querySelectorAll(sel).length : 0; } catch (e) { }
+        bar.querySelector("#gbp-sel").textContent = sel || "—";
+        bar.querySelector("#gbp-n").textContent =
+          n + " element" + (n > 1 ? "s vises" : " vise");
+        const r = current.getBoundingClientRect();
+        Object.assign(ov.style, {
+          display: "block", left: r.left + "px", top: r.top + "px",
+          width: r.width + "px", height: r.height + "px"
+        });
+      }
+
+      function onTap(e) {
+        if (bar.contains(e.target)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        current = e.target;
+        show();
+      }
+
+      function finish(value) {
+        document.removeEventListener("click", onTap, true);
+        ov.remove();
+        bar.remove();
+        resolve(value);
+      }
+
+      bar.addEventListener("click", e => {
+        const a = e.target.getAttribute && e.target.getAttribute("data-a");
+        if (!a) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (a === "no") return finish(null);
+        if (a === "up") {
+          if (current && current.parentElement &&
+              current.parentElement !== document.documentElement) {
+            current = current.parentElement;
+            show();
+          }
+          return;
+        }
+        if (!current) return;
+        const sel = selectorOf(current, opts);
+        let n = 0;
+        try { n = document.querySelectorAll(sel).length; } catch (e2) { }
+        finish({ element: current, selector: sel, count: n });
+      }, true);
+
+      document.addEventListener("click", onTap, true);
+    });
+  }
+
   return {
     abs, hostOf, norm,
+    selectorOf, pick,
     mainContainer, mainBlocks, mainText,
     NEXT_TEXT, findNext,
     CMP_CONTAINERS, REJECT_SELECTORS, REJECT_TEXTS, CMP_SCOPES

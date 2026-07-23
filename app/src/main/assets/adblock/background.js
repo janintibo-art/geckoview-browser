@@ -306,6 +306,110 @@ async function checkAllWatches(force) {
 }
 
 // ---------------------------------------------------------------------------
+//  Flux maison : releve des nouvelles entrees
+// ---------------------------------------------------------------------------
+let feeds = [];
+const FEED_TICK = 15 * 60 * 1000;
+
+async function loadFeeds() {
+  try {
+    const s = await browser.storage.local.get("feeds");
+    feeds = (s && s.feeds) || [];
+  } catch (e) { feeds = []; }
+}
+
+function feedItems(doc, selector, base) {
+  let nodes = [];
+  try { nodes = Array.from(doc.querySelectorAll(selector)); } catch (e) { return []; }
+
+  const out = [];
+  const seen = new Set();
+
+  for (const el of nodes) {
+    const a = el.matches("a[href]") ? el : el.querySelector("a[href]");
+    if (!a) continue;
+
+    let link;
+    try { link = new URL(a.getAttribute("href"), base).href; } catch (e) { continue; }
+    if (!/^https?:/i.test(link) || seen.has(link)) continue;
+
+    const h = el.querySelector("h1, h2, h3, h4, [class*='title'], [class*='titre']");
+    let title = ((h || a).textContent || "").replace(/\s+/g, " ").trim();
+    if (!title) title = (el.textContent || "").replace(/\s+/g, " ").trim();
+    if (!title) continue;
+
+    const time = el.querySelector("time[datetime], time");
+    seen.add(link);
+    out.push({
+      title: title.slice(0, 200),
+      link: link,
+      date: time ? (time.getAttribute("datetime") || time.textContent || "").trim().slice(0, 40) : ""
+    });
+    if (out.length >= 60) break;
+  }
+  return out;
+}
+
+async function refreshFeed(f) {
+  let doc = null;
+  try {
+    const r = await fetch(f.url, { cache: "no-cache", credentials: "omit" });
+    if (!r.ok) return { error: "HTTP " + r.status };
+    doc = new DOMParser().parseFromString(await r.text(), "text/html");
+  } catch (e) {
+    return { error: "injoignable" };
+  }
+
+  const fresh = feedItems(doc, f.selector, f.url);
+  if (!fresh.length) return { error: "aucune entree" };
+
+  const known = new Set((f.items || []).map(i => i.link));
+  const added = fresh.filter(i => !known.has(i.link));
+
+  f.checkedAt = Date.now();
+  if (added.length) {
+    const marked = added.map(i => Object.assign({ at: Date.now(), seen: false }, i));
+    f.items = marked.concat(f.items || []).slice(0, 120);
+  }
+  return { added: added.length, titles: added.slice(0, 3).map(i => i.title) };
+}
+
+async function refreshFeeds(force) {
+  if (!feeds.length) return { checked: 0, added: 0 };
+  const now = Date.now();
+  let checked = 0, added = 0;
+
+  for (const f of feeds) {
+    if (!f.enabled) continue;
+    const due = force || !f.checkedAt ||
+                (now - f.checkedAt) >= (f.every || 180) * 60000;
+    if (!due) continue;
+
+    const res = await refreshFeed(f);
+    checked++;
+    if (res.added) {
+      added += res.added;
+      // Notification seulement si le flux la demande : un releve de titres
+      // deviendrait vite envahissant.
+      if (f.notify && nativePort) {
+        try {
+          nativePort.postMessage({
+            type: "notify",
+            id: f.id,
+            title: res.added + " nouveaute(s) sur " + f.host,
+            text: res.titles.join("\n"),
+            url: f.url
+          });
+        } catch (e) { }
+      }
+    }
+  }
+
+  try { await browser.storage.local.set({ feeds: feeds }); } catch (e) { }
+  return { checked, added };
+}
+
+// ---------------------------------------------------------------------------
 //  Journal reseau (tampon circulaire, consulte par l'analyseur de page)
 // ---------------------------------------------------------------------------
 const NET_MAX = 400;
@@ -691,6 +795,16 @@ browser.runtime.onMessage.addListener(msg => {
     }
     return Promise.resolve({ ok: true, original: lastOriginal });
   }
+  if (msg.type === "feedList") {
+    return loadFeeds().then(() => ({ feeds: feeds }));
+  }
+  if (msg.type === "feedRefresh") {
+    return refreshFeeds(true);
+  }
+  if (msg.type === "feedSave") {
+    feeds = msg.feeds || [];
+    return browser.storage.local.set({ feeds: feeds }).then(() => ({ ok: true }));
+  }
   if (msg.type === "watchList") {
     return loadWatches().then(() => ({ watches: watches }));
   }
@@ -933,3 +1047,6 @@ setInterval(refreshLists, REFRESH_MS);
 // Surveillances : rattrapage peu apres le demarrage, puis passage regulier.
 loadWatches().then(() => setTimeout(() => checkAllWatches(false), 8000));
 setInterval(() => checkAllWatches(false), WATCH_TICK);
+
+loadFeeds().then(() => setTimeout(() => refreshFeeds(false), 20000));
+setInterval(() => refreshFeeds(false), FEED_TICK);

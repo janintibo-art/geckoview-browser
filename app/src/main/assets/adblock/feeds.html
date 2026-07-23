@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mes flux</title>
+<link rel="stylesheet" href="search.css">
+<style>
+  header { padding: 14px 14px 8px; border-bottom: 1px solid var(--line); }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .sub { color: var(--dim); font-size: 13px; line-height: 1.5; }
+  main { padding: 8px 14px 40px; }
+
+  .tools { display: flex; gap: 8px; margin: 10px 0; }
+  .tools button {
+    flex: 1; padding: 10px; border: 1px solid var(--line); border-radius: 8px;
+    background: transparent; color: var(--dim); font-size: 12px;
+  }
+  .tools button.main { background: var(--accent); color: #10130f;
+    border-color: var(--accent); font-weight: 600; }
+  .tools button.on { color: var(--accent); border-color: var(--accent); }
+
+  .src { border-bottom: 1px solid var(--line); padding: 12px 0; }
+  .src .hd { display: flex; align-items: center; gap: 10px; }
+  .src .nm { flex: 1; min-width: 0; font-size: 14px; font-weight: 500;
+             word-break: break-word; }
+  .src .mt { font-size: 11px; color: var(--dim); margin-top: 2px; }
+  .sw { width: 34px; background: none; border: 0; font-size: 16px; padding: 0; }
+  .on { color: var(--accent); }
+  .off { color: #4a5058; }
+
+  .items { margin-top: 8px; }
+  .it {
+    display: block; padding: 8px 10px; margin-top: 5px;
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 8px; color: #c3c8d1; font-size: 13px; line-height: 1.45;
+    text-decoration: none; word-break: break-word;
+  }
+  .it.neuf { border-left: 3px solid var(--accent); color: var(--fg); }
+  .it .d { font-size: 11px; color: var(--dim); margin-top: 3px; }
+
+  .acts { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .acts button, .acts a {
+    padding: 5px 11px; border: 1px solid var(--line); border-radius: 7px;
+    background: transparent; color: var(--dim); font-size: 12px;
+    text-decoration: none; display: inline-block;
+  }
+  #msg { font-size: 12px; color: var(--dim); min-height: 16px; margin: 8px 0; }
+  .tot { font-size: 12px; color: var(--dim); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Mes flux</h1>
+  <div class="sub">Les nouveautes des sites que vous suivez, meme ceux qui ne
+  proposent aucun flux.</div>
+</header>
+
+<main>
+  <div class="tot" id="tot"></div>
+  <div class="tools">
+    <button id="refresh" class="main">Relever maintenant</button>
+    <button id="onlynew">Nouveautes</button>
+  </div>
+  <div id="msg"></div>
+  <div id="list"></div>
+
+  <p class="note" style="margin-top:22px">
+    Pour creer un flux : ouvrez la page qui liste les articles, puis
+    <b>Menu &#8250; Page &#8250; Creer un flux</b>. Vous designez un article,
+    le navigateur reconnait les autres.
+  </p>
+  <p class="note">
+    Les entrees presentes a la creation sont marquees comme deja vues : seules les
+    suivantes apparaitront en nouveaute. Le relevé a lieu pendant que le navigateur
+    tourne, toutes les trois heures par flux par defaut.
+  </p>
+</main>
+
+<script src="feeds-ui.js"></script>
+</body>
+</html>
