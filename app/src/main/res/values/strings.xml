@@ -4,4 +4,14 @@
     <string name="url_hint">Rechercher ou saisir une adresse</string>
     <string name="go">Aller</string>
     <string name="menu">Menu</string>
+
+    <string name="widget_search_hint">Rechercher</string>
+    <string name="widget_private">Navigation privee</string>
+    <string name="widget_bookmarks">Favoris</string>
+    <string name="widget_blocked">elements bloques</string>
+    <string name="widget_state">Etat du blocage</string>
+    <string name="widget_on">Blocage actif</string>
+    <string name="widget_off">Blocage inactif</string>
+    <string name="widget_search_desc">Barre de recherche, navigation privee et favoris</string>
+    <string name="widget_stats_desc">Compteur de blocage et interrupteur</string>
 </resources>

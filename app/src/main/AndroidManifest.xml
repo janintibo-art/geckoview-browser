@@ -62,5 +62,27 @@
                 <data android:scheme="https" />
             </intent-filter>
         </activity>
+
+        <receiver
+            android:name=".SearchWidget"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_search_info" />
+        </receiver>
+
+        <receiver
+            android:name=".StatsWidget"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_stats_info" />
+        </receiver>
     </application>
 </manifest>

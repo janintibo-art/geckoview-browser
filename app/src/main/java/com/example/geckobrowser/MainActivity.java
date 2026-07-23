@@ -141,6 +141,7 @@ public class MainActivity extends Activity {
         setContentView(R.layout.activity_main);
 
         prefs = getSharedPreferences("geckobrowser", MODE_PRIVATE);
+        blockerEnabled = prefs.getBoolean("blockerEnabled", true);
 
         geckoView = findViewById(R.id.geckoview);
         urlBar = findViewById(R.id.url_bar);
@@ -175,6 +176,41 @@ public class MainActivity extends Activity {
         });
 
         updateShield();
+        handleWidgetIntent(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleWidgetIntent(intent);
+    }
+
+    /** Actions declenchees depuis un widget de l'ecran d'accueil. */
+    private void handleWidgetIntent(Intent intent) {
+        if (intent == null) return;
+        String action = intent.getStringExtra(SearchWidget.EXTRA);
+        if (action == null) return;
+        intent.removeExtra(SearchWidget.EXTRA);
+
+        switch (action) {
+            case "search":
+                session.loadUri(homeUrl());
+                urlBar.requestFocus();
+                InputMethodManager imm =
+                        (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+                if (imm != null) imm.showSoftInput(urlBar, InputMethodManager.SHOW_IMPLICIT);
+                break;
+            case "private":
+                if (!privateMode) togglePrivate();
+                break;
+            case "bookmarks":
+                showBookmarks();
+                break;
+            case "toggle":
+                toggleBlocker();
+                break;
+        }
     }
 
 
@@ -1095,6 +1131,17 @@ public class MainActivity extends Activity {
             @Override
             public void onConnect(WebExtension.Port port) {
                 blockerPort = port;
+
+                // Retablit l'etat choisi precedemment, y compris depuis un widget.
+                if (!blockerEnabled) {
+                    try {
+                        JSONObject init = new JSONObject();
+                        init.put("type", "setEnabled");
+                        init.put("value", false);
+                        port.postMessage(init);
+                    } catch (Exception ignored) { }
+                }
+
                 port.setDelegate(new WebExtension.PortDelegate() {
                     @Override
                     public void onPortMessage(Object message, WebExtension.Port p) {
@@ -1167,6 +1214,8 @@ public class MainActivity extends Activity {
 
     private void toggleBlocker() {
         blockerEnabled = !blockerEnabled;
+        prefs.edit().putBoolean("blockerEnabled", blockerEnabled).apply();
+        lastWidgetPush = 0;
         updateShield();
         if (blockerPort != null) {
             try {
@@ -1181,7 +1230,18 @@ public class MainActivity extends Activity {
         session.reload();
     }
 
+    private long lastWidgetPush = 0;
+
+    private void pushWidgets() {
+        long now = System.currentTimeMillis();
+        if (now - lastWidgetPush < 4000) return;   // evite les rafraichissements en rafale
+        lastWidgetPush = now;
+        try { StatsWidget.publish(this, blockedCount, blockerEnabled); }
+        catch (Throwable ignored) { }
+    }
+
     private void updateShield() {
+        pushWidgets();
         if (!blockerEnabled) {
             shield.setText("OFF");
             shield.setTextColor(0xFF9E9E9E);
