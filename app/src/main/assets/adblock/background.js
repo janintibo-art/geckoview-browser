@@ -216,6 +216,96 @@ function pushState() {
 }
 
 // ---------------------------------------------------------------------------
+//  Surveillance de pages
+//
+//  Les verifications ont lieu tant que le navigateur tourne. Une surveillance
+//  reellement continue demanderait un service en arriere-plan permanent, avec
+//  le cout en batterie que cela suppose : on s'en tient a un rattrapage au
+//  demarrage et a un passage regulier pendant l'utilisation.
+// ---------------------------------------------------------------------------
+let watches = [];
+const WATCH_TICK = 5 * 60 * 1000;
+
+async function loadWatches() {
+  try {
+    const s = await browser.storage.local.get("watches");
+    watches = (s && s.watches) || [];
+  } catch (e) { watches = []; }
+}
+
+function watchValue(doc, w) {
+  let el = null;
+  try { el = doc.querySelector(w.selector); } catch (e) { return null; }
+
+  if (w.mode === "presence") return el ? "present" : "absent";
+  if (!el) return "";
+
+  const text = (el.textContent || "").replace(/\s+/g, " ").trim();
+  if (w.mode === "nombre") {
+    const m = text.replace(/\u00A0/g, " ").match(/-?\d[\d\s.,]*/);
+    return m ? m[0].replace(/\s/g, "").replace(",", ".") : "";
+  }
+  return text.slice(0, 400);
+}
+
+async function checkWatch(w) {
+  let doc = null;
+  try {
+    const r = await fetch(w.url, { cache: "no-cache", credentials: "omit" });
+    if (!r.ok) return { error: "HTTP " + r.status };
+    doc = new DOMParser().parseFromString(await r.text(), "text/html");
+  } catch (e) {
+    return { error: "injoignable" };
+  }
+
+  const value = watchValue(doc, w);
+  if (value === null) return { error: "selecteur invalide" };
+
+  w.checkedAt = Date.now();
+  if (value === w.value) return { changed: false };
+
+  w.previous = w.value;
+  w.value = value;
+  w.changedAt = Date.now();
+  w.history = (w.history || []).slice(-4);
+  w.history.push({ at: w.changedAt, from: w.previous, to: value });
+  return { changed: true };
+}
+
+async function checkAllWatches(force) {
+  if (!watches.length) return { checked: 0, changed: 0 };
+  const now = Date.now();
+  let checked = 0, changed = 0;
+
+  for (const w of watches) {
+    if (!w.enabled) continue;
+    const due = force || !w.checkedAt ||
+                (now - w.checkedAt) >= (w.every || 120) * 60000;
+    if (!due) continue;
+
+    const res = await checkWatch(w);
+    checked++;
+    if (res.changed) {
+      changed++;
+      if (nativePort) {
+        try {
+          nativePort.postMessage({
+            type: "notify",
+            id: w.id,
+            title: "Changement sur " + w.host,
+            text: (w.previous || "(vide)") + "  \u2192  " + (w.value || "(vide)"),
+            url: w.url
+          });
+        } catch (e) { }
+      }
+    }
+  }
+
+  try { await browser.storage.local.set({ watches: watches }); } catch (e) { }
+  return { checked, changed };
+}
+
+// ---------------------------------------------------------------------------
 //  Journal reseau (tampon circulaire, consulte par l'analyseur de page)
 // ---------------------------------------------------------------------------
 const NET_MAX = 400;
@@ -601,6 +691,16 @@ browser.runtime.onMessage.addListener(msg => {
     }
     return Promise.resolve({ ok: true, original: lastOriginal });
   }
+  if (msg.type === "watchList") {
+    return loadWatches().then(() => ({ watches: watches }));
+  }
+  if (msg.type === "watchCheck") {
+    return checkAllWatches(true);
+  }
+  if (msg.type === "watchSave") {
+    watches = msg.watches || [];
+    return browser.storage.local.set({ watches: watches }).then(() => ({ ok: true }));
+  }
   if (msg.type === "netLog") {
     const origin = msg.origin || "";
     const list = netLog.filter(e =>
@@ -759,3 +859,7 @@ rebuildSets();
 setTimeout(autoPull, 3000);
 refreshLists();
 setInterval(refreshLists, REFRESH_MS);
+
+// Surveillances : rattrapage peu apres le demarrage, puis passage regulier.
+loadWatches().then(() => setTimeout(() => checkAllWatches(false), 8000));
+setInterval(() => checkAllWatches(false), WATCH_TICK);

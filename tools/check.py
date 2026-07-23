@@ -240,7 +240,10 @@ def check_resources():
             if f.endswith(".java"):
                 java_src += read(os.path.join(JAVA, f))
 
-    for kind, name in sorted(set(re.findall(r"R\.(\w+)\.(\w+)", java_src))):
+    # Les ressources du systeme (android.R.*) ne sont pas dans notre projet :
+    # sans cette exclusion, chaque icone standard serait signalee a tort.
+    cited = re.findall(r"(?<!android\.)\bR\.(\w+)\.(\w+)", java_src)
+    for kind, name in sorted(set(cited)):
         if kind in have and name not in have[kind]:
             err("ressource citee mais absente : R.%s.%s" % (kind, name))
 

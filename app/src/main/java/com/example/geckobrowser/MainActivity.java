@@ -234,6 +234,13 @@ public class MainActivity extends Activity {
             case "toggle":
                 toggleBlocker();
                 break;
+            case "openUrl":
+                String dest = intent.getStringExtra("url");
+                if (dest != null && !dest.isEmpty()) {
+                    setupSession(false, dest);
+                    selectTab(tabs.size() - 1);
+                }
+                break;
         }
     }
 
@@ -630,6 +637,8 @@ public class MainActivity extends Activity {
             .add("\u26D4", blockerEnabled ? "Desactiver le blocage" : "Activer le blocage",
                  blockerEnabled ? blockedCount + " elements bloques" : "blocage inactif",
                  this::toggleBlocker)
+            .sub("\u23F1", "Surveillances", null,
+                 () -> session.loadUri(extPage("watch.html")))
             .add("\u21C4", "Synchronisation", () -> session.loadUri(extPage("sync.html")))
             .add("\u24D8", "Aide et tutoriel", () -> session.loadUri(extPage("help.html")))
             .show();
@@ -657,6 +666,8 @@ public class MainActivity extends Activity {
             .add("\u21BA", "Ne plus rediriger ce service",
                  () -> { if (onWebPage()) sendCommand("noFrontend"); })
             .add("\u270E", "CSS de ce site", () -> { if (onWebPage()) sendCommand("styleThis"); })
+            .add("\u23F1", "Surveiller un element",
+                 () -> { if (onWebPage()) sendCommand("watch"); })
             .add("\u25CE", "Masquer un element",
                  () -> { if (onWebPage()) sendCommand("pickElement"); })
             .add("\u2298", "Masquer ce site", () -> { if (onWebPage()) sendCommand("hideSite"); })
@@ -751,6 +762,67 @@ public class MainActivity extends Activity {
             msg.put("type", "askOriginal");
             blockerPort.postMessage(msg);
         } catch (Exception ignored) { }
+    }
+
+    // =======================================================================
+    //  Notification de surveillance
+    // =======================================================================
+    private static final String CHANNEL = "watches";
+
+    /**
+     * Previent d'un changement detecte. Un appui ouvre la page concernee.
+     * Repli sur un message a l'ecran si les notifications sont refusees.
+     */
+    private void showChangeNotification(String id, String title, String text, String url) {
+        try {
+            android.app.NotificationManager nm =
+                    (android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+            if (nm == null) throw new Exception("service indisponible");
+
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                android.app.NotificationChannel ch = new android.app.NotificationChannel(
+                        CHANNEL, "Surveillances",
+                        android.app.NotificationManager.IMPORTANCE_DEFAULT);
+                ch.setDescription("Changements detectes sur les pages surveillees");
+                nm.createNotificationChannel(ch);
+            }
+
+            if (android.os.Build.VERSION.SDK_INT >= 33
+                    && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
+                       != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(
+                        new String[] { android.Manifest.permission.POST_NOTIFICATIONS }, 4712);
+                Toast.makeText(this, title + " — " + text, Toast.LENGTH_LONG).show();
+                return;
+            }
+
+            Intent open = new Intent(this, MainActivity.class);
+            open.setAction("watch." + id);
+            open.putExtra(SearchWidget.EXTRA, "openUrl");
+            open.putExtra("url", url);
+            open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+
+            android.app.PendingIntent pi = android.app.PendingIntent.getActivity(
+                    this, id.hashCode(), open,
+                    android.app.PendingIntent.FLAG_UPDATE_CURRENT
+                            | android.app.PendingIntent.FLAG_IMMUTABLE);
+
+            android.app.Notification.Builder b =
+                    android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O
+                            ? new android.app.Notification.Builder(this, CHANNEL)
+                            : new android.app.Notification.Builder(this);
+
+            b.setSmallIcon(android.R.drawable.ic_popup_reminder)
+             .setContentTitle(title)
+             .setContentText(text)
+             .setStyle(new android.app.Notification.BigTextStyle().bigText(text))
+             .setAutoCancel(true)
+             .setContentIntent(pi);
+
+            nm.notify(id.hashCode(), b.build());
+        } catch (Throwable t) {
+            Toast.makeText(this, title + " — " + text, Toast.LENGTH_LONG).show();
+        }
     }
 
     private void inspectPage() {
@@ -1631,6 +1703,15 @@ public class MainActivity extends Activity {
                                 runOnUiThread(() -> Downloads.saveUrls(
                                         MainActivity.this, urls, ref));
                             }
+                            return;
+                        }
+
+                        if ("notify".equals(kind)) {
+                            final String nTitle = json.optString("title", "Changement");
+                            final String nText = json.optString("text", "");
+                            final String nUrl = json.optString("url", "");
+                            final String nId = json.optString("id", "w");
+                            runOnUiThread(() -> showChangeNotification(nId, nTitle, nText, nUrl));
                             return;
                         }
 

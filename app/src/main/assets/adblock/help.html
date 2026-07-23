@@ -90,6 +90,39 @@
 </details>
 
 <details>
+  <summary>Surveillance de pages <span class="step">nouveau</span></summary>
+  <div class="c">
+    <p>Le navigateur revient verifier un element que vous avez designe, et vous
+    previent quand il change. Prix, disponibilite, nouvelle publication, correction
+    discrete d'un article.</p>
+    <p><b>Creer une surveillance.</b> Ouvrez la page, puis
+    <span class="path">Page &#8250; Surveiller un element</span>. Touchez l'element,
+    « Parent » remonte d'un cran si vous n'avez attrape que le texte. La barre affiche
+    en direct la valeur qui sera retenue comme reference.</p>
+    <p><b>Trois modes de declenchement :</b></p>
+    <ul>
+      <li><b>Le texte change</b> — toute modification du contenu</li>
+      <li><b>Le nombre change</b> — seul le premier nombre est retenu, ce qui ignore
+      les variations de mise en forme autour d'un prix</li>
+      <li><b>Apparition ou disparition</b> — pour un bouton « en stock », un bandeau,
+      une mention qui surgit</li>
+    </ul>
+    <p><b>Suivi</b> dans <span class="path">Menu &#8250; Surveillances</span> : valeur
+    actuelle, valeur precedente barree, date du dernier changement, selecteur employe.
+    « Reference actuelle » repart de la valeur presente une fois le changement pris en
+    compte. « Verifier maintenant » force un passage immediat.</p>
+    <p class="warn">Les verifications ont lieu <b>pendant que le navigateur tourne</b> :
+    un rattrapage huit secondes apres le demarrage, puis un passage toutes les cinq
+    minutes pour les surveillances dont l'echeance est atteinte. Une surveillance
+    continue application fermee demanderait un service permanent en arriere-plan,
+    avec le cout en batterie correspondant — un compromis que je n'ai pas voulu
+    imposer.</p>
+    <p class="warn">Le selecteur peut cesser de correspondre si le site refond ses
+    pages. La valeur devient alors vide : reprenez le pointeur pour la recalculer.</p>
+  </div>
+</details>
+
+<details>
   <summary>Demarrage de l'application</summary>
   <div class="c">
     <p>Au lancement, le logo s'affiche sur fond sombre pendant que le moteur et

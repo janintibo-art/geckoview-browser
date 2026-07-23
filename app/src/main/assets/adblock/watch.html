@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Surveillances</title>
+<link rel="stylesheet" href="search.css">
+<style>
+  header { padding: 14px 14px 8px; border-bottom: 1px solid var(--line); }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .sub { color: var(--dim); font-size: 13px; line-height: 1.5; }
+  main { padding: 8px 14px 40px; }
+
+  .w { border-bottom: 1px solid var(--line); padding: 13px 0; }
+  .w .top { display: flex; align-items: flex-start; gap: 10px; }
+  .w .info { flex: 1; min-width: 0; }
+  .w .nm { font-size: 14px; font-weight: 500; word-break: break-word; }
+  .w .host { font-size: 11px; color: var(--dim); margin-top: 2px; }
+  .sw { width: 36px; text-align: center; font-size: 17px; background: none;
+        border: 0; padding: 0; }
+  .on { color: var(--accent); }
+  .off { color: #4a5058; }
+
+  .val {
+    margin-top: 8px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font: 12px/1.5 monospace;
+    word-break: break-word;
+  }
+  .val .lbl { color: var(--dim); font-family: -apple-system, Roboto, sans-serif;
+              font-size: 11px; }
+  .chg { color: var(--accent); }
+  .old { color: var(--warn); text-decoration: line-through; }
+  .sel { color: #8ab4f8; font-size: 11px; word-break: break-all; margin-top: 5px; }
+
+  .acts { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .acts button, .acts a {
+    padding: 5px 11px; border: 1px solid var(--line); border-radius: 7px;
+    background: transparent; color: var(--dim); font-size: 12px;
+    text-decoration: none; display: inline-block;
+  }
+  .bar { display: flex; gap: 8px; margin: 12px 0; }
+  .bar button { flex: 1; padding: 11px; border-radius: 9px; border: 0; font-size: 13px;
+                background: var(--accent); color: #10130f; font-weight: 600; }
+  .bar .sec { background: transparent; border: 1px solid var(--line) !important;
+              color: var(--dim); font-weight: 400; }
+  #msg { font-size: 12px; color: var(--dim); min-height: 16px; margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Surveillances</h1>
+  <div class="sub">Le navigateur revient verifier les elements que vous avez
+  designes, et vous previent quand ils changent.</div>
+</header>
+
+<main>
+  <div class="bar">
+    <button id="check">Verifier maintenant</button>
+    <button id="reload" class="sec">Actualiser</button>
+  </div>
+  <div id="msg"></div>
+
+  <div id="list"></div>
+
+  <p class="note" style="margin-top:22px">
+    Pour ajouter une surveillance : ouvrez la page concernee, puis
+    <b>Menu &#8250; Page &#8250; Surveiller un element</b>. Vous designez l'element
+    au doigt et choisissez ce qui doit declencher l'alerte.
+  </p>
+  <p class="note">
+    Les verifications ont lieu pendant que le navigateur tourne : un rattrapage au
+    demarrage, puis un passage toutes les cinq minutes pour celles dont l'echeance
+    est atteinte. Une surveillance continue meme application fermee demanderait un
+    service permanent, avec le cout en batterie correspondant.
+  </p>
+</main>
+
+<script src="watch-ui.js"></script>
+</body>
+</html>
