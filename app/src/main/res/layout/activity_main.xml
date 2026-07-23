@@ -8,8 +8,25 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
+        android:gravity="center_vertical"
         android:padding="6dp"
         android:background="#212121">
+
+        <TextView
+            android:id="@+id/shield"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minWidth="42dp"
+            android:gravity="center"
+            android:paddingStart="6dp"
+            android:paddingEnd="6dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
+            android:text="0"
+            android:textStyle="bold"
+            android:textSize="13sp"
+            android:textColor="#4CAF50"
+            android:background="?android:attr/selectableItemBackground" />
 
         <EditText
             android:id="@+id/url_bar"
@@ -26,7 +43,7 @@
         <ImageButton
             android:id="@+id/go_button"
             android:layout_width="wrap_content"
-            android:layout_height="match_parent"
+            android:layout_height="wrap_content"
             android:src="@android:drawable/ic_menu_send"
             android:contentDescription="@string/go"
             android:background="?android:attr/selectableItemBackground" />

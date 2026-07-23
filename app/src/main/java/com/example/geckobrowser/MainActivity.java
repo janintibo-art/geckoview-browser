@@ -7,10 +7,16 @@ import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.TextView;
+import android.widget.Toast;
 
+import org.json.JSONObject;
+import org.mozilla.geckoview.ContentBlocking;
 import org.mozilla.geckoview.GeckoRuntime;
+import org.mozilla.geckoview.GeckoRuntimeSettings;
 import org.mozilla.geckoview.GeckoSession;
 import org.mozilla.geckoview.GeckoView;
+import org.mozilla.geckoview.WebExtension;
 
 public class MainActivity extends Activity {
 
@@ -18,9 +24,16 @@ public class MainActivity extends Activity {
 
     private GeckoSession session;
     private EditText urlBar;
+    private TextView shield;
     private boolean canGoBack = false;
 
+    private WebExtension.Port blockerPort;
+    private boolean blockerEnabled = true;
+    private int blockedCount = 0;
+
     private static final String HOME_URL = "https://duckduckgo.com";
+    private static final String EXT_ID = "adblock@geckobrowser";
+    private static final String EXT_URL = "resource://android/assets/adblock/";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -29,10 +42,14 @@ public class MainActivity extends Activity {
 
         GeckoView geckoView = findViewById(R.id.geckoview);
         urlBar = findViewById(R.id.url_bar);
+        shield = findViewById(R.id.shield);
         ImageButton goButton = findViewById(R.id.go_button);
 
         if (sRuntime == null) {
-            sRuntime = GeckoRuntime.create(this);
+            sRuntime = GeckoRuntime.create(this, buildSettings());
+            installBlocker();
+        } else {
+            attachBlockerDelegate();
         }
 
         session = new GeckoSession();
@@ -59,6 +76,14 @@ public class MainActivity extends Activity {
 
         goButton.setOnClickListener(v -> loadFromBar());
 
+        shield.setOnClickListener(v -> toggleBlocker());
+        shield.setOnLongClickListener(v -> {
+            Toast.makeText(this,
+                    blockedCount + " element(s) bloque(s) sur cette session",
+                    Toast.LENGTH_SHORT).show();
+            return true;
+        });
+
         urlBar.setOnEditorActionListener((v, actionId, event) -> {
             if (actionId == EditorInfo.IME_ACTION_GO
                     || (event != null && event.getKeyCode() == KeyEvent.KEYCODE_ENTER)) {
@@ -67,8 +92,108 @@ public class MainActivity extends Activity {
             }
             return false;
         });
+
+        updateShield();
     }
 
+    // -----------------------------------------------------------------------
+    // Protection anti-pistage native de Gecko
+    // -----------------------------------------------------------------------
+    private GeckoRuntimeSettings buildSettings() {
+        ContentBlocking.Settings blocking = new ContentBlocking.Settings.Builder()
+                .antiTracking(ContentBlocking.AntiTracking.AD
+                        | ContentBlocking.AntiTracking.ANALYTIC
+                        | ContentBlocking.AntiTracking.SOCIAL
+                        | ContentBlocking.AntiTracking.CRYPTOMINING
+                        | ContentBlocking.AntiTracking.FINGERPRINTING
+                        | ContentBlocking.AntiTracking.CONTENT)
+                .enhancedTrackingProtectionLevel(ContentBlocking.EtpLevel.STRICT)
+                .cookieBehavior(ContentBlocking.CookieBehavior.ACCEPT_NON_TRACKERS)
+                .safeBrowsing(ContentBlocking.SafeBrowsing.DEFAULT)
+                .build();
+
+        return new GeckoRuntimeSettings.Builder()
+                .contentBlocking(blocking)
+                .javaScriptEnabled(true)
+                .build();
+    }
+
+    // -----------------------------------------------------------------------
+    // Extension de blocage embarquee dans les assets
+    // -----------------------------------------------------------------------
+    private void installBlocker() {
+        sRuntime.getWebExtensionController()
+                .ensureBuiltIn(EXT_URL, EXT_ID)
+                .accept(
+                    ext -> bindPort(ext),
+                    e -> runOnUiThread(() -> Toast.makeText(this,
+                            "Bloqueur indisponible : " + e.getMessage(),
+                            Toast.LENGTH_LONG).show())
+                );
+    }
+
+    private void attachBlockerDelegate() {
+        sRuntime.getWebExtensionController()
+                .ensureBuiltIn(EXT_URL, EXT_ID)
+                .accept(ext -> bindPort(ext), e -> { });
+    }
+
+    private void bindPort(WebExtension ext) {
+        if (ext == null) return;
+        ext.setMessageDelegate(new WebExtension.MessageDelegate() {
+            @Override
+            public void onConnect(WebExtension.Port port) {
+                blockerPort = port;
+                port.setDelegate(new WebExtension.PortDelegate() {
+                    @Override
+                    public void onPortMessage(Object message, WebExtension.Port p) {
+                        if (!(message instanceof JSONObject)) return;
+                        JSONObject json = (JSONObject) message;
+                        if (!"state".equals(json.optString("type"))) return;
+                        blockedCount = json.optInt("blocked", blockedCount);
+                        blockerEnabled = json.optBoolean("enabled", blockerEnabled);
+                        runOnUiThread(MainActivity.this::updateShield);
+                    }
+
+                    @Override
+                    public void onDisconnect(WebExtension.Port p) {
+                        if (p == blockerPort) blockerPort = null;
+                    }
+                });
+            }
+        }, "browser");
+    }
+
+    private void toggleBlocker() {
+        blockerEnabled = !blockerEnabled;
+        updateShield();
+        if (blockerPort != null) {
+            try {
+                JSONObject msg = new JSONObject();
+                msg.put("type", "setEnabled");
+                msg.put("value", blockerEnabled);
+                blockerPort.postMessage(msg);
+            } catch (Exception ignored) { }
+        }
+        Toast.makeText(this,
+                blockerEnabled ? "Blocage active" : "Blocage desactive",
+                Toast.LENGTH_SHORT).show();
+        session.reload();
+    }
+
+    private void updateShield() {
+        if (!blockerEnabled) {
+            shield.setText("OFF");
+            shield.setTextColor(0xFF9E9E9E);
+        } else {
+            shield.setText(blockedCount > 999 ? "999+" : String.valueOf(blockedCount));
+            shield.setTextColor(0xFF4CAF50);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Navigation
+    // -----------------------------------------------------------------------
     private void loadFromBar() {
         String input = urlBar.getText().toString().trim();
         if (input.isEmpty()) return;

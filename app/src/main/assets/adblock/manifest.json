@@ -1,0 +1,36 @@
+{
+  "manifest_version": 2,
+  "name": "GeckoBlock",
+  "version": "1.0",
+  "description": "Blocage de publicites et de traqueurs",
+
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "adblock@geckobrowser"
+    }
+  },
+
+  "permissions": [
+    "webRequest",
+    "webRequestBlocking",
+    "storage",
+    "nativeMessaging",
+    "<all_urls>",
+    "https://adaway.org/*",
+    "https://pgl.yoyo.org/*"
+  ],
+
+  "background": {
+    "scripts": ["rules.js", "background.js"],
+    "persistent": true
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ]
+}
