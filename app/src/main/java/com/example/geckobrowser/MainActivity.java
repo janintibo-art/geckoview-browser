@@ -52,6 +52,7 @@ public class MainActivity extends Activity {
     private GeckoView geckoView;
 
     private SharedPreferences prefs;
+    private org.json.JSONArray gmCommands = new org.json.JSONArray();
     private Permissions permissions;
     private android.widget.ProgressBar progress;
 
@@ -324,20 +325,11 @@ public class MainActivity extends Activity {
         final String[] items = {
             "Accueil",
             "Recharger",
-            "Moteur de recherche : " + engineName(),
-            "Favoris",
-            "Ajouter aux favoris",
-            "Partager la page",
-            "Copier l'adresse",
-            "Ouvrir dans une autre application",
-            desktopMode ? "Version telephone" : "Version ordinateur",
-            privateMode ? "Quitter la navigation privee" : "Navigation privee",
-            "Confidentialite : " + Privacy.levelName(Privacy.level(this)),
-            TorSupport.isEnabled(this) ? "Tor : active" : "Tor : desactive",
-            "Analyser la page",
-            "Code source de la page",
-            "Filtres et categories",
-            "Mes scripts",
+            "Page…",
+            "Recherche…",
+            "Confidentialite…",
+            "Scripts…",
+            "Favoris…",
             blockerEnabled ? "Desactiver le blocage" : "Activer le blocage"
         };
 
@@ -345,55 +337,159 @@ public class MainActivity extends Activity {
             .setTitle("Menu")
             .setItems(items, (d, which) -> {
                 switch (which) {
-                    case 0:  session.loadUri(homeUrl()); break;
-                    case 1:  session.reload(); break;
-                    case 2:  showEnginePicker(); break;
-                    case 3:  showBookmarks(); break;
-                    case 4:  addBookmark(); break;
-                    case 5:  sharePage(); break;
-                    case 6:  copyUrl(); break;
-                    case 7:  openExternally(); break;
-                    case 8:  toggleDesktop(); break;
-                    case 9:  togglePrivate(); break;
-                    case 10: showPrivacyMenu(); break;
-                    case 11: showTorMenu(); break;
-                    case 12: inspectPage(); break;
-                    case 13: viewSource(); break;
-                    case 14: session.loadUri(extPage("search.html") + "?prefs=1"); break;
-                    case 15: session.loadUri(extPage("scripts.html")); break;
-                    case 16: toggleBlocker(); break;
+                    case 0: session.loadUri(homeUrl()); break;
+                    case 1: session.reload(); break;
+                    case 2: showPageMenu(); break;
+                    case 3: showSearchMenu(); break;
+                    case 4: showPrivacyMenu(); break;
+                    case 5: showScriptsMenu(); break;
+                    case 6: showBookmarksMenu(); break;
+                    case 7: toggleBlocker(); break;
                 }
             })
+            .show();
+    }
+
+    // -----------------------------------------------------------------------
+    private void showPageMenu() {
+        final String[] items = {
+            "Analyser la page",
+            "Code source",
+            "Mode lecture",
+            "Defilement infini ici",
+            "Masquer ce site",
+            "Partager",
+            "Copier l'adresse",
+            "Ouvrir dans une autre application",
+            desktopMode ? "Version telephone" : "Version ordinateur"
+        };
+
+        new AlertDialog.Builder(this)
+            .setTitle("Page")
+            .setItems(items, (d, which) -> {
+                switch (which) {
+                    case 0: inspectPage(); break;
+                    case 1: viewSource(); break;
+                    case 2: if (onWebPage()) sendCommand("reader"); break;
+                    case 3: if (onWebPage()) sendCommand("autopagerHere"); break;
+                    case 4: if (onWebPage()) sendCommand("hideSite"); break;
+                    case 5: sharePage(); break;
+                    case 6: copyUrl(); break;
+                    case 7: openExternally(); break;
+                    case 8: toggleDesktop(); break;
+                }
+            })
+            .setNegativeButton("Retour", (d, w) -> showMenu())
+            .show();
+    }
+
+    // -----------------------------------------------------------------------
+    private void showSearchMenu() {
+        final String[] items = {
+            "Moteur : " + engineName(),
+            "Filtres et categories",
+            "Sources du metamoteur"
+        };
+
+        new AlertDialog.Builder(this)
+            .setTitle("Recherche")
+            .setItems(items, (d, which) -> {
+                switch (which) {
+                    case 0: showEnginePicker(); break;
+                    case 1:
+                    case 2: session.loadUri(extPage("search.html") + "?prefs=1"); break;
+                }
+            })
+            .setNegativeButton("Retour", (d, w) -> showMenu())
+            .show();
+    }
+
+    // -----------------------------------------------------------------------
+    private void showScriptsMenu() {
+        final String[] items = {
+            "Mes scripts",
+            "Commandes des scripts (" + gmCommands.length() + ")"
+        };
+
+        new AlertDialog.Builder(this)
+            .setTitle("Scripts")
+            .setItems(items, (d, which) -> {
+                if (which == 0) session.loadUri(extPage("scripts.html"));
+                else showScriptCommands();
+            })
+            .setNegativeButton("Retour", (d, w) -> showMenu())
+            .show();
+    }
+
+    // -----------------------------------------------------------------------
+    private void showBookmarksMenu() {
+        final String[] items = { "Ouvrir un favori", "Ajouter cette page" };
+
+        new AlertDialog.Builder(this)
+            .setTitle("Favoris")
+            .setItems(items, (d, which) -> {
+                if (which == 0) showBookmarks();
+                else addBookmark();
+            })
+            .setNegativeButton("Retour", (d, w) -> showMenu())
             .show();
     }
 
     // =======================================================================
     //  Analyse de page
     // =======================================================================
-    private void inspectPage() {
-        if (currentUrl.isEmpty() || currentUrl.startsWith("moz-extension://")) {
-            Toast.makeText(this, "Ouvrez d'abord une page web", Toast.LENGTH_SHORT).show();
-            return;
-        }
+    /** Transmet une action a la page via l'extension. */
+    private void sendCommand(String cmd) {
         if (blockerPort == null) {
             Toast.makeText(this, "Extension non connectee", Toast.LENGTH_SHORT).show();
             return;
         }
         try {
             JSONObject msg = new JSONObject();
-            msg.put("type", "inspect");
+            msg.put("type", "cmd");
+            msg.put("cmd", cmd);
             blockerPort.postMessage(msg);
         } catch (Exception e) {
-            Toast.makeText(this, "Analyse indisponible", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Action indisponible", Toast.LENGTH_SHORT).show();
         }
     }
 
-    private void viewSource() {
+    private boolean onWebPage() {
         if (currentUrl.isEmpty() || currentUrl.startsWith("moz-extension://")) {
             Toast.makeText(this, "Ouvrez d'abord une page web", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+        return true;
+    }
+
+    private void inspectPage() {
+        if (onWebPage()) sendCommand("inspect");
+    }
+
+    private void viewSource() {
+        if (onWebPage()) session.loadUri("view-source:" + currentUrl);
+    }
+
+    private void showScriptCommands() {
+        if (gmCommands.length() == 0) {
+            Toast.makeText(this,
+                    "Aucune commande enregistree sur cette page",
+                    Toast.LENGTH_SHORT).show();
             return;
         }
-        session.loadUri("view-source:" + currentUrl);
+        final String[] labels = new String[gmCommands.length()];
+        for (int i = 0; i < gmCommands.length(); i++) {
+            JSONObject o = gmCommands.optJSONObject(i);
+            labels[i] = o == null ? "?" : o.optString("label", "?");
+        }
+        new AlertDialog.Builder(this)
+            .setTitle("Commandes des scripts")
+            .setItems(labels, (d, which) -> {
+                JSONObject o = gmCommands.optJSONObject(which);
+                sendCommand("gm:" + (o == null ? which : o.optInt("index", which)));
+            })
+            .setNegativeButton("Fermer", null)
+            .show();
     }
 
     // =======================================================================
@@ -410,8 +506,10 @@ public class MainActivity extends Activity {
 
     private void showPrivacyMenu() {
         final String[] items = {
-            "Niveau de protection",
+            privateMode ? "Quitter la navigation privee" : "Navigation privee",
+            "Niveau de protection : " + Privacy.levelName(Privacy.level(this)),
             "DNS chiffre : " + (prefs.getBoolean("doh", false) ? "actif" : "inactif"),
+            TorSupport.isEnabled(this) ? "Tor : active" : "Tor : desactive",
             "Effacer toutes les donnees",
             "Ce que ce navigateur revele"
         };
@@ -420,13 +518,15 @@ public class MainActivity extends Activity {
             .setTitle("Confidentialite")
             .setItems(items, (d, which) -> {
                 switch (which) {
-                    case 0: showLevelPicker(); break;
-                    case 1: toggleDoh(); break;
-                    case 2: clearAllData(); break;
-                    case 3: privacyInfo(); break;
+                    case 0: togglePrivate(); break;
+                    case 1: showLevelPicker(); break;
+                    case 2: toggleDoh(); break;
+                    case 3: showTorMenu(); break;
+                    case 4: clearAllData(); break;
+                    case 5: privacyInfo(); break;
                 }
             })
-            .setNegativeButton("Fermer", null)
+            .setNegativeButton("Retour", (d, w) -> showMenu())
             .show();
     }
 
@@ -554,7 +654,7 @@ public class MainActivity extends Activity {
                         break;
                 }
             })
-            .setNegativeButton("Fermer", null)
+            .setNegativeButton("Retour", (d, w) -> showPrivacyMenu())
             .show();
     }
 
@@ -838,6 +938,12 @@ public class MainActivity extends Activity {
                                 runOnUiThread(() -> Downloads.saveUrls(
                                         MainActivity.this, urls, ref));
                             }
+                            return;
+                        }
+
+                        if ("gmCommands".equals(kind)) {
+                            org.json.JSONArray list = json.optJSONArray("list");
+                            gmCommands = list != null ? list : new org.json.JSONArray();
                             return;
                         }
 

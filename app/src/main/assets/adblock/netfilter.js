@@ -240,188 +240,30 @@
   }
 
   // -------------------------------------------------------------------------
-  //  Panneau flottant deplacable
+  //  Commandes envoyees par le menu de l'application
   // -------------------------------------------------------------------------
-  function style(el, o) { for (const k in o) el.style[k] = o[k]; }
-
-  function checkRow(label, key, onChange) {
-    const row = document.createElement("label");
-    style(row, {
-      display: "flex", alignItems: "center", gap: "9px", padding: "7px 2px",
-      fontSize: "13px", color: "#e8eaee", cursor: "pointer"
-    });
-    const cb = document.createElement("input");
-    cb.type = "checkbox";
-    cb.checked = !!cfg[key];
-    cb.addEventListener("change", () => onChange(cb.checked));
-    const span = document.createElement("span");
-    span.textContent = label;
-    row.appendChild(cb);
-    row.appendChild(span);
-    return row;
-  }
-
-  function actionBtn(label, fn) {
-    const b = document.createElement("button");
-    b.textContent = label;
-    style(b, {
-      display: "block", width: "100%", margin: "5px 0", padding: "9px",
-      border: "1px solid #2b303a", borderRadius: "8px", background: "#14161a",
-      color: "#e8eaee", fontSize: "13px", cursor: "pointer"
-    });
-    b.addEventListener("click", fn);
-    return b;
-  }
-
-  function buildPanel() {
-    if (window.top !== window.self) return;  // pas dans les cadres
-    if (document.getElementById("nfw-fab")) return;
-
-    const fab = document.createElement("div");
-    fab.id = "nfw-fab";
-    fab.textContent = "\u26E8";
-    style(fab, {
-      position: "fixed", right: "12px", bottom: "84px", zIndex: "2147483646",
-      width: "34px", height: "34px", lineHeight: "34px", textAlign: "center",
-      borderRadius: "17px", background: "rgba(20,22,26,.55)", color: "#6fae5f",
-      fontSize: "17px", cursor: "pointer", userSelect: "none",
-      backdropFilter: "blur(3px)", transition: "opacity .2s", opacity: ".55"
-    });
-    fab.addEventListener("mouseenter", () => fab.style.opacity = "1");
-
-    const panel = document.createElement("div");
-    style(panel, {
-      position: "fixed", right: "12px", bottom: "126px", zIndex: "2147483647",
-      width: "232px", maxHeight: "62vh", overflowY: "auto", display: "none",
-      background: "#1c1f26", border: "1px solid #2b303a", borderRadius: "12px",
-      padding: "12px 14px", boxShadow: "0 8px 28px rgba(0,0,0,.5)",
-      font: "13px -apple-system,Roboto,sans-serif"
-    });
-
-    const title = document.createElement("div");
-    title.textContent = "Filtres de page";
-    style(title, { fontWeight: "700", color: "#e8eaee", marginBottom: "6px", fontSize: "13px" });
-    panel.appendChild(title);
-
-    const save = async () => {
-      try { await browser.storage.local.set({ pageCfg: cfg }); } catch (e) { }
-      unhideAll();
-      processPage();
-    };
-
-    panel.appendChild(checkRow("Masquer dans les recherches", "hideSearch",
-      v => { cfg.hideSearch = v; save(); }));
-    panel.appendChild(checkRow("Masquer les liens partout", "hideAll",
-      v => { cfg.hideAll = v; save(); }));
-    panel.appendChild(checkRow("Bannieres cookies", "cookies",
-      v => { cfg.cookies = v; save(); }));
-    panel.appendChild(checkRow("Blocs de clickbait", "clickbait",
-      v => { cfg.clickbait = v; save(); }));
-    panel.appendChild(checkRow("Nettoyer les URL", "cleanurls",
-      v => { cfg.cleanurls = v; save(); }));
-    panel.appendChild(checkRow("Refuser le consentement", "cookieReject",
-      v => { cfg.cookieReject = v; save(); }));
-
-    const sep = document.createElement("div");
-    style(sep, { height: "1px", background: "#2b303a", margin: "9px 0" });
-    panel.appendChild(sep);
-
-    panel.appendChild(actionBtn("\uD83D\uDCD6  Mode lecture", () => {
-      panel.style.display = "none";
-      try { readingMode(); } catch (e) { }
-    }));
-
-    panel.appendChild(actionBtn("\uD83D\uDEAB  Masquer ce site", async () => {
-      const host = location.hostname.replace(/^www\./, "");
-      try {
-        const s = await browser.storage.local.get("pageExtra");
-        const list = (s && s.pageExtra) || [];
-        if (!list.includes(host)) list.push(host);
-        await browser.storage.local.set({ pageExtra: list });
-        blockedSet.add(host);
-        alert(host + " ajoute a vos domaines masques.");
-      } catch (e) { }
-    }));
-
-    panel.appendChild(actionBtn("\u267E  Defilement infini ici", () => {
-      panel.style.display = "none";
-      if (window.__toggleAutopagerHere) window.__toggleAutopagerHere();
-    }));
-
-    panel.appendChild(actionBtn("\uD83D\uDD0E  Analyser la page", () => {
-      panel.style.display = "none";
-      if (window.__inspectPage) window.__inspectPage();
-    }));
-
-    panel.appendChild(actionBtn("\uD83D\uDCDC  Mes scripts", () => {
-      location.href = browser.runtime.getURL("scripts.html");
-    }));
-
-    panel.appendChild(actionBtn("\u2699  Categories et listes", () => {
-      location.href = browser.runtime.getURL("search.html") + "?prefs=1";
-    }));
-
-    const note = document.createElement("div");
-    note.textContent = "Le blocage complet des sites se regle dans les categories.";
-    style(note, { fontSize: "11px", color: "#99a0ad", marginTop: "9px", lineHeight: "1.45" });
-    panel.appendChild(note);
-
-    // Deplacement du bouton
-    let dragging = false, moved = false, sx = 0, sy = 0;
-    fab.addEventListener("touchstart", e => {
-      dragging = true; moved = false;
-      sx = e.touches[0].clientX; sy = e.touches[0].clientY;
-    }, { passive: true });
-
-    fab.addEventListener("touchmove", e => {
-      if (!dragging) return;
-      const t = e.touches[0];
-      if (Math.abs(t.clientX - sx) > 5 || Math.abs(t.clientY - sy) > 5) moved = true;
-      style(fab, {
-        left: (t.clientX - 17) + "px", top: (t.clientY - 17) + "px",
-        right: "auto", bottom: "auto"
-      });
-    }, { passive: true });
-
-    fab.addEventListener("touchend", () => {
-      dragging = false;
-      if (moved) {
-        try {
-          browser.storage.local.set({
-            fabPos: { left: fab.style.left, top: fab.style.top }
-          });
-        } catch (e) { }
-      }
-    });
-
-    fab.addEventListener("click", () => {
-      if (moved) { moved = false; return; }
-      const open = panel.style.display === "block";
-      panel.style.display = open ? "none" : "block";
-      if (!open) {
-        const r = fab.getBoundingClientRect();
-        style(panel, {
-          left: "auto", right: "12px",
-          top: r.top > window.innerHeight / 2 ? "auto" : (r.bottom + 8) + "px",
-          bottom: r.top > window.innerHeight / 2 ? (window.innerHeight - r.top + 8) + "px" : "auto"
-        });
-      }
-    });
-
-    document.addEventListener("click", e => {
-      if (!panel.contains(e.target) && e.target !== fab) panel.style.display = "none";
-    });
-
-    document.body.appendChild(fab);
-    document.body.appendChild(panel);
-
+  async function hideThisSite() {
+    const host = location.hostname.replace(/^www\./, "");
     try {
-      browser.storage.local.get("fabPos").then(s => {
-        if (s && s.fabPos && s.fabPos.left) {
-          style(fab, { left: s.fabPos.left, top: s.fabPos.top, right: "auto", bottom: "auto" });
-        }
-      });
+      const s = await browser.storage.local.get("pageExtra");
+      const list = (s && s.pageExtra) || [];
+      if (list.includes(host)) {
+        alert(host + " est deja dans vos domaines masques.");
+        return;
+      }
+      list.push(host);
+      await browser.storage.local.set({ pageExtra: list });
+      blockedSet.add(host);
+      alert(host + " ajoute a vos domaines masques.");
     } catch (e) { }
+  }
+
+  function handleCommand(cmd) {
+    if (cmd === "reader") {
+      try { readingMode(); } catch (e) { alert("Mode lecture indisponible ici."); }
+    } else if (cmd === "hideSite") {
+      hideThisSite();
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -439,11 +281,13 @@
     new MutationObserver(schedule).observe(document.documentElement,
       { childList: true, subtree: true });
 
-    if (document.body) buildPanel();
-    else document.addEventListener("DOMContentLoaded", buildPanel, { once: true });
+    // Plus de bouton flottant : les actions passent par le menu de l'application.
   }
 
   browser.storage.onChanged.addListener(changes => {
+    if (changes.pageCommand && changes.pageCommand.newValue) {
+      handleCommand(changes.pageCommand.newValue.cmd);
+    }
     if (changes.hideList) {
       blockedSet = new Set(changes.hideList.newValue || []);
       unhideAll();

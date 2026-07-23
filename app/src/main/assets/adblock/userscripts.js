@@ -242,55 +242,27 @@
   }
 
   // -------------------------------------------------------------------------
-  //  Menu des commandes enregistrees
+  //  Les commandes enregistrees remontent au menu de l'application
   // -------------------------------------------------------------------------
-  function buildMenuButton() {
-    if (!menuCommands.filter(Boolean).length) return;
-    if (window.top !== window.self) return;
-    if (document.getElementById("gm-menu-fab")) return;
-
-    const fab = document.createElement("div");
-    fab.id = "gm-menu-fab";
-    fab.textContent = "\u2318";
-    Object.assign(fab.style, {
-      position: "fixed", right: "12px", bottom: "128px", zIndex: "2147483645",
-      width: "30px", height: "30px", lineHeight: "30px", textAlign: "center",
-      borderRadius: "15px", background: "rgba(20,22,26,.55)", color: "#8ab4f8",
-      fontSize: "15px", cursor: "pointer", opacity: ".55", userSelect: "none"
-    });
-
-    const list = document.createElement("div");
-    Object.assign(list.style, {
-      position: "fixed", right: "12px", bottom: "164px", zIndex: "2147483646",
-      display: "none", background: "#1c1f26", border: "1px solid #2b303a",
-      borderRadius: "10px", padding: "6px", minWidth: "190px",
-      boxShadow: "0 8px 24px rgba(0,0,0,.5)", font: "13px -apple-system,Roboto,sans-serif"
-    });
-
-    menuCommands.filter(Boolean).forEach(cmd => {
-      const item = document.createElement("div");
-      item.textContent = cmd.label;
-      item.title = cmd.script;
-      Object.assign(item.style, {
-        padding: "8px 10px", color: "#e8eaee", cursor: "pointer", borderRadius: "6px"
-      });
-      item.onclick = () => {
-        list.style.display = "none";
-        try { cmd.fn(); } catch (e) { console.error(e); }
-      };
-      list.appendChild(item);
-    });
-
-    fab.onclick = () => {
-      list.style.display = list.style.display === "block" ? "none" : "block";
-    };
-    document.addEventListener("click", e => {
-      if (e.target !== fab && !list.contains(e.target)) list.style.display = "none";
-    });
-
-    document.body.appendChild(fab);
-    document.body.appendChild(list);
+  function publishCommands() {
+    const list = menuCommands
+      .map((c, i) => c ? { label: c.label, script: c.script, index: i } : null)
+      .filter(Boolean);
+    try {
+      browser.runtime.sendMessage({ type: "gmCommands", list: list });
+    } catch (e) { }
   }
+
+  browser.storage.onChanged.addListener(changes => {
+    const c = changes.pageCommand && changes.pageCommand.newValue;
+    if (!c || typeof c.cmd !== "string") return;
+    if (c.cmd.indexOf("gm:") !== 0) return;
+    const i = parseInt(c.cmd.slice(3), 10);
+    const cmd = menuCommands[i];
+    if (cmd && cmd.fn) {
+      try { cmd.fn(); } catch (e) { console.error(e); }
+    }
+  });
 
   // -------------------------------------------------------------------------
   //  Demarrage
@@ -332,7 +304,7 @@
       runEnd.forEach(j => j());
       setTimeout(() => {
         runIdle.forEach(j => j());
-        setTimeout(buildMenuButton, 300);
+        setTimeout(publishCommands, 300);
       }, 0);
     };
 

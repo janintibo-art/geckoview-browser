@@ -665,5 +665,7 @@
 
   browser.storage.onChanged.addListener(changes => {
     if (changes.inspectRequest) open();
+    const c = changes.pageCommand && changes.pageCommand.newValue;
+    if (c && c.cmd === "inspect") open();
   });
 })();

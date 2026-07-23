@@ -124,6 +124,15 @@ function connectNative() {
     nativePort.onMessage.addListener(msg => {
       if (!msg) return;
       if (msg.type === "setEnabled") { enabled = !!msg.value; pushState(); }
+      else if (msg.type === "cmd" && msg.cmd) {
+        // Le menu de l'application n'a pas d'acces direct aux scripts de
+        // contenu : on passe par le stockage, qu'ils observent tous.
+        try {
+          browser.storage.local.set({
+            pageCommand: { cmd: msg.cmd, ts: Date.now() }
+          });
+        } catch (e) { }
+      }
       else if (msg.type === "inspect") {
         // Le menu de l'application n'a pas d'acces direct aux scripts de
         // contenu : on passe par le stockage, qu'ils observent.
@@ -373,6 +382,14 @@ browser.runtime.onMessage.addListener(msg => {
   }
   if (msg.type === "purgeCookies") {
     return purgeCookies().then(n => ({ removed: n }));
+  }
+  if (msg.type === "gmCommands") {
+    if (nativePort) {
+      try {
+        nativePort.postMessage({ type: "gmCommands", list: msg.list || [] });
+      } catch (e) { }
+    }
+    return Promise.resolve({ ok: true });
   }
   if (msg.type === "downloadUrls") {
     if (!nativePort) return Promise.resolve({ error: "app non connectee" });
