@@ -639,6 +639,8 @@ public class MainActivity extends Activity {
                  this::toggleBlocker)
             .sub("\u23F1", "Surveillances", null,
                  () -> session.loadUri(extPage("watch.html")))
+            .sub("\u21C6", "Archives de pages", null,
+                 () -> session.loadUri(extPage("versions.html")))
             .add("\u21C4", "Synchronisation", () -> session.loadUri(extPage("sync.html")))
             .add("\u24D8", "Aide et tutoriel", () -> session.loadUri(extPage("help.html")))
             .show();
@@ -668,6 +670,10 @@ public class MainActivity extends Activity {
             .add("\u21BA", "Ne plus rediriger ce service",
                  () -> { if (onWebPage()) sendCommand("noFrontend"); })
             .add("\u270E", "CSS de ce site", () -> { if (onWebPage()) sendCommand("styleThis"); })
+            .add("\u2913", "Archiver cette version",
+                 () -> { if (onWebPage()) sendCommand("archive"); })
+            .add("\u21C6", "Comparer avec l'archive",
+                 () -> { if (onWebPage()) sendCommand("compare"); })
             .add("\u23F1", "Surveiller un element",
                  () -> { if (onWebPage()) sendCommand("watch"); })
             .add("\u25CE", "Masquer un element",

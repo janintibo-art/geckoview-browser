@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Archives</title>
+<link rel="stylesheet" href="search.css">
+<style>
+  header { padding: 14px 14px 8px; border-bottom: 1px solid var(--line); }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .sub { color: var(--dim); font-size: 13px; line-height: 1.5; }
+  main { padding: 8px 14px 40px; }
+
+  .p { border-bottom: 1px solid var(--line); padding: 13px 0; }
+  .p .nm { font-size: 14px; font-weight: 500; word-break: break-word; }
+  .p .u { font-size: 11px; color: var(--dim); word-break: break-all; margin-top: 2px; }
+  .vers { margin-top: 8px; }
+  .v {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 8px; padding: 7px 10px; margin-top: 5px;
+    font-size: 12px;
+  }
+  .v .d { flex: 1; }
+  .v .s { color: var(--dim); font-size: 11px; }
+  .acts { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .acts button, .acts a {
+    padding: 5px 11px; border: 1px solid var(--line); border-radius: 7px;
+    background: transparent; color: var(--dim); font-size: 12px;
+    text-decoration: none; display: inline-block;
+  }
+  #msg { font-size: 12px; color: var(--dim); min-height: 16px; margin: 10px 0; }
+  .tot { font-size: 12px; color: var(--dim); margin-bottom: 10px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Archives de pages</h1>
+  <div class="sub">Le texte des pages que vous avez archivees, pour reperer ce qui
+  change ensuite.</div>
+</header>
+
+<main>
+  <div class="tot" id="tot"></div>
+  <div id="msg"></div>
+  <div id="list"></div>
+
+  <p class="note" style="margin-top:22px">
+    Pour archiver : ouvrez la page, puis
+    <b>Menu &#8250; Page &#8250; Archiver cette version</b>.
+    Pour comparer : revenez sur la page et choisissez
+    <b>Comparer avec l'archive</b>.
+  </p>
+  <p class="note">
+    Seul le texte principal est conserve, pas la page complete : c'est ce qui se
+    compare utilement, et cela tient en quelques dizaines de kilo-octets par version.
+    Quatre versions au maximum sont gardees par adresse, les plus anciennes cedant
+    la place.
+  </p>
+</main>
+
+<script src="versions-ui.js"></script>
+</body>
+</html>

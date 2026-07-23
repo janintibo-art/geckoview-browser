@@ -177,8 +177,56 @@ var GB = (function () {
     "[class*='cmp' i], [id*='cmp' i], [class*='gdpr' i], [id*='gdpr' i]," +
     "[class*='privacy' i], dialog, [role='dialog']";
 
+  // -------------------------------------------------------------------------
+  //  Extraction du texte principal d'un document
+  //  Partagee par l'archivage et la comparaison de versions, qui doivent
+  //  imperativement lire une page de la meme facon pour etre comparables.
+  // -------------------------------------------------------------------------
+  function mainContainer(doc) {
+    const pool = doc.querySelectorAll(
+      "article, main, [role='main'], .article, .post, .entry-content, " +
+      "#content, .content, .story, .post-content");
+    const cands = pool.length ? pool : doc.querySelectorAll("div, section");
+
+    let best = null, bestScore = 0;
+    for (const el of cands) {
+      const paras = el.querySelectorAll("p").length;
+      const len = (el.textContent || "").length;
+      if (len < 200) continue;
+      const score = len + paras * 250;
+      if (score > bestScore) { bestScore = score; best = el; }
+    }
+    return best || doc.body;
+  }
+
+  /** Blocs de texte significatifs, dans l'ordre, prets a etre compares. */
+  function mainBlocks(doc) {
+    const root = mainContainer(doc);
+    if (!root) return [];
+
+    const out = [];
+    const nodes = root.querySelectorAll(
+      "p, h1, h2, h3, h4, li, blockquote, figcaption, td");
+
+    const source = nodes.length ? nodes : [root];
+    for (const el of source) {
+      // Un bloc contenant lui-meme des blocs serait compte deux fois
+      if (el.querySelector && el.querySelector("p, li")) continue;
+      const t = (el.textContent || "").replace(/\s+/g, " ").trim();
+      if (t.length < 3) continue;
+      out.push(t);
+      if (out.length >= 600) break;
+    }
+    return out;
+  }
+
+  function mainText(doc) {
+    return mainBlocks(doc).join("\n");
+  }
+
   return {
     abs, hostOf, norm,
+    mainContainer, mainBlocks, mainText,
     NEXT_TEXT, findNext,
     CMP_CONTAINERS, REJECT_SELECTORS, REJECT_TEXTS, CMP_SCOPES
   };

@@ -90,6 +90,33 @@
 </details>
 
 <details>
+  <summary>Comparaison de versions <span class="step">nouveau</span></summary>
+  <div class="c">
+    <p>Archiver le texte d'une page aujourd'hui, revenir dans un mois, et voir
+    exactement ce qui a bouge. Utile pour reperer une correction non signalee, un
+    passage retire, un chiffre revu.</p>
+    <p><span class="path">Page &#8250; Archiver cette version</span> enregistre l'etat
+    courant. <span class="path">Page &#8250; Comparer avec l'archive</span> confronte
+    la page affichee a la derniere version conservee.</p>
+    <p>Le resultat se lit d'un coup d'oeil : les ajouts sur fond vert, les
+    suppressions barrees sur fond rouge, et les passages inchanges masques sauf
+    lorsqu'ils bordent un ecart, pour situer le contexte.</p>
+    <p><b>Deux choix de conception</b> valent d'etre connus. Seul le <b>texte
+    principal</b> est retenu — menus, encarts et pieds de page sont ecartes, sinon
+    le moindre bandeau tournant produirait un ecart a chaque comparaison. Et seul le
+    texte est conserve, pas la page entiere : c'est ce qui se compare utilement, et
+    cela tient en quelques dizaines de kilo-octets par version.</p>
+    <p>Quatre versions au maximum par adresse, les plus anciennes cedant la place.
+    <span class="path">Menu &#8250; Archives de pages</span> liste le tout, avec
+    export du texte de toutes les versions dans un fichier.</p>
+    <p class="warn">La comparaison porte sur des blocs entiers : deplacer un
+    paragraphe apparait comme une suppression suivie d'un ajout. Sur un document
+    tres long, une limite de securite remplace le detail par un message plutot que
+    de saturer la memoire du telephone.</p>
+  </div>
+</details>
+
+<details>
   <summary>Qui parle a qui <span class="step">nouveau</span></summary>
   <div class="c">
     <p><span class="path">Page &#8250; Qui parle a qui</span> repond a une question
@@ -678,6 +705,11 @@
   <div class="c">
     <p>Le navigateur est complet et signe. Pistes possibles pour la suite :</p>
     <ul>
+      <li>File de lecture hors ligne, adossee a la sauvegarde en un fichier</li>
+      <li>Flux maison : un selecteur, et un site sans RSS en produit un</li>
+      <li>Historique avec recherche plein texte</li>
+      <li>Detecteur de procedes trompeurs : comptes a rebours factices,
+      cases precochees, refus de consentement dissimule</li>
       <li>Recherche dans la page</li>
       <li>Menu contextuel sur appui long</li>
     </ul>
