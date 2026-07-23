@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>File de lecture</title>
+<link rel="stylesheet" href="search.css">
+<style>
+  header { padding: 14px 14px 8px; border-bottom: 1px solid var(--line); }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .sub { color: var(--dim); font-size: 13px; line-height: 1.5; }
+  main { padding: 8px 14px 40px; }
+
+  .tools { display: flex; gap: 8px; margin: 10px 0; }
+  .tools input {
+    flex: 1; background: var(--bg); color: var(--fg);
+    border: 1px solid var(--line); border-radius: 8px; padding: 9px; font-size: 13px;
+  }
+  .tools button {
+    padding: 9px 13px; border: 1px solid var(--line); border-radius: 8px;
+    background: transparent; color: var(--dim); font-size: 12px;
+  }
+  .tools button.on { color: var(--accent); border-color: var(--accent); }
+
+  .it { border-bottom: 1px solid var(--line); padding: 13px 0; }
+  .it .nm { font-size: 15px; font-weight: 500; word-break: break-word; line-height: 1.4; }
+  .it.lu .nm { color: var(--dim); font-weight: 400; }
+  .it .mt { font-size: 11px; color: var(--dim); margin-top: 3px; }
+  .it .acts { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .it .acts button, .it .acts a {
+    padding: 5px 11px; border: 1px solid var(--line); border-radius: 7px;
+    background: transparent; color: var(--dim); font-size: 12px;
+    text-decoration: none; display: inline-block;
+  }
+  .it .acts .go { color: var(--accent); border-color: #3d5c34; }
+
+  /* --- liseuse --- */
+  #reader { display: none; }
+  #reader .bar {
+    position: sticky; top: 0; background: var(--bg);
+    padding: 10px 0 8px; border-bottom: 1px solid var(--line);
+    display: flex; gap: 8px; align-items: center;
+  }
+  #reader .bar button {
+    padding: 7px 12px; border: 1px solid var(--line); border-radius: 8px;
+    background: transparent; color: var(--dim); font-size: 12px;
+  }
+  #reader h2 { font-size: 20px; line-height: 1.35; margin: 16px 0 4px; }
+  #reader .src { font-size: 12px; color: var(--dim); margin-bottom: 18px; }
+  #art {
+    font: 17px/1.75 Georgia, "Times New Roman", serif;
+    color: #d7dbe2;
+  }
+  #art p, #art li { margin: 0 0 1.05em; }
+  #art h1, #art h2, #art h3 { font-family: -apple-system, Roboto, sans-serif;
+    line-height: 1.35; margin: 1.4em 0 .5em; color: var(--fg); }
+  #art img { max-width: 100%; height: auto; border-radius: 8px; margin: 10px 0; }
+  #art a { color: #8ab4f8; }
+  #art blockquote { border-left: 3px solid var(--line); margin: 1em 0;
+    padding-left: 14px; color: var(--dim); }
+  #art table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  #art td, #art th { border: 1px solid var(--line); padding: 6px; }
+
+  #msg { font-size: 12px; color: var(--dim); min-height: 16px; }
+  .tot { font-size: 12px; color: var(--dim); margin-bottom: 6px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>File de lecture</h1>
+  <div class="sub">Vos articles enregistres, lisibles sans reseau.</div>
+</header>
+
+<main>
+  <div id="list-view">
+    <div class="tot" id="tot"></div>
+    <div class="tools">
+      <input id="q" type="search" placeholder="Filtrer par titre ou site">
+      <button id="unread">Non lus</button>
+    </div>
+    <div id="msg"></div>
+    <div id="list"></div>
+
+    <p class="note" style="margin-top:22px">
+      Pour ajouter un article : ouvrez-le, puis
+      <b>Menu &#8250; Page &#8250; Lire plus tard</b>.
+      Les images sont incorporees par defaut, ce qui rend la lecture possible sans
+      reseau ; les decocher divise nettement la place occupee.
+    </p>
+    <p class="note">
+      Soixante articles au maximum, les plus anciens cedant la place. Le contenu vit
+      dans le navigateur : effacer les donnees de l'application le supprime aussi.
+    </p>
+  </div>
+
+  <div id="reader">
+    <div class="bar">
+      <button id="back">&#8592; Retour</button>
+      <button id="mark">Marquer comme lu</button>
+      <button id="orig">Page d'origine</button>
+    </div>
+    <h2 id="r-title"></h2>
+    <div class="src" id="r-src"></div>
+    <div id="art"></div>
+  </div>
+</main>
+
+<script src="queue-ui.js"></script>
+</body>
+</html>
