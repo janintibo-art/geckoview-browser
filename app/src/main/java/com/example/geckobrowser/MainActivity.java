@@ -158,7 +158,7 @@ public class MainActivity extends Activity {
                         session.loadUri(homeUrl());
                         break;
                     case 1:
-                        session.loadUri(extPage("search.html") + "#filtres");
+                        session.loadUri(extPage("search.html") + "?prefs=1");
                         break;
                     case 2:
                         session.loadUri(extPage("scripts.html"));
@@ -178,6 +178,9 @@ public class MainActivity extends Activity {
         if (searchBase != null) {
             return searchBase.replace("search.html", file);
         }
+        Toast.makeText(this,
+                "Extension non chargee : page indisponible",
+                Toast.LENGTH_SHORT).show();
         return FALLBACK_HOME;
     }
 

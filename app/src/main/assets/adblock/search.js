@@ -277,6 +277,16 @@ $("#prefs-btn").addEventListener("click", () => {
 });
 $("#prefs-save").addEventListener("click", savePrefs);
 
+// La page d'accueil etant deja search.html, un simple changement de fragment
+// ne provoque pas de rechargement : on l'ecoute explicitement.
+window.addEventListener("hashchange", () => {
+  if (location.hash === "#filtres") {
+    $("#prefs").hidden = false;
+    showStats();
+    window.scrollTo(0, 0);
+  }
+});
+
 $("#purge-now").addEventListener("click", async e => {
   e.preventDefault();
   const btn = e.target;
@@ -295,7 +305,9 @@ $("#purge-now").addEventListener("click", async e => {
 (async function init() {
   await loadPrefs();
   document.querySelector(".chip[data-scope='web']").classList.add("on");
-  if (location.hash === "#filtres") $("#prefs").hidden = false;
+  const wantPrefs = location.hash === "#filtres" ||
+                    new URLSearchParams(location.search).get("prefs") === "1";
+  if (wantPrefs) { $("#prefs").hidden = false; showStats(); }
   const params = new URLSearchParams(location.search);
   if (params.get("s")) {
     scope = params.get("s");

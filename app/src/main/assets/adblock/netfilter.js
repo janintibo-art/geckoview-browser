@@ -348,7 +348,7 @@
     }));
 
     panel.appendChild(actionBtn("\u2699  Categories et listes", () => {
-      location.href = browser.runtime.getURL("search.html") + "#filtres";
+      location.href = browser.runtime.getURL("search.html") + "?prefs=1";
     }));
 
     const note = document.createElement("div");
