@@ -448,9 +448,90 @@ public class MainActivity extends Activity {
         updateTabButton();
     }
 
+    /** Retient ce qui vient d'etre ferme, pour pouvoir le rouvrir. */
+    private void toTrash(String kind, String title, String url) {
+        if (url == null || url.isEmpty() || url.startsWith("moz-extension://")) return;
+        try {
+            JSONArray arr = new JSONArray(prefs.getString("trash", "[]"));
+            JSONObject o = new JSONObject();
+            o.put("kind", kind);
+            o.put("title", title == null || title.isEmpty() ? url : title);
+            o.put("url", url);
+            o.put("at", System.currentTimeMillis());
+
+            JSONArray out = new JSONArray();
+            out.put(o);
+            for (int i = 0; i < arr.length() && out.length() < 25; i++) {
+                JSONObject old = arr.optJSONObject(i);
+                if (old != null && !url.equals(old.optString("url"))) out.put(old);
+            }
+            prefs.edit().putString("trash", out.toString()).apply();
+        } catch (Exception ignored) { }
+    }
+
+    private void showTrash() {
+        JSONArray arr;
+        try { arr = new JSONArray(prefs.getString("trash", "[]")); }
+        catch (Exception e) { arr = new JSONArray(); }
+
+        if (arr.length() == 0) {
+            Toast.makeText(this, "La corbeille est vide", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        Menus m = new Menus(this, "Corbeille");
+        for (int i = 0; i < arr.length(); i++) {
+            final JSONObject o = arr.optJSONObject(i);
+            if (o == null) continue;
+            final String kind = o.optString("kind", "onglet");
+            final String url = o.optString("url", "");
+            String host = url;
+            try {
+                String h = Uri.parse(url).getHost();
+                if (h != null) host = h.replaceFirst("^www\\.", "");
+            } catch (Exception ignored) { }
+
+            m.add("onglet".equals(kind) ? "\u25A5" : "\u2605",
+                  o.optString("title", url),
+                  ("onglet".equals(kind) ? "onglet ferme" : "favori supprime") +
+                      " \u00B7 " + host,
+                  () -> restoreFromTrash(kind, o));
+        }
+        m.add("\u2327", "Vider la corbeille", () -> {
+            prefs.edit().remove("trash").apply();
+            Toast.makeText(this, "Corbeille videe", Toast.LENGTH_SHORT).show();
+        });
+        m.back(this::showMenu).show();
+    }
+
+    private void restoreFromTrash(String kind, JSONObject o) {
+        String url = o.optString("url", "");
+        if (url.isEmpty()) return;
+
+        if ("favori".equals(kind)) {
+            saveBookmark(url, o.optString("title", url),
+                         o.optString("cat", CAT_DEFAULT));
+        } else {
+            setupSession(false, url);
+            selectTab(tabs.size() - 1);
+        }
+
+        // L'element restaure quitte la corbeille
+        try {
+            JSONArray arr = new JSONArray(prefs.getString("trash", "[]"));
+            JSONArray out = new JSONArray();
+            for (int i = 0; i < arr.length(); i++) {
+                JSONObject x = arr.optJSONObject(i);
+                if (x != null && !url.equals(x.optString("url"))) out.put(x);
+            }
+            prefs.edit().putString("trash", out.toString()).apply();
+        } catch (Exception ignored) { }
+    }
+
     private void closeTab(int index) {
         if (index < 0 || index >= tabs.size()) return;
         Tab t = tabs.get(index);
+        if (!t.priv) toTrash("onglet", t.title, t.url);
 
         // Le dernier onglet n'est pas ferme : on le ramene a l'accueil.
         if (tabs.size() == 1) {
@@ -666,11 +747,14 @@ public class MainActivity extends Activity {
             .sub("\u2699", "Scripts et styles", null, this::showScriptsMenu)
             .sub("\u2605", "Favoris", bookmarks().length() + " enregistre(s)",
                  this::showBookmarksMenu)
+            .sub("\u267B", "Corbeille", null, this::showTrash)
             .add("\u26D4", blockerEnabled ? "Desactiver le blocage" : "Activer le blocage",
                  blockerEnabled ? blockedCount + " elements bloques" : "blocage inactif",
                  this::toggleBlocker)
             .sub("\u231A", "Historique", null,
                  () -> session.loadUri(extPage("history.html")))
+            .sub("\u25D4", "Bilan de lecture", null,
+                 () -> session.loadUri(extPage("report.html")))
             .sub("\u21F5", "Mes flux", null,
                  () -> session.loadUri(extPage("feeds.html")))
             .sub("\u2630", "File de lecture", null,
@@ -697,6 +781,8 @@ public class MainActivity extends Activity {
         new Menus(this, "Page")
             .add("\u2315", "Analyser la page", this::inspectPage)
             .add("\u2039", "Code source", this::viewSource)
+            .add("\u2194", "Ce sujet vu ailleurs",
+                 () -> { if (onWebPage()) sendCommand("elsewhere"); })
             .add("\u26A1", "Procedes trompeurs",
                  () -> { if (onWebPage()) sendCommand("patterns"); })
             .add("\u26A0", "Qui parle a qui",
@@ -1549,6 +1635,10 @@ public class MainActivity extends Activity {
 
     private void removeBookmark(int index) {
         JSONArray arr = bookmarks();
+        JSONObject gone = arr.optJSONObject(index);
+        if (gone != null) {
+            toTrash("favori", gone.optString("title"), gone.optString("url"));
+        }
         JSONArray out = new JSONArray();
         for (int i = 0; i < arr.length(); i++) {
             if (i != index) out.put(arr.optJSONObject(i));

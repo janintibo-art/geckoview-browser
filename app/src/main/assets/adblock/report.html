@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bilan de lecture</title>
+<link rel="stylesheet" href="search.css">
+<style>
+  header { padding: 14px 14px 8px; border-bottom: 1px solid var(--line); }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .sub { color: var(--dim); font-size: 13px; line-height: 1.5; }
+  main { padding: 8px 14px 40px; }
+
+  .tools { display: flex; gap: 8px; margin: 10px 0; }
+  .tools button {
+    flex: 1; padding: 9px; border: 1px solid var(--line); border-radius: 8px;
+    background: transparent; color: var(--dim); font-size: 12px;
+  }
+  .tools button.on { color: var(--accent); border-color: var(--accent); }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 10px; padding: 13px 15px; margin: 12px 0;
+  }
+  .card b { font-size: 15px; }
+  .card p { margin: 7px 0 0; color: #c3c8d1; font-size: 13px; line-height: 1.6; }
+
+  h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .05em;
+       color: var(--dim); margin: 20px 0 8px; }
+
+  .row { margin: 9px 0; }
+  .row .lb { display: flex; justify-content: space-between; gap: 10px;
+             font-size: 13px; margin-bottom: 4px; }
+  .row .lb span:last-child { color: var(--dim); font-size: 12px;
+                             white-space: nowrap; }
+  .bar { height: 7px; background: #22262e; border-radius: 4px; overflow: hidden; }
+  .bar i { display: block; height: 100%; border-radius: 4px; }
+
+  .indep { color: var(--accent); }
+  .grp { color: var(--warn); }
+  #msg { font-size: 12px; color: var(--dim); min-height: 16px; }
+  .note { line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Bilan de lecture</h1>
+  <div class="sub">D'ou viennent reellement les pages que vous lisez.</div>
+</header>
+
+<main>
+  <div class="tools">
+    <button data-d="7" class="on">7 jours</button>
+    <button data-d="30">30 jours</button>
+    <button data-d="0">Tout</button>
+  </div>
+  <div id="msg"></div>
+  <div id="out"></div>
+
+  <p class="note" style="margin-top:24px;color:var(--dim);font-size:12px">
+    Ce bilan ne juge rien et ne filtre rien : il decrit ce que vous avez consulte.
+    Il repose sur l'historique local, jamais transmis, et sur la carte de propriete
+    de <code>publishers.js</code> — qui couvre correctement la presse francaise et
+    tres partiellement le reste. Un site absent de cette carte est compte comme
+    non rattache, ce qui ne signifie pas qu'il soit independant.
+  </p>
+</main>
+
+<script src="publishers.js"></script>
+<script src="report-ui.js"></script>
+</body>
+</html>

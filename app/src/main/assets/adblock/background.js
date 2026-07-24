@@ -875,6 +875,18 @@ browser.runtime.onMessage.addListener(msg => {
   // -------------------------------------------------------------------------
   //  Rapport « qui parle a qui » : les tiers contactes par une page
   // -------------------------------------------------------------------------
+  if (msg.type === "sameOwner") {
+    const host = (msg.host || "").replace(/^www\./, "").toLowerCase();
+    let owner = null;
+    try { owner = ownerOf(host); } catch (e) { }
+    if (!owner) return Promise.resolve({ owner: null, domains: [host] });
+
+    // Tous les titres partageant ce proprietaire sont ecartes de la recherche
+    const domains = Object.keys(OWNERSHIP).filter(d => OWNERSHIP[d] === owner);
+    if (domains.indexOf(host) === -1) domains.push(host);
+    return Promise.resolve({ owner: owner, domains: domains });
+  }
+
   if (msg.type === "thirdParty") {
     const origin = msg.origin || "";
     let pageHost = "";

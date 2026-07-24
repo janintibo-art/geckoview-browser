@@ -25,6 +25,8 @@ let cookieCfg = { blockThirdParty: true, stripSent: true, clearOnExit: false };
 let engineOn = {};
 let searxUrl = "";
 let engineTemplate = "internal";
+let excludeOnce = [];
+let excludeOwner = "";
 
 // ---------------------------------------------------------------------------
 //  Raccourcis
@@ -357,7 +359,15 @@ function merge(raw) {
 
 function applyFilter(list) {
   const kept = [], removed = [];
+  const once = new Set(excludeOnce);
   for (const r of list) {
+    // Exclusion demandee pour cette recherche seulement
+    if (once.size && C.hostMatches(r.host, once)) {
+      r.rule = "meme groupe";
+      r.owner = P.ownerOf(r.host);
+      removed.push(r);
+      continue;
+    }
     const hit = C.hostMatches(r.host, filterSet);
     r.owner = P.ownerOf(r.host);
     if (hit) { r.rule = hit; removed.push(r); }
@@ -548,6 +558,21 @@ async function firstRun() {
                     new URLSearchParams(location.search).get("prefs") === "1";
   if (wantPrefs) { $("#prefs").hidden = false; showStats(); }
   const params = new URLSearchParams(location.search);
+
+  const not = params.get("not");
+  if (not) {
+    excludeOnce = not.split(",").map(x => x.trim()).filter(Boolean);
+    excludeOwner = params.get("owner") || "";
+    const bar = $("#engine-badge");
+    if (bar) {
+      bar.hidden = false;
+      bar.textContent = excludeOwner
+        ? "Recherche hors " + excludeOwner + " \u00B7 " +
+          excludeOnce.length + " domaine(s) ecarte(s)"
+        : excludeOnce.length + " domaine(s) ecarte(s) de cette recherche";
+    }
+  }
+
   if (params.get("s")) {
     scope = params.get("s");
     document.querySelectorAll(".chip[data-scope]").forEach(x =>

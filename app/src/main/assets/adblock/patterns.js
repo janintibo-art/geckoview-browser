@@ -164,6 +164,30 @@
     }
   }
 
+  function scanSponsored() {
+    const RE = /(contenu (partenaire|sponsoris|de marque)|en partenariat avec|publi[- ]?r[ée]dactionnel|sponsoris[ée]|advertorial|brand content|pr[ée]sent[ée] par|article partenaire|offert par)/i;
+
+    const els = Array.from(document.querySelectorAll(
+      "span, div, p, small, em, i, b, strong, a, li"))
+      .filter(el => el.children.length === 0 && RE.test(textOf(el)) &&
+                    textOf(el).length < 160);
+
+    add("publi", "Contenu commercial",
+        "Une mention de partenariat ou de contenu sponsorise figure sur cette page. " +
+        "Ces mentions sont souvent placees en petits caracteres, loin du titre.",
+        els,
+        () => {
+          els.filter(visible).forEach(el => {
+            el.style.setProperty("background", "#d97757", "important");
+            el.style.setProperty("color", "#10130f", "important");
+            el.style.setProperty("font-size", "13px", "important");
+            el.style.setProperty("padding", "1px 5px", "important");
+            el.style.setProperty("border-radius", "4px", "important");
+          });
+          return "Mentions mises en evidence";
+        });
+  }
+
   function scanTinyText() {
     const els = Array.from(document.querySelectorAll("a, span, p, small, label"))
       .filter(el => {
@@ -280,8 +304,8 @@
 
     html += '<p class="dp-note">Les motifs recherches : cases deja cochees, ' +
       "comptes a rebours, mentions de rarete, compteurs d'audience, refus " +
-      "culpabilisant, bandeau sans refus visible, texte tres reduit, fermeture " +
-      "de taille insuffisante. La detection repose sur des formulations et des " +
+      "culpabilisant, contenu commercial, bandeau sans refus visible, texte tres " +
+      "reduit, fermeture de taille insuffisante. La detection repose sur des formulations et des " +
       "mesures : elle peut se tromper dans les deux sens.</p>";
 
     return html;
@@ -297,6 +321,7 @@
       scanScarcity();
       scanSocialProof();
       scanConfirmshaming();
+      scanSponsored();
       scanHiddenRefusal();
       scanTinyText();
       scanTinyClose();
