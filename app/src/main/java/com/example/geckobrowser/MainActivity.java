@@ -366,7 +366,9 @@ public class MainActivity extends Activity {
              */
             @Override
             public void onFirstContentfulPaint(GeckoSession s) {
-                if (s == session) hideSplash();
+                // about:blank declenche aussi ce signal : ceder maintenant
+                // decouvrirait la page vierge, blanche par defaut.
+                if (s == session && isRealPage(tab.url)) hideSplash();
             }
         });
 
@@ -385,7 +387,9 @@ public class MainActivity extends Activity {
                 progress.setVisibility(android.view.View.GONE);
                 // Repli : si aucun rendu n'a eu lieu, on ne laisse pas
                 // l'ecran de demarrage indefiniment.
-                splash.postDelayed(MainActivity.this::hideSplash, 400);
+                if (isRealPage(tab.url)) {
+                    splash.postDelayed(MainActivity.this::hideSplash, 300);
+                }
             }
         });
 
@@ -396,13 +400,14 @@ public class MainActivity extends Activity {
 
         restoreProfile();
         session.open(sRuntime);
+        geckoView.setSession(session);
 
-        // Gecko peint en blanc tant que rien n'est rendu : on impose le fond
-        // sombre du navigateur, sinon un eclair blanc traverse chaque chargement.
+        // Le compositeur n'existe qu'une fois la session rattachee a la vue :
+        // fixer la couleur avant n'avait aucun effet.
+        geckoView.setBackgroundColor(0xFF0B0D10);
         try {
             session.getCompositorController().setClearColor(0xFF0B0D10);
         } catch (Throwable ignored) { }
-        geckoView.setSession(session);
 
         if (target != null) {
             session.loadUri(target);
@@ -1880,6 +1885,11 @@ public class MainActivity extends Activity {
                 });
             }
         }, "browser");
+    }
+
+    /** Une page reelle, par opposition a about:blank ou a une session vide. */
+    private static boolean isRealPage(String url) {
+        return url != null && !url.isEmpty() && !url.startsWith("about:");
     }
 
     private void hideSplash() {

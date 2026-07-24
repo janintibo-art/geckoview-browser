@@ -406,12 +406,22 @@
   <div class="c">
     <p>Au lancement, le logo s'affiche sur fond sombre pendant que le moteur et
     l'extension se chargent, puis la page de recherche apparait.</p>
-    <p>Trois reglages evitent les a-coups visuels. Le theme de la fenetre est sombre
-    des l'ouverture, avant meme que l'application ne dessine. Le compositeur de Gecko
-    peint dans la meme couleur, alors qu'il utilise du blanc par defaut. Et l'ecran de
-    demarrage ne se retire qu'au premier rendu effectif du contenu, pas a la fin du
-    chargement reseau — ce dernier survient trop tot, quand rien n'est encore
-    affiche.</p>
+    <p>Cinq reglages concourent a supprimer les a-coups visuels, chacun traitant une
+    couche differente :</p>
+    <ul>
+      <li>le theme de la fenetre est sombre des l'ouverture, avant meme que
+      l'application ne dessine ;</li>
+      <li>la vue du moteur porte la meme couleur de fond ;</li>
+      <li>le compositeur de Gecko peint dans cette couleur, alors qu'il utilise du
+      blanc par defaut — et le reglage n'a d'effet qu'une fois la session rattachee
+      a la vue, ce qui explique pourquoi une premiere tentative etait restee sans
+      resultat ;</li>
+      <li>une preference du moteur fixe le fond des pages non encore peintes, y
+      compris <code>about:blank</code> ;</li>
+      <li>l'ecran de demarrage ne se retire qu'au premier rendu d'une <b>page
+      reelle</b> : <code>about:blank</code> declenche le meme signal, et ceder a ce
+      moment-la revenait a decouvrir une page vierge, blanche par defaut.</li>
+    </ul>
     <p>Si l'extension tarde a repondre, un repli au bout de cinq secondes ouvre quand
     meme une page, pour ne jamais rester bloque sur le logo.</p>
   </div>
