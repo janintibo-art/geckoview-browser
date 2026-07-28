@@ -57,6 +57,8 @@ public class MainActivity extends Activity {
         String url = "";
         String title = "";
         boolean priv;
+        /** Adresse a charger a la premiere selection (restauration paresseuse). */
+        String pending;
     }
 
     private final java.util.List<Tab> tabs = new java.util.ArrayList<>();
@@ -277,6 +279,16 @@ public class MainActivity extends Activity {
     // =======================================================================
     /** Cree un onglet, l'ajoute a la liste et l'affiche. */
     private void setupSession(boolean priv, String target) {
+        setupSession(priv, target, false);
+    }
+
+    /**
+     * @param lazy vrai pour la restauration paresseuse : l'onglet est cree
+     *             mais la session n'est ni ouverte ni chargee avant sa
+     *             premiere selection. Ouvrir et charger une dizaine de pages
+     *             simultanement au demarrage rendait le lancement poussif.
+     */
+    private void setupSession(boolean priv, String target, boolean lazy) {
         privateMode = priv;
 
         int pi = profileIndex();
@@ -399,36 +411,45 @@ public class MainActivity extends Activity {
         session.setPermissionDelegate(permissions);
 
         restoreProfile();
-        session.open(sRuntime);
-        geckoView.setSession(session);
 
-        // Le compositeur n'existe qu'une fois la session rattachee a la vue :
-        // fixer la couleur avant n'avait aucun effet.
-        geckoView.setBackgroundColor(0xFF0B0D10);
-        try {
-            session.getCompositorController().setClearColor(0xFF0B0D10);
-        } catch (Throwable ignored) { }
-
-        if (target != null) {
-            session.loadUri(target);
-        } else if (searchBase != null) {
-            session.loadUri(homeUrl());
+        if (lazy) {
+            // Rien n'est ouvert ni charge : selectTab() s'en chargera.
+            tab.pending = target;
+            tab.url = target == null ? "" : target;
         } else {
-            // L'extension n'est pas encore prete : sans cette attente, le premier
-            // lancement afficherait le moteur de repli au lieu du notre.
-            new android.os.Handler(getMainLooper()).postDelayed(() -> {
-                if (!homeLoaded) {
-                    homeLoaded = true;
-                    session.loadUri(homeUrl());
-                    hideSplash();
-                }
-            }, 5000);
+            session.open(sRuntime);
+            geckoView.setSession(session);
+
+            // Le compositeur n'existe qu'une fois la session rattachee a la vue :
+            // fixer la couleur avant n'avait aucun effet.
+            geckoView.setBackgroundColor(0xFF14161A);
+            try {
+                session.getCompositorController().setClearColor(0xFF14161A);
+            } catch (Throwable ignored) { }
+
+            if (target != null) {
+                session.loadUri(target);
+            } else if (searchBase != null) {
+                session.loadUri(homeUrl());
+            } else {
+                // L'extension n'est pas encore prete : sans cette attente, le premier
+                // lancement afficherait le moteur de repli au lieu du notre.
+                new android.os.Handler(getMainLooper()).postDelayed(() -> {
+                    if (!homeLoaded) {
+                        homeLoaded = true;
+                        session.loadUri(homeUrl());
+                        hideSplash();
+                    }
+                }, 5000);
+            }
         }
 
 
         tabs.add(tab);
-        active = tabs.size() - 1;
-        applyTabActivity();
+        if (!lazy) {
+            active = tabs.size() - 1;
+            applyTabActivity();
+        }
         updateTabButton();
     }
 
@@ -448,7 +469,7 @@ public class MainActivity extends Activity {
     private void applyTabActivity() {
         for (int i = 0; i < tabs.size(); i++) {
             GeckoSession s = tabs.get(i).session;
-            if (s == null) continue;
+            if (s == null || !s.isOpen()) continue;
             try {
                 s.setActive(i == active);
                 s.setFocused(i == active);
@@ -465,8 +486,25 @@ public class MainActivity extends Activity {
         currentUrl = t.url;
         currentTitle = t.title;
 
+        // Restauration paresseuse : la session d'un onglet jamais consulte
+        // n'est ouverte qu'ici, a sa premiere selection.
+        boolean firstOpen = !session.isOpen();
+        if (firstOpen) session.open(sRuntime);
+
         geckoView.setSession(session);
         applyTabActivity();
+
+        if (firstOpen) {
+            try {
+                session.getCompositorController().setClearColor(0xFF14161A);
+            } catch (Throwable ignored) { }
+        }
+        if (t.pending != null) {
+            String p = t.pending;
+            t.pending = null;
+            session.loadUri(p);
+        }
+
         urlBar.setText(currentUrl.startsWith("moz-extension://") ? "" : currentUrl);
         updateTabButton();
     }
@@ -664,7 +702,9 @@ public class MainActivity extends Activity {
                 if (o == null) continue;
                 String u = o.optString("url", "");
                 if (u.isEmpty()) continue;
-                setupSession(false, u);
+                // Paresseux : l'onglet existe, la page attendra sa selection.
+                setupSession(false, u, true);
+                tabs.get(tabs.size() - 1).title = o.optString("title", "");
                 if (i == wanted) target = tabs.size() - 1;
             }
             // L'onglet actif du dernier lancement est re-affiche ;

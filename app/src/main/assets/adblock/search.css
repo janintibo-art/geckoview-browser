@@ -313,3 +313,29 @@ html, body {
   color: var(--dim);
   font-weight: 400;
 }
+
+/* ---------------------------------------------------------------------------
+   Micro-transitions
+   Discretes (150-180 ms), et entierement coupees si le systeme demande de
+   reduire les animations. Les resultats de recherche n'ont volontairement
+   pas d'animation par element : l'affichage progressif re-rend la liste a
+   chaque moteur qui repond, une animation rejouerait a chaque fois.
+--------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: no-preference) {
+  .chip {
+    transition: background .15s ease, color .15s ease,
+                border-color .15s ease;
+  }
+  #q { transition: border-color .15s ease; }
+  #submit { transition: filter .15s ease; }
+  #submit:active { filter: brightness(1.15); }
+
+  .sc .ic { transition: transform .15s ease; }
+  .sc:active .ic { transform: scale(.92); }
+
+  #dial .sc, .card { animation: gb-in .18s ease both; }
+  @keyframes gb-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: none; }
+  }
+}

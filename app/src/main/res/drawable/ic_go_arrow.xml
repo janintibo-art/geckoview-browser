@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fleche « aller », dessinee localement pour un rendu net et constant
+     quelle que soit la version d'Android. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#E8EAEE">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M4,11h12.17l-4.58,-4.59L13,5l7,7 -7,7 -1.41,-1.41L16.17,13H4z" />
+</vector>

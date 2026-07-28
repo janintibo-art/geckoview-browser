@@ -50,7 +50,7 @@ public class Privacy {
         // Fond par defaut du moteur. Sans cela, toute page vierge ou non encore
         // peinte s'affiche en blanc, ce qui produit un eclair a chaque
         // chargement sur une interface sombre.
-        s.append("pref(\"browser.display.background_color\", \"#0B0D10\");\n");
+        s.append("pref(\"browser.display.background_color\", \"#14161A\");\n");
         s.append("pref(\"browser.anchor_color\", \"#8AB4F8\");\n");
 
         // ------------------------------------------------------------------

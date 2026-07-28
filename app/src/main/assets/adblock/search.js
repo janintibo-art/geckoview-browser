@@ -318,18 +318,6 @@ function normUrl(u) {
   } catch (e) { return u; }
 }
 
-async function gather(query) {
-  const list = activeEngines(engineOn, searxUrl);
-  if (!list.length) return [];
-  const packs = await Promise.all(list.map(async eng => {
-    try {
-      const doc = await fetchDoc(eng.url(query));
-      return eng.parse(doc).slice(0, 15).map((r, i) => ({ ...r, engine: eng.label, rank: i }));
-    } catch (e) { return []; }
-  }));
-  return packs.flat();
-}
-
 function merge(raw) {
   const map = new Map();
   for (const r of raw) {
@@ -419,28 +407,14 @@ function renderCard(ia) {
 // ---------------------------------------------------------------------------
 //  Execution
 // ---------------------------------------------------------------------------
-async function run(query) {
-  const bang = resolveBang(query);
-  if (bang) { location.href = bang; return; }
+let runSeq = 0;
 
-  history.replaceState(null, "", "?q=" + encodeURIComponent(query) + "&s=" + scope);
-  const brand = $("#brand");
-  if (brand) brand.style.display = "none";
-  dialVisible(false);
-  out.innerHTML = `<div class="msg"><span class="spin">◐</span> Interrogation des moteurs…</div>`;
-  foot.textContent = "";
-
-  const t0 = Date.now();
-  const [raw, ia] = await Promise.all([
-    scope === "news"
-      ? fetchNews(query).then(x => x.map((r, i) => ({ ...r, rank: i })))
-      : gather(query),
-    scope === "web" ? instantAnswer(query) : Promise.resolve(null)
-  ]);
-
+function renderResults(raw, ia, t0, opts) {
+  opts = opts || {};
   if (!raw.length) {
     out.innerHTML = `<div class="msg">Aucun resultat. Les moteurs sources ont pu
       limiter la requete — reessayez dans un instant.</div>`;
+    foot.textContent = "";
     return;
   }
 
@@ -459,8 +433,127 @@ async function run(query) {
 
   const engines = new Set();
   merged.forEach(r => r.sources.forEach(s => engines.add(s)));
+
+  if (opts.cached) {
+    foot.textContent = `${kept.length} resultats · ${removed.length} filtres · en cache · `;
+    const a = document.createElement("a");
+    a.href = "#";
+    a.textContent = "actualiser";
+    a.onclick = e => { e.preventDefault(); run(opts.query, true); };
+    foot.appendChild(a);
+    return;
+  }
+
   foot.textContent = `${kept.length} resultats · ${removed.length} filtres · ` +
-    `${Array.from(engines).join(", ")} · ${((Date.now() - t0) / 1000).toFixed(1)} s`;
+    `${Array.from(engines).join(", ")} · ${((Date.now() - t0) / 1000).toFixed(1)} s` +
+    (opts.pending ? ` · ${opts.pending} moteur(s) en cours…` : "");
+}
+
+// ---------------------------------------------------------------------------
+//  Cache de reprise
+//  Revenir depuis un resultat re-affiche la meme page sans re-interroger les
+//  moteurs : retour instantane, et moins de requetes vers les sources.
+// ---------------------------------------------------------------------------
+const CACHE_MS = 10 * 60 * 1000;
+
+async function cacheGet(query) {
+  try {
+    const s = await browser.storage.local.get("searchCache");
+    const c = s && s.searchCache;
+    if (c && c.q === query && c.scope === scope &&
+        (Date.now() - c.at) < CACHE_MS) return c;
+  } catch (e) { }
+  return null;
+}
+
+function cacheSet(query, raw, ia) {
+  try {
+    browser.storage.local.set({
+      searchCache: { q: query, scope: scope, at: Date.now(), raw: raw, ia: ia }
+    });
+  } catch (e) { }
+}
+
+async function run(query, force) {
+  const bang = resolveBang(query);
+  if (bang) { location.href = bang; return; }
+
+  history.replaceState(null, "", "?q=" + encodeURIComponent(query) + "&s=" + scope);
+  const brand = $("#brand");
+  if (brand) brand.style.display = "none";
+  dialVisible(false);
+
+  // Une nouvelle requete perime tout affichage differe de la precedente
+  const my = ++runSeq;
+  const t0 = Date.now();
+
+  if (!force) {
+    const hit = await cacheGet(query);
+    if (my !== runSeq) return;
+    if (hit) {
+      renderResults(hit.raw || [], hit.ia || null, t0, { cached: true, query: query });
+      return;
+    }
+  }
+
+  out.innerHTML = `<div class="msg"><span class="spin">◐</span> Interrogation des moteurs…</div>`;
+  foot.textContent = "";
+
+  const iaP = (scope === "web" ? instantAnswer(query) : Promise.resolve(null))
+    .catch(() => null);
+
+  if (scope === "news") {
+    let raw = [];
+    try { raw = (await fetchNews(query)).map((r, i) => ({ ...r, rank: i })); }
+    catch (e) { }
+    if (my !== runSeq) return;
+    const ia = await iaP;
+    if (my !== runSeq) return;
+    renderResults(raw, ia, t0, {});
+    if (raw.length) cacheSet(query, raw, ia);
+    return;
+  }
+
+  // Affichage progressif : chaque moteur est fusionne et rendu des qu'il
+  // repond. Le plus lent ne retient plus les autres, il complete la page
+  // en cours de route (le pied de page indique ce qu'il reste a venir).
+  const list = activeEngines(engineOn, searxUrl);
+  if (!list.length) {
+    renderResults([], null, t0, {});
+    return;
+  }
+
+  let raw = [];
+  let ia = null;
+  let pending = list.length;
+
+  iaP.then(v => {
+    ia = v;
+    if (my === runSeq && raw.length && pending > 0) {
+      renderResults(raw, ia, t0, { pending: pending });
+    }
+  });
+
+  await Promise.all(list.map(eng =>
+    fetchDoc(eng.url(query))
+      .then(doc => eng.parse(doc).slice(0, 15)
+                      .map((r, i) => ({ ...r, engine: eng.label, rank: i })))
+      .catch(() => [])
+      .then(pack => {
+        pending--;
+        if (my !== runSeq) return;
+        if (pack.length) raw = raw.concat(pack);
+        if (pending > 0 && raw.length) {
+          renderResults(raw, ia, t0, { pending: pending });
+        }
+      })
+  ));
+
+  if (my !== runSeq) return;
+  ia = await iaP;
+  if (my !== runSeq) return;
+  renderResults(raw, ia, t0, {});
+  if (raw.length) cacheSet(query, raw, ia);
 }
 
 // ---------------------------------------------------------------------------

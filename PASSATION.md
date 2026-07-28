@@ -136,6 +136,22 @@ concentration des médias, et plus. Voir la liste complète plus bas.
   via `setActive()`/`setFocused()` — c'est ce qui rend
   `document.visibilityState` fiable dans les scripts de contenu. Tout nouvel
   écouteur de `pageCommand` doit reprendre cette garde.
+- **Restauration paresseuse des onglets** : `restoreTabs()` crée les onglets
+  sans ouvrir leur session (`Tab.pending`) ; `selectTab()` ouvre et charge à
+  la première sélection. Ne jamais réintroduire un chargement immédiat de
+  tous les onglets au démarrage. `applyTabActivity()` ignore les sessions
+  non ouvertes.
+- **Métamoteur progressif** : `run()` (search.js) rend les résultats dès le
+  premier moteur qui répond et re-fusionne à chaque arrivée, avec un garde
+  `runSeq` contre les requêtes croisées. Un cache de reprise (`searchCache`,
+  10 min, volontairement absent de la synchronisation) rend le retour
+  arrière instantané ; le pied de page propose « actualiser ».
+- **Palette canonique = `search.css`** (`--bg #14161a`, `--panel #1c1f26`) :
+  le côté Android y est aligné (layout, `brand_bg`, `setClearColor`,
+  pref Gecko `browser.display.background_color`). Toute nouvelle couleur de
+  fond doit reprendre ces valeurs. Les icônes de la barre sont des
+  `VectorDrawable` locaux (`ic_menu_dots`, `ic_go_arrow`), jamais des
+  icônes système.
 - **Vérification systématique après édition d'un bloc de code existant** :
   remplacer un bloc entre deux repères textuels a fait disparaître des
   méthodes voisines à plusieurs reprises. Toujours relire ce qui reste
