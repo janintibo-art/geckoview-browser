@@ -319,7 +319,7 @@
 
   browser.storage.onChanged.addListener(changes => {
     const c = changes.pageCommand && changes.pageCommand.newValue;
-    if (c && c.cmd === "autopagerHere" && window.__toggleAutopagerHere) {
+    if (c && GB.foreground() && c.cmd === "autopagerHere" && window.__toggleAutopagerHere) {
       window.__toggleAutopagerHere();
     }
   });

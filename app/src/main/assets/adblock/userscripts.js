@@ -255,7 +255,7 @@
 
   browser.storage.onChanged.addListener(changes => {
     const c = changes.pageCommand && changes.pageCommand.newValue;
-    if (!c || typeof c.cmd !== "string") return;
+    if (!c || !GB.foreground() || typeof c.cmd !== "string") return;
     if (c.cmd.indexOf("gm:") !== 0) return;
     const i = parseInt(c.cmd.slice(3), 10);
     const cmd = menuCommands[i];

@@ -1546,6 +1546,8 @@
   window.__inspectPage = open;
 
   browser.storage.onChanged.addListener(changes => {
+    // Seule la page affichee repond au menu (voir GB.foreground).
+    if (!GB.foreground()) return;
     if (changes.inspectRequest) open();
     const c = changes.pageCommand && changes.pageCommand.newValue;
     if (c && c.cmd === "inspect") open();

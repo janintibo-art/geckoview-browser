@@ -319,7 +319,7 @@
   }
 
   browser.storage.onChanged.addListener(changes => {
-    if (changes.pageCommand && changes.pageCommand.newValue) {
+    if (changes.pageCommand && changes.pageCommand.newValue && GB.foreground()) {
       handleCommand(changes.pageCommand.newValue.cmd);
     }
     if (changes.hideList) {

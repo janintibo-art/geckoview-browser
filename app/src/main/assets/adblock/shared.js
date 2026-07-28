@@ -34,6 +34,19 @@ var GB = (function () {
       .trim();
   }
 
+  /**
+   * Vrai uniquement dans la page affichee a l'ecran.
+   *
+   * Les commandes du menu sont diffusees par le stockage de l'extension, que
+   * toutes les pages ouvertes observent : sans ce test, une commande visant
+   * « la page actuelle » s'executerait dans chaque onglet a la fois. Cote
+   * application, selectTab() marque desormais un seul onglet actif, ce qui
+   * rend document.visibilityState fiable ici.
+   */
+  function foreground() {
+    return document.visibilityState === "visible";
+  }
+
   // -------------------------------------------------------------------------
   //  Detection de la page suivante
   //  Utilisee par le defilement infini et par l'extracteur structure.
@@ -369,7 +382,7 @@ var GB = (function () {
   }
 
   return {
-    abs, hostOf, norm,
+    abs, hostOf, norm, foreground,
     selectorOf, pick,
     mainContainer, mainBlocks, mainText,
     NEXT_TEXT, findNext,

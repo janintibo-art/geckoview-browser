@@ -177,6 +177,6 @@
 
   browser.storage.onChanged.addListener(changes => {
     const c = changes.pageCommand && changes.pageCommand.newValue;
-    if (c && c.cmd === "readLater") save();
+    if (c && GB.foreground() && c.cmd === "readLater") save();
   });
 })();

@@ -123,6 +123,6 @@
 
   browser.storage.onChanged.addListener(changes => {
     const c = changes.pageCommand && changes.pageCommand.newValue;
-    if (c && c.cmd === "makeFeed") create();
+    if (c && GB.foreground() && c.cmd === "makeFeed") create();
   });
 })();

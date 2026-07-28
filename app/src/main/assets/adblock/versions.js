@@ -245,7 +245,7 @@
 
   browser.storage.onChanged.addListener(changes => {
     const c = changes.pageCommand && changes.pageCommand.newValue;
-    if (!c) return;
+    if (!c || !GB.foreground()) return;
     if (c.cmd === "archive") archive(false);
     if (c.cmd === "compare") compare();
   });

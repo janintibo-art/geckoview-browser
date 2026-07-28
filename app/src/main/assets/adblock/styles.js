@@ -92,7 +92,7 @@
       apply();
     }
     const c = changes.pageCommand && changes.pageCommand.newValue;
-    if (!c) return;
+    if (!c || !GB.foreground()) return;
     if (c.cmd === "styleThis") openEditor();
     if (c.cmd === "pickElement") startPicker();
   });

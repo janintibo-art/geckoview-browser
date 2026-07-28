@@ -428,12 +428,34 @@ public class MainActivity extends Activity {
 
         tabs.add(tab);
         active = tabs.size() - 1;
+        applyTabActivity();
         updateTabButton();
     }
 
     // =======================================================================
     //  Onglets
     // =======================================================================
+
+    /**
+     * Marque un seul onglet comme actif aux yeux de Gecko.
+     *
+     * Sans cela, les pages en arriere-plan se croient toujours visibles
+     * (document.visibilityState) : les commandes du menu, diffusees par le
+     * stockage de l'extension, s'executaient alors dans tous les onglets a
+     * la fois. C'est aussi ce qui permet a Gecko de reduire la priorite des
+     * onglets non affiches (processeur, batterie).
+     */
+    private void applyTabActivity() {
+        for (int i = 0; i < tabs.size(); i++) {
+            GeckoSession s = tabs.get(i).session;
+            if (s == null) continue;
+            try {
+                s.setActive(i == active);
+                s.setFocused(i == active);
+            } catch (Throwable ignored) { }
+        }
+    }
+
     private void selectTab(int index) {
         if (index < 0 || index >= tabs.size()) return;
         active = index;
@@ -444,6 +466,7 @@ public class MainActivity extends Activity {
         currentTitle = t.title;
 
         geckoView.setSession(session);
+        applyTabActivity();
         urlBar.setText(currentUrl.startsWith("moz-extension://") ? "" : currentUrl);
         updateTabButton();
     }
@@ -610,16 +633,21 @@ public class MainActivity extends Activity {
     private void saveTabs() {
         try {
             JSONArray arr = new JSONArray();
+            // L'index actif doit viser la liste sauvegardee, qui exclut les
+            // onglets prives et l'accueil : l'index brut ne correspondait pas.
+            int savedActive = -1;
+            Tab cur = (active >= 0 && active < tabs.size()) ? tabs.get(active) : null;
             for (Tab t : tabs) {
                 // Les onglets prives ne laissent aucune trace, par definition.
                 if (t.priv || t.url.isEmpty() || t.url.startsWith("moz-extension://")) continue;
+                if (t == cur) savedActive = arr.length();
                 JSONObject o = new JSONObject();
                 o.put("url", t.url);
                 o.put("title", t.title);
                 arr.put(o);
             }
             prefs.edit().putString("session", arr.toString())
-                 .putInt("sessionActive", active).apply();
+                 .putInt("sessionActive", savedActive).apply();
         } catch (Exception ignored) { }
     }
 
@@ -629,14 +657,20 @@ public class MainActivity extends Activity {
         try {
             JSONArray arr = new JSONArray(prefs.getString("session", "[]"));
             int limit = Math.min(arr.length(), 12);
+            int wanted = prefs.getInt("sessionActive", -1);
+            int target = -1;
             for (int i = 0; i < limit; i++) {
                 JSONObject o = arr.optJSONObject(i);
                 if (o == null) continue;
                 String u = o.optString("url", "");
                 if (u.isEmpty()) continue;
                 setupSession(false, u);
+                if (i == wanted) target = tabs.size() - 1;
             }
-            if (tabs.size() > 1) selectTab(0);
+            // L'onglet actif du dernier lancement est re-affiche ;
+            // a defaut, l'accueil reste au premier plan.
+            if (target != -1) selectTab(target);
+            else if (tabs.size() > 1) selectTab(0);
         } catch (Exception ignored) { }
     }
 
