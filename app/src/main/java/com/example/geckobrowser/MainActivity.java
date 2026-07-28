@@ -948,9 +948,10 @@ public class MainActivity extends Activity {
 
     private void translatePage(String to) {
         Tab t = tabs.get(active);
-        String from = t.langTag == null ? "" : t.langTag;
-        int dash = from.indexOf('-');
-        if (dash > 0) from = from.substring(0, dash);
+        String detectedLang = t.langTag == null ? "" : t.langTag;
+        int dash = detectedLang.indexOf('-');
+        if (dash > 0) detectedLang = detectedLang.substring(0, dash);
+        final String from = detectedLang;
 
         if (from.isEmpty()) {
             Toast.makeText(this, "Langue de la page non detectee : rechargez la "
