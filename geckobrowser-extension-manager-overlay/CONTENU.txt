@@ -1,0 +1,8 @@
+GeckoBrowser — overlay étape 8
+
+Fichiers ajoutés :
+- app/src/main/java/com/example/geckobrowser/ExtensionManager.java
+- tools/apply_extension_manager.py
+- INSTALLATION_EXTENSIONS.md
+
+Le script modifie MainActivity.java et conserve une sauvegarde avant modification.
