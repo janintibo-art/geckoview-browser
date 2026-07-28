@@ -1,0 +1,9 @@
+GECKOBROWSER — IDENTITES ET CONTENEURS
+======================================
+
+Fichiers fournis :
+- app/src/main/java/com/example/geckobrowser/ContainerManager.java
+- tools/apply_containers.py
+- INSTALLATION-CONTENEURS.md
+
+Le script modifie MainActivity.java de façon contrôlée et crée une sauvegarde.

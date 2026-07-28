@@ -238,3 +238,6 @@ Toujours commencer une nouvelle demande de fonctionnalité par : lire les
 fichiers concernés existants, vérifier s'il y a déjà du code réutilisable
 dans `shared.js` ou `publishers.js`, écrire, faire tourner
 `tools/check.py`, zipper, présenter avec `present_files`.
+
+
+40. Identites et conteneurs GeckoView : six espaces de navigation (Personnel, Travail, Banque, Reseaux sociaux, Temporaire, Anonyme) fondes sur GeckoSessionSettings.contextId. Les cookies et stockages sont separes, l'identite est sauvegardee avec les onglets persistants, et un contexte peut etre purge sans toucher les autres. Temporaire et Anonyme utilisent le mode prive.
