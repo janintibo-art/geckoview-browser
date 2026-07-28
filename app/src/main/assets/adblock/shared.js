@@ -294,9 +294,27 @@ var GB = (function () {
    * Ouvre le pointeur et resout avec { element, selector, count }, ou null.
    * opts : { hint, color, repeated }
    */
+  /**
+   * Ouvre le pointeur et resout avec
+   *   { element, selector, count, action, fields }, ou null si annulation.
+   *
+   * opts :
+   *   hint     titre affiche dans la barre
+   *   color    couleur de surbrillance
+   *   repeated vise une serie repetee plutot qu'un element unique
+   *   actions  boutons de validation [{ a, label, accent }] ; par defaut un
+   *            seul bouton { a: "ok", label: "Valider" }. Le champ "action"
+   *            du resultat vaut le "a" du bouton presse.
+   *   extra    HTML insere entre le selecteur et les boutons ; les valeurs
+   *            des <select> et <input> portant un id reviennent dans
+   *            "fields" (cle = id, cases a cocher en booleen)
+   *   onHover  appele a chaque changement d'element vise : (element, barre)
+   */
   function pick(opts) {
     opts = opts || {};
     const color = opts.color || "#6fae5f";
+    const actions = (opts.actions && opts.actions.length)
+      ? opts.actions : [{ a: "ok", label: "Valider", accent: true }];
 
     return new Promise(resolve => {
       let current = null;
@@ -306,6 +324,13 @@ var GB = (function () {
         "display:none;border:2px solid " + color + ";border-radius:3px;" +
         "background:" + color + "22";
       document.documentElement.appendChild(ov);
+
+      const BTN = "flex:1;padding:9px;border-radius:7px;font-size:12px;";
+      const btns = actions.map(x =>
+        '<button data-a="' + x.a + '" style="' + BTN +
+        (x.accent ? "border:1px solid #3d5c34;background:#1c1f26;color:#8fce7c"
+                  : "border:1px solid #2b303a;background:#1c1f26;color:#8ab4f8") +
+        '">' + x.label + "</button>").join("");
 
       const bar = document.createElement("div");
       bar.style.cssText = "position:fixed;left:0;right:0;bottom:0;z-index:2147483647;" +
@@ -317,13 +342,13 @@ var GB = (function () {
         '<div id="gbp-sel" style="font-family:monospace;font-size:11px;color:#8ab4f8;' +
         'word-break:break-all;min-height:16px"></div>' +
         '<div id="gbp-n" style="color:#99a0ad;font-size:11px;margin:2px 0 9px"></div>' +
-        '<div style="display:flex;gap:6px">' +
-        '<button data-a="up" style="flex:1;padding:9px;border:1px solid #2b303a;' +
-        'border-radius:7px;background:#1c1f26;color:#e8eaee">Parent</button>' +
-        '<button data-a="ok" style="flex:1;padding:9px;border:1px solid #3d5c34;' +
-        'border-radius:7px;background:#1c1f26;color:#8fce7c">Valider</button>' +
-        '<button data-a="no" style="flex:1;padding:9px;border:1px solid #2b303a;' +
-        'border-radius:7px;background:transparent;color:#99a0ad">Annuler</button></div>';
+        (opts.extra || "") +
+        '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
+        '<button data-a="up" style="' + BTN +
+        'border:1px solid #2b303a;background:#1c1f26;color:#e8eaee">Parent</button>' +
+        btns +
+        '<button data-a="no" style="' + BTN +
+        'border:1px solid #2b303a;background:transparent;color:#99a0ad">Annuler</button></div>';
       document.documentElement.appendChild(bar);
 
       function show() {
@@ -331,7 +356,7 @@ var GB = (function () {
         const sel = selectorOf(current, opts);
         let n = 0;
         try { n = sel ? document.querySelectorAll(sel).length : 0; } catch (e) { }
-        bar.querySelector("#gbp-sel").textContent = sel || "—";
+        bar.querySelector("#gbp-sel").textContent = sel || "\u2014";
         bar.querySelector("#gbp-n").textContent =
           n + " element" + (n > 1 ? "s vises" : " vise");
         const r = current.getBoundingClientRect();
@@ -339,6 +364,7 @@ var GB = (function () {
           display: "block", left: r.left + "px", top: r.top + "px",
           width: r.width + "px", height: r.height + "px"
         });
+        if (opts.onHover) { try { opts.onHover(current, bar); } catch (e) { } }
       }
 
       function onTap(e) {
@@ -374,7 +400,11 @@ var GB = (function () {
         const sel = selectorOf(current, opts);
         let n = 0;
         try { n = document.querySelectorAll(sel).length; } catch (e2) { }
-        finish({ element: current, selector: sel, count: n });
+        const fields = {};
+        bar.querySelectorAll("select[id], input[id]").forEach(el => {
+          fields[el.id] = el.type === "checkbox" ? el.checked : el.value;
+        });
+        finish({ element: current, selector: sel, count: n, action: a, fields: fields });
       }, true);
 
       document.addEventListener("click", onTap, true);

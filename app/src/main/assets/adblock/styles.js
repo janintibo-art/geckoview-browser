@@ -107,170 +107,20 @@
   }
 
   // -------------------------------------------------------------------------
-  //  Pointeur : designer un element a masquer
+  //  Pointeur : delegue a GB.pick, le pointeur commun (shared.js).
+  //  L'ancien pointeur maison (~160 lignes dupliquees) a ete retire.
   // -------------------------------------------------------------------------
-  let picking = false;
-  let overlay = null;
-  let bar = null;
-  let current = null;
-
-  function selectorFor(el) {
-    if (!el || el.nodeType !== 1) return "";
-    if (el.id && /^[A-Za-z][\w-]*$/.test(el.id)) return "#" + el.id;
-
-    const parts = [];
-    let cur = el;
-    let depth = 0;
-
-    while (cur && cur.nodeType === 1 && cur !== document.documentElement && depth < 5) {
-      let sel = cur.tagName.toLowerCase();
-
-      if (cur.id && /^[A-Za-z][\w-]*$/.test(cur.id)) {
-        parts.unshift("#" + cur.id);
-        break;
-      }
-
-      // Classes stables : on ecarte celles qui ressemblent a du genere
-      const good = (cur.className && cur.className.toString ? cur.className.toString() : "")
-        .trim().split(/\s+/)
-        .filter(c => c && c.length < 26 && !/^\d/.test(c) && !/^(css|sc|emotion)-/i.test(c));
-
-      if (good.length) {
-        sel += "." + good.slice(0, 2).map(c => CSS.escape(c)).join(".");
-      } else {
-        const parent = cur.parentElement;
-        if (parent) {
-          const same = Array.from(parent.children).filter(x => x.tagName === cur.tagName);
-          if (same.length > 1) sel += ":nth-of-type(" + (same.indexOf(cur) + 1) + ")";
-        }
-      }
-
-      parts.unshift(sel);
-
-      // Un selecteur suffisamment precis : on s'arrete
-      try {
-        const test = parts.join(" > ");
-        if (document.querySelectorAll(test).length === 1) break;
-      } catch (e) { }
-
-      cur = cur.parentElement;
-      depth++;
-    }
-    return parts.join(" > ");
-  }
-
-  function highlight(el) {
-    if (!overlay) return;
-    if (!el) { overlay.style.display = "none"; return; }
-    const r = el.getBoundingClientRect();
-    Object.assign(overlay.style, {
-      display: "block",
-      left: r.left + "px",
-      top: r.top + "px",
-      width: r.width + "px",
-      height: r.height + "px"
+  async function startPicker() {
+    const picked = await GB.pick({
+      hint: "Touchez l'element a masquer ou a editer",
+      actions: [
+        { a: "hide", label: "Masquer", accent: true },
+        { a: "edit", label: "Editer" }
+      ]
     });
-  }
-
-  function stopPicker() {
-    picking = false;
-    if (overlay) { overlay.remove(); overlay = null; }
-    if (bar) { bar.remove(); bar = null; }
-    current = null;
-    document.removeEventListener("click", onPick, true);
-    document.removeEventListener("touchstart", onTouch, true);
-  }
-
-  function onTouch(e) {
-    if (!picking) return;
-    const t = e.touches && e.touches[0];
-    if (!t) return;
-    const el = document.elementFromPoint(t.clientX, t.clientY);
-    if (el && el !== overlay && !bar.contains(el)) {
-      current = el;
-      highlight(el);
-      updateBar();
-    }
-  }
-
-  function onPick(e) {
-    if (!picking) return;
-    if (bar && bar.contains(e.target)) return;
-    e.preventDefault();
-    e.stopPropagation();
-    current = e.target;
-    highlight(current);
-    updateBar();
-  }
-
-  function updateBar() {
-    if (!bar) return;
-    const sel = current ? selectorFor(current) : "";
-    bar.querySelector(".gb-sel").textContent = sel || "Touchez un element";
-    const n = sel ? countOf(sel) : 0;
-    bar.querySelector(".gb-cnt").textContent = sel ? n + " element(s) vise(s)" : "";
-  }
-
-  function countOf(sel) {
-    try { return document.querySelectorAll(sel).length; } catch (e) { return 0; }
-  }
-
-  function startPicker() {
-    if (picking) { stopPicker(); return; }
-    picking = true;
-
-    overlay = document.createElement("div");
-    overlay.style.cssText =
-      "position:fixed;z-index:2147483646;pointer-events:none;display:none;" +
-      "background:rgba(111,174,95,.22);border:2px solid #6fae5f;border-radius:3px";
-    document.documentElement.appendChild(overlay);
-
-    bar = document.createElement("div");
-    bar.style.cssText =
-      "position:fixed;left:0;right:0;bottom:0;z-index:2147483647;background:#14161a;" +
-      "border-top:1px solid #2b303a;padding:10px 12px 14px;" +
-      "font:12px -apple-system,Roboto,sans-serif;color:#e8eaee";
-    bar.innerHTML =
-      '<div class="gb-sel" style="font-family:monospace;font-size:11px;color:#8ab4f8;' +
-      'word-break:break-all;margin-bottom:3px">Touchez un element</div>' +
-      '<div class="gb-cnt" style="color:#99a0ad;font-size:11px;margin-bottom:9px"></div>' +
-      '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
-      '<button data-a="up" style="flex:1;padding:9px;border:1px solid #2b303a;' +
-      'border-radius:7px;background:#1c1f26;color:#e8eaee;font-size:12px">Bloc parent</button>' +
-      '<button data-a="hide" style="flex:1;padding:9px;border:1px solid #3d5c34;' +
-      'border-radius:7px;background:#1c1f26;color:#8fce7c;font-size:12px">Masquer</button>' +
-      '<button data-a="edit" style="flex:1;padding:9px;border:1px solid #2b303a;' +
-      'border-radius:7px;background:#1c1f26;color:#8ab4f8;font-size:12px">Editer</button>' +
-      '<button data-a="stop" style="flex:1;padding:9px;border:1px solid #2b303a;' +
-      'border-radius:7px;background:transparent;color:#99a0ad;font-size:12px">Fermer</button>' +
-      "</div>";
-    document.documentElement.appendChild(bar);
-
-    bar.addEventListener("click", e => {
-      const a = e.target.getAttribute && e.target.getAttribute("data-a");
-      if (!a) return;
-      e.preventDefault();
-      e.stopPropagation();
-
-      if (a === "stop") { stopPicker(); return; }
-      if (a === "up") {
-        if (current && current.parentElement &&
-            current.parentElement !== document.documentElement) {
-          current = current.parentElement;
-          highlight(current);
-          updateBar();
-        }
-        return;
-      }
-      if (!current) return;
-      const sel = selectorFor(current);
-      if (!sel) return;
-      if (a === "hide") { hideSelector(sel); stopPicker(); }
-      if (a === "edit") { stopPicker(); openEditor(sel); }
-    }, true);
-
-    document.addEventListener("click", onPick, true);
-    document.addEventListener("touchstart", onTouch, true);
+    if (!picked || !picked.selector) return;
+    if (picked.action === "hide") hideSelector(picked.selector);
+    else if (picked.action === "edit") openEditor(picked.selector);
   }
 
   // Ajoute une regle de masquage a la feuille du site, ou la cree

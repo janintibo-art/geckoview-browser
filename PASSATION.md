@@ -132,6 +132,12 @@ concentration des médias, et plus. Voir la liste complète plus bas.
   titres deviendrait vite envahissant. L'utilisateur active au cas par cas.
 - **Détecteur de dark patterns = indices, pas verdicts** : la formulation
   insiste toujours sur le fait qu'un signal peut être un faux positif.
+- **`GB.pick()` est le seul pointeur d'élément** : la dette des pointeurs
+  maison (styles.js, watcher.js) est soldée. `GB.pick()` accepte désormais
+  `actions` (boutons multiples, champ `action` en retour), `extra` (HTML
+  dans la barre, valeurs des champs à `id` renvoyées dans `fields`) et
+  `onHover` (rappel à chaque élément visé). Ne jamais recréer de pointeur
+  local : étendre `GB.pick()` si un besoin nouveau apparaît.
 - **Une commande de menu ne vise que l'onglet affiché** : `pageCommand` est
   diffusé par le stockage à toutes les pages ouvertes. Chaque écouteur doit
   donc se garder avec `GB.foreground()`, et côté Java `applyTabActivity()`
@@ -193,9 +199,8 @@ concentration des médias, et plus. Voir la liste complète plus bas.
 
 ## Pour la prochaine session
 
-Idées déjà évoquées mais pas faites : migration des anciens pointeurs vers
-`GB.pick()` (dette technique connue), détecteur de mouchards *dans* le
-rapport réseau enrichi. Demander à
+Idées déjà évoquées mais pas faites : détecteur de mouchards *dans* le
+rapport réseau enrichi, menu contextuel sur appui long. Demander à
 l'utilisateur ce qu'il veut avant de partir dans une direction.
 
 Toujours commencer une nouvelle demande de fonctionnalité par : lire les
