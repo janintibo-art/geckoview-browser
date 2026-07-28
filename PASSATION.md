@@ -129,6 +129,12 @@ concentration des médias, et plus. Voir la liste complète plus bas.
     métamoteur traduite avant interrogation (champ `tq` du panneau Affiner,
     badge au-dessus des résultats) ; langue cible commune `trLang`
     (préférence Android relayée au stockage de l'extension)
+39. Themes d'interface natifs : huit palettes (Gecko graphite, Foret emeraude,
+    Ocean neon, Cosmos violet, Braise cuivre, Sakura nocturne, Ivoire zen,
+    AMOLED absolu), selecteur avec apercu, application immediate sans perdre
+    les onglets. La barre d'adresse, les boutons, menus, dialogues, splash et
+    barres systeme suivent la palette ; les pages web ne sont jamais recolorees.
+
 
 ## Choix de conception à connaître (évite de les redécouvrir)
 

@@ -1,83 +1,97 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root_container"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#14161A">
+    android:background="#101317">
 
     <LinearLayout
+        android:id="@+id/browser_column"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:background="#101317">
 
         <LinearLayout
+            android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:padding="6dp"
-            android:background="#1C1F26">
+            android:paddingStart="7dp"
+            android:paddingEnd="7dp"
+            android:paddingTop="7dp"
+            android:paddingBottom="7dp"
+            android:background="#1A1F26">
 
             <TextView
                 android:id="@+id/shield"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:minWidth="42dp"
+                android:minHeight="42dp"
                 android:gravity="center"
-                android:paddingStart="6dp"
-                android:paddingEnd="6dp"
-                android:paddingTop="8dp"
-                android:paddingBottom="8dp"
+                android:paddingStart="7dp"
+                android:paddingEnd="7dp"
+                android:paddingTop="7dp"
+                android:paddingBottom="7dp"
                 android:text="0"
                 android:textStyle="bold"
                 android:textSize="13sp"
-                android:textColor="#6FAE5F"
-                android:background="?android:attr/selectableItemBackground" />
+                android:textColor="#70C96B" />
 
             <EditText
                 android:id="@+id/url_bar"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="44dp"
                 android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:layout_marginEnd="6dp"
                 android:hint="@string/url_hint"
-                android:textColor="#E8EAEE"
-                android:textColorHint="#8A9099"
+                android:textColor="#F1F5F7"
+                android:textColorHint="#98A2AD"
                 android:textSize="15sp"
                 android:inputType="textUri"
                 android:imeOptions="actionGo"
-                android:maxLines="1" />
+                android:maxLines="1"
+                android:background="@android:color/transparent" />
 
             <TextView
                 android:id="@+id/tab_button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:minWidth="34dp"
+                android:minWidth="38dp"
+                android:minHeight="38dp"
                 android:gravity="center"
-                android:paddingStart="4dp"
-                android:paddingEnd="4dp"
-                android:paddingTop="7dp"
-                android:paddingBottom="7dp"
+                android:paddingStart="7dp"
+                android:paddingEnd="7dp"
+                android:paddingTop="6dp"
+                android:paddingBottom="6dp"
                 android:text="1"
                 android:textStyle="bold"
                 android:textSize="13sp"
-                android:textColor="#E8EAEE"
-                android:background="@drawable/tab_counter"
+                android:textColor="#F1F5F7"
                 android:contentDescription="@string/tabs" />
 
             <ImageButton
                 android:id="@+id/menu_button"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:layout_marginStart="2dp"
+                android:padding="9dp"
                 android:src="@drawable/ic_menu_dots"
                 android:contentDescription="@string/menu"
-                android:background="?android:attr/selectableItemBackground" />
+                android:background="@android:color/transparent" />
 
             <ImageButton
                 android:id="@+id/go_button"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:layout_marginStart="2dp"
+                android:padding="9dp"
                 android:src="@drawable/ic_go_arrow"
                 android:contentDescription="@string/go"
-                android:background="?android:attr/selectableItemBackground" />
+                android:background="@android:color/transparent" />
         </LinearLayout>
 
         <!-- Recherche dans la page : masquee tant que le menu ne l'ouvre pas -->
@@ -88,55 +102,61 @@
             android:orientation="horizontal"
             android:gravity="center_vertical"
             android:paddingStart="8dp"
-            android:paddingEnd="2dp"
-            android:background="#1C1F26"
+            android:paddingEnd="4dp"
+            android:paddingTop="5dp"
+            android:paddingBottom="5dp"
+            android:background="#1A1F26"
             android:visibility="gone">
 
             <EditText
                 android:id="@+id/find_input"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="40dp"
                 android:layout_weight="1"
                 android:hint="@string/find_hint"
-                android:textColor="#E8EAEE"
-                android:textColorHint="#8A9099"
+                android:textColor="#F1F5F7"
+                android:textColorHint="#98A2AD"
                 android:textSize="14sp"
                 android:inputType="text"
                 android:imeOptions="actionSearch"
-                android:maxLines="1" />
+                android:maxLines="1"
+                android:background="@android:color/transparent" />
 
             <TextView
                 android:id="@+id/find_count"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:paddingStart="6dp"
-                android:paddingEnd="6dp"
+                android:paddingStart="7dp"
+                android:paddingEnd="5dp"
                 android:textSize="12sp"
-                android:textColor="#99A0AD" />
+                android:textColor="#98A2AD" />
 
             <ImageButton
                 android:id="@+id/find_prev"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:padding="8dp"
                 android:src="@drawable/ic_chevron_up"
                 android:contentDescription="@string/find_prev"
-                android:background="?android:attr/selectableItemBackground" />
+                android:background="@android:color/transparent" />
 
             <ImageButton
                 android:id="@+id/find_next"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:padding="8dp"
                 android:src="@drawable/ic_chevron_down"
                 android:contentDescription="@string/find_next"
-                android:background="?android:attr/selectableItemBackground" />
+                android:background="@android:color/transparent" />
 
             <ImageButton
                 android:id="@+id/find_close"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:padding="8dp"
                 android:src="@drawable/ic_close"
                 android:contentDescription="@string/find_close"
-                android:background="?android:attr/selectableItemBackground" />
+                android:background="@android:color/transparent" />
         </LinearLayout>
 
         <ProgressBar
@@ -163,7 +183,7 @@
         android:layout_height="match_parent"
         android:orientation="vertical"
         android:gravity="center"
-        android:background="#14161A"
+        android:background="#101317"
         android:clickable="true"
         android:focusable="true">
 
@@ -175,10 +195,11 @@
             android:contentDescription="@string/app_name" />
 
         <ProgressBar
+            android:id="@+id/splash_progress"
             android:layout_width="26dp"
             android:layout_height="26dp"
             android:layout_marginTop="28dp"
-            android:indeterminateTint="#6FAE5F" />
+            android:indeterminateTint="#70C96B" />
     </LinearLayout>
 
 </FrameLayout>

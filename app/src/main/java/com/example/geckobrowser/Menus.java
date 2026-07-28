@@ -13,9 +13,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Menus de l'application : liste sombre a l'accent de la marque, avec
- * pictogramme, libelle, valeur courante et chevron pour les sous-menus.
- * Remplace les listes standard, qui juraient avec l'interface du navigateur.
+ * Menus de l'application : liste assortie au theme actif, avec pictogramme,
+ * libelle, valeur courante et chevron pour les sous-menus.
  */
 public class Menus {
 
@@ -30,6 +29,22 @@ public class Menus {
             this.value = value;
             this.submenu = submenu;
             this.action = action;
+        }
+    }
+
+    /** Builder qui recolore automatiquement le dialogue au moment du show(). */
+    private static class StyledBuilder extends AlertDialog.Builder {
+        private final Context context;
+
+        StyledBuilder(Context context) {
+            super(context, R.style.GeckoDialog);
+            this.context = context;
+        }
+
+        @Override
+        public AlertDialog show() {
+            AlertDialog dialog = create();
+            return ThemeManager.show(dialog, context);
         }
     }
 
@@ -93,11 +108,12 @@ public class Menus {
 
                     v.findViewById(R.id.m_chevron)
                      .setVisibility(it.submenu ? View.VISIBLE : View.GONE);
+                    ThemeManager.styleMenuRow(v, activity);
                     return v;
                 }
             };
 
-        AlertDialog.Builder b = new AlertDialog.Builder(activity, R.style.GeckoDialog)
+        AlertDialog.Builder b = dialog(activity)
             .setTitle(title)
             .setAdapter(adapter, (d, which) -> {
                 Item it = items.get(which);
@@ -111,9 +127,14 @@ public class Menus {
     }
 
     // -----------------------------------------------------------------------
+    /** Builder public pour les autres dialogues de l'application. */
+    public static AlertDialog.Builder dialog(Context ctx) {
+        return new StyledBuilder(ctx);
+    }
+
     /** Boite de dialogue d'information, au meme style. */
     public static void info(Context ctx, String title, String message) {
-        new AlertDialog.Builder(ctx, R.style.GeckoDialog)
+        dialog(ctx)
             .setTitle(title)
             .setMessage(message)
             .setPositiveButton("Compris", null)
@@ -122,6 +143,6 @@ public class Menus {
 
     /** Liste a choix unique, au meme style. */
     public static AlertDialog.Builder choice(Context ctx, String title) {
-        return new AlertDialog.Builder(ctx, R.style.GeckoDialog).setTitle(title);
+        return dialog(ctx).setTitle(title);
     }
 }

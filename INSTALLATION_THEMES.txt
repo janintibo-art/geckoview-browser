@@ -1,0 +1,27 @@
+GECKOBROWSER — OVERLAY THEMES
+============================
+
+Ce paquet ajoute 8 themes a l'interface native :
+- Gecko graphite
+- Foret emeraude
+- Ocean neon
+- Cosmos violet
+- Braise cuivre
+- Sakura nocturne
+- Ivoire zen
+- AMOLED absolu
+
+Installation dans Termux :
+
+  cd ~/geckoview-browser
+  unzip -o ~/storage/downloads/geckobrowser-themes-overlay.zip
+  python tools/check.py
+  git add .
+  git commit -m "Ajoute les themes d interface"
+  git push
+
+Dans l'application : Menu > Apparence, puis toucher la palette souhaitee.
+Le changement est immediat et ne recharge pas la page ouverte.
+
+L'overlay contient aussi la correction de compilation du traducteur deja faite
+sur MainActivity.java.

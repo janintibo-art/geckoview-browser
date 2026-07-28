@@ -156,9 +156,11 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
 
         prefs = getSharedPreferences("geckobrowser", MODE_PRIVATE);
+        ThemeManager.applyWindow(this);
+        setContentView(R.layout.activity_main);
+
         blockerEnabled = prefs.getBoolean("blockerEnabled", true);
 
         geckoView = findViewById(R.id.geckoview);
@@ -170,6 +172,7 @@ public class MainActivity extends Activity {
         splash = findViewById(R.id.splash);
         tabButton = findViewById(R.id.tab_button);
         initFindBar();
+        ThemeManager.apply(this);
 
         if (sRuntime == null) {
             sRuntime = GeckoRuntime.create(this, buildSettings());
@@ -445,9 +448,9 @@ public class MainActivity extends Activity {
 
             // Le compositeur n'existe qu'une fois la session rattachee a la vue :
             // fixer la couleur avant n'avait aucun effet.
-            geckoView.setBackgroundColor(0xFF14161A);
+            geckoView.setBackgroundColor(ThemeManager.browserBackground(this));
             try {
-                session.getCompositorController().setClearColor(0xFF14161A);
+                session.getCompositorController().setClearColor(ThemeManager.browserBackground(this));
             } catch (Throwable ignored) { }
 
             if (target != null) {
@@ -520,7 +523,7 @@ public class MainActivity extends Activity {
 
         if (firstOpen) {
             try {
-                session.getCompositorController().setClearColor(0xFF14161A);
+                session.getCompositorController().setClearColor(ThemeManager.browserBackground(this));
             } catch (Throwable ignored) { }
         }
         if (t.pending != null) {
@@ -1002,6 +1005,8 @@ public class MainActivity extends Activity {
                    + (TorSupport.isEnabled(this) ? " \u00B7 Tor" : "")
                    + (privateMode ? " \u00B7 prive" : ""),
                  this::showPrivacyMenu)
+            .sub("\u2726", "Apparence", ThemeManager.currentName(this),
+                 this::showThemePicker)
             .sub("\u2699", "Scripts et styles", null, this::showScriptsMenu)
             .sub("\u2605", "Favoris", bookmarks().length() + " enregistre(s)",
                  this::showBookmarksMenu)
@@ -1024,6 +1029,29 @@ public class MainActivity extends Activity {
             .add("\u21C4", "Synchronisation", () -> session.loadUri(extPage("sync.html")))
             .add("\u24D8", "Aide et tutoriel", () -> session.loadUri(extPage("help.html")))
             .show();
+    }
+
+    /** Selecteur des palettes de l'interface native. */
+    private void showThemePicker() {
+        ThemeManager.showPicker(this, () -> {
+            applyCurrentTheme();
+            Toast.makeText(this,
+                    "Theme applique : " + ThemeManager.currentName(this),
+                    Toast.LENGTH_SHORT).show();
+        }, this::showMenu);
+    }
+
+    /** Applique la palette sans recharger la page ni perdre les onglets. */
+    private void applyCurrentTheme() {
+        ThemeManager.apply(this);
+        int color = ThemeManager.browserBackground(this);
+        geckoView.setBackgroundColor(color);
+        for (Tab tab : tabs) {
+            if (tab.session == null || !tab.session.isOpen()) continue;
+            try {
+                tab.session.getCompositorController().setClearColor(color);
+            } catch (Throwable ignored) { }
+        }
     }
 
     private String pageHost() {
@@ -1263,7 +1291,7 @@ public class MainActivity extends Activity {
             JSONObject o = gmCommands.optJSONObject(i);
             labels[i] = o == null ? "?" : o.optString("label", "?");
         }
-        new AlertDialog.Builder(this, R.style.GeckoDialog)
+        Menus.dialog(this)
             .setTitle("Commandes des scripts")
             .setItems(labels, (d, which) -> {
                 JSONObject o = gmCommands.optJSONObject(which);
@@ -1318,11 +1346,11 @@ public class MainActivity extends Activity {
 
     private void showLevelPicker() {
         final String[] names = { "Standard", "Renforce", "Strict" };
-        new AlertDialog.Builder(this, R.style.GeckoDialog)
+        Menus.dialog(this)
             .setTitle("Niveau de protection")
             .setSingleChoiceItems(names, Privacy.level(this), (d, which) -> {
                 d.dismiss();
-                new AlertDialog.Builder(this, R.style.GeckoDialog)
+                Menus.dialog(this)
                     .setTitle(names[which])
                     .setMessage(Privacy.sideEffects(which)
                             + "\n\nL'application va redemarrer. Pour verifier "
@@ -1358,7 +1386,7 @@ public class MainActivity extends Activity {
             "https://dns.mullvad.net/dns-query",
             "https://zero.dns0.eu/"
         };
-        new AlertDialog.Builder(this, R.style.GeckoDialog)
+        Menus.dialog(this)
             .setTitle("Resolveur DNS chiffre")
             .setItems(names, (d, which) -> {
                 prefs.edit().putBoolean("doh", true)
@@ -1371,7 +1399,7 @@ public class MainActivity extends Activity {
     }
 
     private void clearAllData() {
-        new AlertDialog.Builder(this, R.style.GeckoDialog)
+        Menus.dialog(this)
             .setTitle("Effacer toutes les donnees ?")
             .setMessage("Cookies, cache, stockage local et sessions ouvertes. "
                       + "Vos favoris, scripts et filtres sont conserves.")
@@ -1413,7 +1441,7 @@ public class MainActivity extends Activity {
     }
 
     private void privacyInfo() {
-        new AlertDialog.Builder(this, R.style.GeckoDialog)
+        Menus.dialog(this)
             .setTitle("Ce que ce navigateur revele")
             .setMessage(
                 "Le niveau renforce uniformise ce qu'un site peut lire de votre "
@@ -1456,7 +1484,7 @@ public class MainActivity extends Activity {
     }
 
     private void torInfo() {
-        new AlertDialog.Builder(this, R.style.GeckoDialog)
+        Menus.dialog(this)
             .setTitle("Ce que fait ce mode")
             .setMessage(
                 "Le trafic est envoye au proxy SOCKS d'Orbot, avec resolution DNS "
@@ -1508,7 +1536,7 @@ public class MainActivity extends Activity {
             if (ENGINES[i][1].equals(current)) { checked = i; break; }
         }
 
-        new AlertDialog.Builder(this, R.style.GeckoDialog)
+        Menus.dialog(this)
             .setTitle("Moteur de recherche")
             .setSingleChoiceItems(names, checked, (d, which) -> {
                 String tpl = ENGINES[which][1];
@@ -1536,7 +1564,7 @@ public class MainActivity extends Activity {
         String saved = prefs.getString("engineCustom", "");
         if (!saved.isEmpty()) input.setText(saved);
 
-        new AlertDialog.Builder(this, R.style.GeckoDialog)
+        Menus.dialog(this)
             .setTitle("Moteur personnalise")
             .setMessage("Utilisez %s a la place de la requete. Exemple pour une "
                       + "instance SearXNG : https://searx.be/search?q=%s")
@@ -1959,7 +1987,7 @@ public class MainActivity extends Activity {
         final String[] names = new String[PROFILES.length];
         for (int i = 0; i < PROFILES.length; i++) names[i] = PROFILES[i][0];
 
-        new AlertDialog.Builder(this, R.style.GeckoDialog)
+        Menus.dialog(this)
             .setTitle("Identite de l'appareil")
             .setSingleChoiceItems(names, profileIndex(), (d, which) -> {
                 d.dismiss();
@@ -1977,7 +2005,7 @@ public class MainActivity extends Activity {
         input.setHint("Mozilla/5.0 …");
         input.setText(prefs.getString("profileCustomUa", ""));
 
-        new AlertDialog.Builder(this, R.style.GeckoDialog)
+        Menus.dialog(this)
             .setTitle("Agent utilisateur personnalise")
             .setMessage("Collez la chaine complete. La mise en page passe en mode "
                       + "ordinateur.")
@@ -2044,7 +2072,7 @@ public class MainActivity extends Activity {
     }
 
     private void profileInfo() {
-        new AlertDialog.Builder(this, R.style.GeckoDialog)
+        Menus.dialog(this)
             .setTitle("Portee de cette option")
             .setMessage(
                 "L'agent utilisateur est remplace a la fois dans les en-tetes HTTP et "
