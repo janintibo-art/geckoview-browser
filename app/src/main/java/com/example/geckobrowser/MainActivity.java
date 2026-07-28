@@ -199,9 +199,10 @@ public class MainActivity extends Activity {
             return true;
         });
 
-        shield.setOnClickListener(v -> toggleBlocker());
+        // Appui : tableau de bord detaille. Appui long : interrupteur rapide.
+        shield.setOnClickListener(v -> showPrivacyCockpit());
         shield.setOnLongClickListener(v -> {
-            Toast.makeText(this, blockedCount + " element(s) bloque(s)", Toast.LENGTH_SHORT).show();
+            toggleBlocker();
             return true;
         });
 
@@ -327,6 +328,7 @@ public class MainActivity extends Activity {
         tab.state = restoredState;
         session = new GeckoSession(settings);
         tab.session = session;
+        PrivacyCockpit.attach(tab.session);
 
         session.setNavigationDelegate(new GeckoSession.NavigationDelegate() {
             @Override
@@ -407,6 +409,11 @@ public class MainActivity extends Activity {
 
         session.setProgressDelegate(new GeckoSession.ProgressDelegate() {
             @Override
+            public void onPageStart(GeckoSession s, String url) {
+                PrivacyCockpit.onPageStart(s, url);
+            }
+
+            @Override
             public void onProgressChange(GeckoSession s, int value) {
                 if (s != session) return;
                 progress.setProgress(value);
@@ -423,6 +430,12 @@ public class MainActivity extends Activity {
                 if (isRealPage(tab.url)) {
                     splash.postDelayed(MainActivity.this::hideSplash, 300);
                 }
+            }
+
+            @Override
+            public void onSecurityChange(GeckoSession s,
+                    GeckoSession.ProgressDelegate.SecurityInformation info) {
+                PrivacyCockpit.onSecurityChange(s, info);
             }
 
             @Override
@@ -1396,8 +1409,16 @@ public class MainActivity extends Activity {
                 Toast.LENGTH_SHORT).show();
     }
 
+    private void showPrivacyCockpit() {
+        PrivacyCockpit.show(this, sRuntime, session, currentUrl, blockedCount,
+                blockerEnabled, privateMode, prefs, this::toggleBlocker,
+                () -> session.reload());
+    }
+
     private void showPrivacyMenu() {
         new Menus(this, "Confidentialite")
+            .sub("\u25C9", "Cockpit de confidentialite", pageHost(),
+                 this::showPrivacyCockpit)
             .add("\u25D1", privateMode ? "Quitter la navigation privee" : "Navigation privee",
                  this::togglePrivate)
             .sub("\u26E8", "Niveau de protection",
