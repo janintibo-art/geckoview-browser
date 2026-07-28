@@ -59,6 +59,8 @@ public class MainActivity extends Activity {
         boolean priv;
         /** Adresse a charger a la premiere selection (restauration paresseuse). */
         String pending;
+        /** Langue detectee par Gecko, pour la traduction de page. */
+        String langTag;
     }
 
     private final java.util.List<Tab> tabs = new java.util.ArrayList<>();
@@ -407,6 +409,26 @@ public class MainActivity extends Activity {
         });
 
         session.setPromptDelegate(new Prompts(this, this::startFilePicker));
+
+        // Traduction de page : Gecko detecte la langue du document, on la
+        // retient pour proposer « traduire depuis X » sans rien deviner.
+        try {
+            session.setTranslationsSessionDelegate(
+                    new org.mozilla.geckoview.TranslationsController
+                            .SessionTranslation.Delegate() {
+                @Override
+                public void onTranslationStateChange(GeckoSession s,
+                        org.mozilla.geckoview.TranslationsController
+                                .SessionTranslation.TranslationState state) {
+                    try {
+                        if (state != null && state.detectedLanguages != null
+                                && state.detectedLanguages.docLangTag != null) {
+                            tab.langTag = state.detectedLanguages.docLangTag;
+                        }
+                    } catch (Throwable ignored) { }
+                }
+            });
+        } catch (Throwable ignored) { }
 
         permissions = new Permissions(this);
         session.setPermissionDelegate(permissions);
@@ -875,6 +897,96 @@ public class MainActivity extends Activity {
     }
 
     // =======================================================================
+    //  Traduction
+    //  Page entiere : moteur local de Gecko (modeles telecharges chez
+    //  Mozilla, texte jamais envoye a un serveur). Selection : facade
+    //  Lingva via l'extension (voir translate.js / background.js).
+    // =======================================================================
+    private static final String[][] TR_LANGS = {
+        { "fr", "Francais" }, { "en", "Anglais" }, { "de", "Allemand" },
+        { "es", "Espagnol" }, { "it", "Italien" }, { "pt", "Portugais" },
+        { "ru", "Russe" }, { "ar", "Arabe" }, { "zh", "Chinois" },
+        { "ja", "Japonais" }
+    };
+
+    private String trLang() { return prefs.getString("trLang", "fr"); }
+
+    private String trLangName() {
+        for (String[] l : TR_LANGS) if (l[0].equals(trLang())) return l[1];
+        return trLang();
+    }
+
+    private void setTrLang(String tag) {
+        prefs.edit().putString("trLang", tag).apply();
+        // Les scripts de contenu (selection) lisent la meme langue cible
+        if (blockerPort != null) {
+            try {
+                JSONObject msg = new JSONObject();
+                msg.put("type", "setTrLang");
+                msg.put("value", tag);
+                blockerPort.postMessage(msg);
+            } catch (Exception ignored) { }
+        }
+        showTranslateMenu();
+    }
+
+    private void showTranslateMenu() {
+        Menus m = new Menus(this, "Traduire");
+        m.add("\u6587", "Traduire cette page", "vers " + trLangName() + " \u00b7 local",
+              () -> { if (onWebPage()) translatePage(trLang()); });
+        m.add("\u270D", "Traduire la selection",
+              "vers " + trLangName() + " \u00b7 via Lingva",
+              () -> { if (onWebPage()) sendCommand("translateSel"); });
+        m.add("\u21BA", "Revenir a la page d'origine", this::restoreOriginalPage);
+        for (String[] l : TR_LANGS) {
+            final String tag = l[0];
+            m.add(tag.equals(trLang()) ? "\u25C9" : "\u25CB",
+                  "Langue cible : " + l[1], () -> setTrLang(tag));
+        }
+        m.back(this::showPageMenu).show();
+    }
+
+    private void translatePage(String to) {
+        Tab t = tabs.get(active);
+        String from = t.langTag == null ? "" : t.langTag;
+        int dash = from.indexOf('-');
+        if (dash > 0) from = from.substring(0, dash);
+
+        if (from.isEmpty()) {
+            Toast.makeText(this, "Langue de la page non detectee : rechargez la "
+                    + "page puis reessayez", Toast.LENGTH_LONG).show();
+            return;
+        }
+        if (from.equals(to)) {
+            Toast.makeText(this, "La page semble deja en " + trLangName(),
+                    Toast.LENGTH_SHORT).show();
+            return;
+        }
+        try {
+            session.getSessionTranslation().translate(from, to, null).accept(
+                    v -> { },
+                    e -> runOnUiThread(() -> Toast.makeText(this,
+                            "Traduction impossible (" + from + " \u2192 " + to
+                            + ") : modele indisponible ?",
+                            Toast.LENGTH_LONG).show()));
+            Toast.makeText(this, "Traduction " + from + " \u2192 " + to
+                    + " (le modele peut se telecharger au premier usage)",
+                    Toast.LENGTH_SHORT).show();
+        } catch (Throwable e) {
+            Toast.makeText(this, "Traduction indisponible sur cette page",
+                    Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void restoreOriginalPage() {
+        try {
+            session.getSessionTranslation().restoreOriginalPage();
+        } catch (Throwable e) {
+            Toast.makeText(this, "Rien a restaurer ici", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    // =======================================================================
     //  Menu
     // =======================================================================
     private void showMenu() {
@@ -926,6 +1038,7 @@ public class MainActivity extends Activity {
         new Menus(this, "Page")
             .add("\u2316", "Rechercher dans la page",
                  () -> { if (onWebPage()) showFindBar(); })
+            .sub("\u6587", "Traduire", "vers " + trLangName(), this::showTranslateMenu)
             .add("\u2315", "Analyser la page", this::inspectPage)
             .add("\u2039", "Code source", this::viewSource)
             .add("\u2194", "Ce sujet vu ailleurs",

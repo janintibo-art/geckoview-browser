@@ -122,6 +122,13 @@ concentration des médias, et plus. Voir la liste complète plus bas.
     domaines inclus/exclus — appliqués localement à tous les moteurs —,
     type de fichier, fraîcheur, langue ; filtres portés par l'URL et par la
     clé du cache de reprise)
+38. Traducteur omniprésent (menu Page › Traduire) : page entière **locale**
+    via l'API Translations de GeckoView (délégué par onglet qui retient
+    `Tab.langTag`), sélection via façade Lingva (`translate.js` +
+    `translateText` dans background.js, cascade d'instances), requête du
+    métamoteur traduite avant interrogation (champ `tq` du panneau Affiner,
+    badge au-dessus des résultats) ; langue cible commune `trLang`
+    (préférence Android relayée au stockage de l'extension)
 
 ## Choix de conception à connaître (évite de les redécouvrir)
 
@@ -138,6 +145,12 @@ concentration des médias, et plus. Voir la liste complète plus bas.
   titres deviendrait vite envahissant. L'utilisateur active au cas par cas.
 - **Détecteur de dark patterns = indices, pas verdicts** : la formulation
   insiste toujours sur le fait qu'un signal peut être un faux positif.
+- **Trois traducteurs, trois canaux — ne pas les confondre** : la page
+  entière est traduite localement par Gecko (rien ne sort de l'appareil, à
+  part le téléchargement du modèle chez Mozilla) ; la sélection et la
+  requête passent par les instances Lingva de `background.js` (jamais
+  Google en direct, jamais de cookie). Toute nouvelle surface de traduction
+  doit réutiliser `translateText` côté extension ou l'API Gecko côté Java.
 - **Le métamoteur est mondial par défaut** : `fetchDoc(url, lang)` envoie
   `Accept-Language: *` et chaque moteur reçoit son paramètre « sans région »
   (voir `engines.js`). Les `url()` des moteurs prennent `(q, p)` avec

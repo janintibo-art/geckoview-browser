@@ -145,6 +145,34 @@
   </div>
 </details>
 
+<details data-cat="outils">
+  <summary>Traduire : la page, la selection, la requete <span class="step">nouveau</span></summary>
+  <div class="c">
+    <p>Le sous-menu <span class="path">Page &#8250; Traduire</span> reunit trois
+    traducteurs, chacun avec son fonctionnement propre :</p>
+    <ul>
+      <li><b>La page entiere</b> — traduite <b>localement</b> par le moteur de
+      Firefox : le modele de langue est telecharge une fois chez Mozilla, puis
+      tout se passe sur l'appareil, le texte de la page ne part nulle part.
+      « Revenir a la page d'origine » annule la traduction.</li>
+      <li><b>La selection</b> — selectionnez du texte (appui long), puis
+      <span class="path">Traduire la selection</span> : la traduction s'affiche
+      dans un panneau en bas, avec un bouton Copier. Le texte passe par une
+      instance Lingva (facade sans compte ni cookie), jamais par Google
+      directement. Limite a 1500 caracteres.</li>
+      <li><b>La requete de recherche</b> — dans le panneau
+      <span class="path">Affiner</span> du metamoteur, « Traduire la requete »
+      cherche par exemple en anglais ce que vous tapez en francais ; la requete
+      traduite s'affiche au-dessus des resultats. Combine a la recherche
+      mondiale, c'est le moyen d'atteindre la presse ou les forums d'un autre
+      espace linguistique.</li>
+    </ul>
+    <p>La langue cible se choisit en bas du meme sous-menu et vaut pour la page
+    et la selection. Si un modele de page manque, Gecko le telecharge au premier
+    usage ; sur une langue rare, la traduction peut etre refusee.</p>
+  </div>
+</details>
+
 <details data-cat="chercher">
   <summary>Recherche mondiale et panneau Affiner <span class="step">nouveau</span></summary>
   <div class="c">

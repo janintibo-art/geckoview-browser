@@ -181,6 +181,10 @@ function connectNative() {
           browser.storage.local.set({ engineTemplate: msg.template || "internal" });
         } catch (e) { }
       }
+      else if (msg.type === "setTrLang") {
+        // Langue cible de traduction, partagee avec les scripts de contenu
+        try { browser.storage.local.set({ trLang: msg.value || "fr" }); } catch (e) { }
+      }
       else if (msg.type === "setProfile") {
         // Le navigateur remplace deja l'agent lui-meme : on ne stocke le profil
         // que pour aligner les proprietes JavaScript secondaires.
@@ -747,6 +751,42 @@ async function refreshLists() {
 }
 
 // ---------------------------------------------------------------------------
+//  Traduction de texte (selection, requete de recherche)
+//  Passe par les memes instances Lingva que le redirecteur de facades :
+//  pas de cle, pas de cookie, texte jamais envoye a Google directement.
+//  La traduction de page entiere, elle, est locale (moteur de Gecko).
+// ---------------------------------------------------------------------------
+const LINGVA = [
+  "https://lingva.ml",
+  "https://translate.plausibility.cloud",
+  "https://lingva.lunar.icu"
+];
+
+async function translateText(text, to, from) {
+  text = String(text || "").slice(0, 1500);
+  if (!text) return { error: "vide" };
+  const src = from || "auto";
+  const dst = to || "fr";
+
+  for (const base of LINGVA) {
+    try {
+      const r = await Promise.race([
+        fetch(base + "/api/v1/" + encodeURIComponent(src) + "/" +
+              encodeURIComponent(dst) + "/" + encodeURIComponent(text),
+              { credentials: "omit" }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error("t")), 8000))
+      ]);
+      if (!r.ok) continue;
+      const j = await r.json();
+      if (j && j.translation) {
+        return { translation: j.translation, instance: hostOf(base) };
+      }
+    } catch (e) { }
+  }
+  return { error: "aucune instance joignable" };
+}
+
+// ---------------------------------------------------------------------------
 //  Messages des pages internes et scripts de contenu
 // ---------------------------------------------------------------------------
 browser.runtime.onMessage.addListener(msg => {
@@ -769,6 +809,9 @@ browser.runtime.onMessage.addListener(msg => {
   if (msg.type === "consentRejected") {
     consentRejected++;
     return Promise.resolve({ ok: true });
+  }
+  if (msg.type === "translateText") {
+    return translateText(msg.text, msg.to, msg.from);
   }
   if (msg.type === "purgeCookies") {
     return purgeCookies().then(n => ({ removed: n }));

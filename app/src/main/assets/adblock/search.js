@@ -33,11 +33,12 @@ let excludeOwner = "";
 //  Les filtres de domaine s'appliquent localement a tous les resultats ;
 //  fraicheur et langue passent aux moteurs qui les acceptent.
 // ---------------------------------------------------------------------------
-let adv = { exact: "", none: "", inc: "", exc: "", ftype: "", df: "", lang: "all" };
+let adv = { exact: "", none: "", inc: "", exc: "", ftype: "", df: "",
+            lang: "all", tq: "" };
 
 function advActive() {
   return !!(adv.exact || adv.none || adv.inc || adv.exc || adv.ftype ||
-            adv.df || (adv.lang && adv.lang !== "all"));
+            adv.df || adv.tq || (adv.lang && adv.lang !== "all"));
 }
 
 function advDomains(s) {
@@ -88,6 +89,7 @@ function advFields() {
   adv.ftype = $("#af-ftype").value;
   adv.df = $("#af-df").value;
   adv.lang = $("#af-lang").value || "all";
+  adv.tq = $("#af-tq").value;
 }
 
 function advFill() {
@@ -98,6 +100,7 @@ function advFill() {
   $("#af-ftype").value = adv.ftype;
   $("#af-df").value = adv.df;
   $("#af-lang").value = adv.lang || "all";
+  $("#af-tq").value = adv.tq || "";
   const b = $("#adv-btn");
   if (b) b.classList.toggle("on", advActive());
 }
@@ -563,6 +566,7 @@ async function run(query, force) {
   if (adv.ftype) ustr += "&ft=" + adv.ftype;
   if (adv.df) ustr += "&df=" + adv.df;
   if (adv.lang && adv.lang !== "all") ustr += "&lg=" + adv.lang;
+  if (adv.tq) ustr += "&tq=" + adv.tq;
   history.replaceState(null, "", ustr);
   const brand = $("#brand");
   if (brand) brand.style.display = "none";
@@ -581,15 +585,41 @@ async function run(query, force) {
     }
   }
 
+  // Requete eventuellement traduite avant d'etre envoyee aux moteurs
+  let effective = query;
+  const badge = $("#engine-badge");
+  if (adv.tq) {
+    out.innerHTML = `<div class="msg"><span class="spin">◐</span> Traduction de la requete…</div>`;
+    try {
+      const tr = await browser.runtime.sendMessage(
+        { type: "translateText", text: query, to: adv.tq });
+      if (my !== runSeq) return;
+      if (tr && tr.translation && tr.translation.trim()) {
+        effective = tr.translation.trim();
+        if (badge) {
+          badge.hidden = false;
+          badge.textContent = "Requete traduite (" + adv.tq + ") : « " +
+                              effective + " »";
+        }
+      } else if (badge) {
+        badge.hidden = false;
+        badge.textContent = "Traduction de la requete impossible : " +
+                            "recherche avec le texte d'origine";
+      }
+    } catch (e) { }
+  } else if (badge && !excludeOnce.length) {
+    badge.hidden = true;
+  }
+
   out.innerHTML = `<div class="msg"><span class="spin">◐</span> Interrogation des moteurs…</div>`;
   foot.textContent = "";
 
-  const iaP = (scope === "web" ? instantAnswer(query) : Promise.resolve(null))
+  const iaP = (scope === "web" ? instantAnswer(effective) : Promise.resolve(null))
     .catch(() => null);
 
   if (scope === "news") {
     let raw = [];
-    try { raw = (await fetchNews(query)).map((r, i) => ({ ...r, rank: i })); }
+    try { raw = (await fetchNews(effective)).map((r, i) => ({ ...r, rank: i })); }
     catch (e) { }
     if (my !== runSeq) return;
     const ia = await iaP;
@@ -608,7 +638,7 @@ async function run(query, force) {
     return;
   }
 
-  const q2 = advQuery(query);
+  const q2 = advQuery(effective);
   const p = advParams();
   let raw = [];
   let ia = null;
@@ -691,7 +721,8 @@ $("#af-apply").addEventListener("click", () => {
 });
 
 $("#af-reset").addEventListener("click", () => {
-  adv = { exact: "", none: "", inc: "", exc: "", ftype: "", df: "", lang: "all" };
+  adv = { exact: "", none: "", inc: "", exc: "", ftype: "", df: "",
+          lang: "all", tq: "" };
   advFill();
 });
 $("#prefs-save").addEventListener("click", savePrefs);
@@ -778,6 +809,7 @@ async function firstRun() {
   adv.ftype = params.get("ft") || "";
   adv.df = params.get("df") || "";
   adv.lang = params.get("lg") || "all";
+  adv.tq = params.get("tq") || "";
   advFill();
 
   if (params.get("s")) {
