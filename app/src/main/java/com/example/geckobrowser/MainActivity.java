@@ -57,10 +57,12 @@ public class MainActivity extends Activity {
         String url = "";
         String title = "";
         boolean priv;
-        /** Identite GeckoView : cookies et stockage isoles des autres identites. */
-        String containerId = ContainerManager.DEFAULT_ID;
-        /** Adresse a charger a la premiere selection (restauration paresseuse). */
+        /** Adresse de repli si l'etat Gecko ne peut pas etre restaure. */
         String pending;
+        /** Etat Gecko serialise : historique, defilement, zoom et formulaires. */
+        String state;
+        /** Etat a restaurer lors de la premiere selection de l'onglet. */
+        String pendingState;
         /** Langue detectee par Gecko, pour la traduction de page. */
         String langTag;
     }
@@ -75,6 +77,8 @@ public class MainActivity extends Activity {
     private android.widget.ProgressBar progress;
     private android.view.View splash;
     private boolean homeLoaded = false;
+    private android.os.Handler sessionSaveHandler;
+    private final Runnable sessionSaveRunnable = this::saveTabs;
 
     private static final int REQ_FILE = 8123;
     private GeckoResult<GeckoSession.PromptDelegate.PromptResponse> pendingFile;
@@ -175,6 +179,7 @@ public class MainActivity extends Activity {
         tabButton = findViewById(R.id.tab_button);
         initFindBar();
         ThemeManager.apply(this);
+        sessionSaveHandler = new android.os.Handler(getMainLooper());
 
         if (sRuntime == null) {
             sRuntime = GeckoRuntime.create(this, buildSettings());
@@ -242,7 +247,7 @@ public class MainActivity extends Activity {
         if (currentUrl.isEmpty() || currentUrl.startsWith("moz-extension://")) {
             session.loadUri(url);
         } else {
-            setupSession(activeContainerId(), privateMode, url, false);
+            setupSession(privateMode, url);
             selectTab(tabs.size() - 1);
         }
     }
@@ -287,21 +292,7 @@ public class MainActivity extends Activity {
     // =======================================================================
     /** Cree un onglet, l'ajoute a la liste et l'affiche. */
     private void setupSession(boolean priv, String target) {
-        String identity = priv
-                ? ContainerManager.TEMPORARY_ID
-                : ContainerManager.defaultId(this);
-        setupSession(identity, priv, target, false);
-    }
-
-    private void setupSession(boolean priv, String target, boolean lazy) {
-        String identity = priv
-                ? ContainerManager.TEMPORARY_ID
-                : ContainerManager.defaultId(this);
-        setupSession(identity, priv, target, lazy);
-    }
-
-    private void setupSession(String containerId, String target) {
-        setupSession(containerId, ContainerManager.isPrivate(containerId), target, false);
+        setupSession(priv, target, false, null);
     }
 
     /**
@@ -310,18 +301,19 @@ public class MainActivity extends Activity {
      *             premiere selection. Ouvrir et charger une dizaine de pages
      *             simultanement au demarrage rendait le lancement poussif.
      */
-    private void setupSession(String containerId, boolean requestedPrivate,
-                              String target, boolean lazy) {
-        final String identity = ContainerManager.normalize(containerId);
-        final boolean actualPrivate = requestedPrivate || ContainerManager.isPrivate(identity);
-        privateMode = actualPrivate;
+    private void setupSession(boolean priv, String target, boolean lazy) {
+        setupSession(priv, target, lazy, null);
+    }
+
+    /** Cree une session, eventuellement avec un etat Gecko a restaurer. */
+    private void setupSession(boolean priv, String target, boolean lazy, String restoredState) {
+        privateMode = priv;
 
         int pi = profileIndex();
         if (pi > 0 && pi < PROFILES.length) desktopMode = "1".equals(PROFILES[pi][4]);
 
         GeckoSessionSettings settings = new GeckoSessionSettings.Builder()
-                .contextId(ContainerManager.contextId(identity))
-                .usePrivateMode(actualPrivate)
+                .usePrivateMode(priv)
                 .userAgentMode(desktopMode
                         ? GeckoSessionSettings.USER_AGENT_MODE_DESKTOP
                         : GeckoSessionSettings.USER_AGENT_MODE_MOBILE)
@@ -331,8 +323,8 @@ public class MainActivity extends Activity {
                 .build();
 
         final Tab tab = new Tab();
-        tab.priv = actualPrivate;
-        tab.containerId = identity;
+        tab.priv = priv;
+        tab.state = restoredState;
         session = new GeckoSession(settings);
         tab.session = session;
 
@@ -343,6 +335,7 @@ public class MainActivity extends Activity {
                                          Boolean hasUserGesture) {
                 if (url == null) return;
                 tab.url = url;
+                scheduleSessionSave();
                 // Un onglet d'arriere-plan ne doit pas ecraser la barre d'adresse.
                 if (s != session) return;
                 currentUrl = url;
@@ -375,7 +368,7 @@ public class MainActivity extends Activity {
                 if (uri != null && !uri.isEmpty()) {
                     runOnUiThread(() -> {
                         int previous = active;
-                        setupSession(tab.containerId, tab.priv, uri, false);
+                        setupSession(privateMode, uri);
                         selectTab(previous);
                         Toast.makeText(MainActivity.this,
                                 "Ouvert dans un nouvel onglet", Toast.LENGTH_SHORT).show();
@@ -389,6 +382,7 @@ public class MainActivity extends Activity {
             @Override
             public void onTitleChange(GeckoSession s, String title) {
                 tab.title = title == null ? "" : title;
+                scheduleSessionSave();
                 if (s == session) currentTitle = tab.title;
             }
 
@@ -430,6 +424,19 @@ public class MainActivity extends Activity {
                     splash.postDelayed(MainActivity.this::hideSplash, 300);
                 }
             }
+
+            @Override
+            public void onSessionStateChange(GeckoSession s,
+                    GeckoSession.SessionState sessionState) {
+                if (tab.priv || sessionState == null) return;
+                try {
+                    String encoded = sessionState.toString();
+                    if (encoded != null && !encoded.isEmpty()) {
+                        tab.state = encoded;
+                        scheduleSessionSave();
+                    }
+                } catch (Throwable ignored) { }
+            }
         });
 
         session.setPromptDelegate(new Prompts(this, this::startFilePicker));
@@ -462,6 +469,7 @@ public class MainActivity extends Activity {
         if (lazy) {
             // Rien n'est ouvert ni charge : selectTab() s'en chargera.
             tab.pending = target;
+            tab.pendingState = restoredState;
             tab.url = target == null ? "" : target;
         } else {
             session.open(sRuntime);
@@ -482,10 +490,10 @@ public class MainActivity extends Activity {
                 // L'extension n'est pas encore prete : sans cette attente, le premier
                 // lancement afficherait le moteur de repli au lieu du notre.
                 new android.os.Handler(getMainLooper()).postDelayed(() -> {
-                    if (!homeLoaded) {
+                    if (!homeLoaded && tab.session != null && tab.session.isOpen()) {
                         homeLoaded = true;
-                        session.loadUri(homeUrl());
-                        hideSplash();
+                        tab.session.loadUri(homeUrl());
+                        if (tab.session == session) hideSplash();
                     }
                 }, 5000);
             }
@@ -547,7 +555,21 @@ public class MainActivity extends Activity {
                 session.getCompositorController().setClearColor(ThemeManager.browserBackground(this));
             } catch (Throwable ignored) { }
         }
-        if (t.pending != null) {
+        boolean restored = false;
+        if (t.pendingState != null && !t.pendingState.isEmpty()) {
+            String encoded = t.pendingState;
+            t.pendingState = null;
+            try {
+                GeckoSession.SessionState state = GeckoSession.SessionState.fromString(encoded);
+                if (state != null) {
+                    session.restoreState(state);
+                    restored = true;
+                }
+            } catch (Throwable ignored) { }
+        }
+        if (restored) {
+            t.pending = null;
+        } else if (t.pending != null) {
             String p = t.pending;
             t.pending = null;
             session.loadUri(p);
@@ -555,6 +577,7 @@ public class MainActivity extends Activity {
 
         urlBar.setText(currentUrl.startsWith("moz-extension://") ? "" : currentUrl);
         updateTabButton();
+        scheduleSessionSave();
     }
 
     /** Retient ce qui vient d'etre ferme, pour pouvoir le rouvrir. */
@@ -640,12 +663,10 @@ public class MainActivity extends Activity {
     private void closeTab(int index) {
         if (index < 0 || index >= tabs.size()) return;
         Tab t = tabs.get(index);
-        String closedIdentity = t.containerId;
         if (!t.priv) toTrash("onglet", t.title, t.url);
 
-        // Un dernier onglet persistant retourne a l'accueil. Un onglet
-        // ephemere est vraiment detruit afin de purger son contexte.
-        if (tabs.size() == 1 && !ContainerManager.isEphemeral(closedIdentity)) {
+        // Le dernier onglet n'est pas ferme : on le ramene a l'accueil.
+        if (tabs.size() == 1) {
             t.url = "";
             t.title = "";
             session.loadUri(homeUrl());
@@ -654,21 +675,15 @@ public class MainActivity extends Activity {
 
         try { t.session.close(); } catch (Exception ignored) { }
         tabs.remove(index);
-        cleanupEphemeralIfUnused(closedIdentity);
-
-        if (tabs.isEmpty()) {
-            setupSession(ContainerManager.defaultId(this), false, null, false);
-        }
         selectTab(Math.min(index, tabs.size() - 1));
+        scheduleSessionSave();
         Toast.makeText(this, tabs.size() + " onglet(s)", Toast.LENGTH_SHORT).show();
     }
 
     private void updateTabButton() {
         if (tabButton == null) return;
         tabButton.setText(String.valueOf(tabs.size()));
-        tabButton.setTextColor(ContainerManager.color(activeContainerId()));
-        tabButton.setContentDescription(tabs.size() + " onglet(s), identite "
-                + ContainerManager.name(activeContainerId()));
+        tabButton.setTextColor(privateMode ? 0xFF8AB4F8 : 0xFFE8EAEE);
     }
 
     private String tabLabel(Tab t) {
@@ -689,22 +704,16 @@ public class MainActivity extends Activity {
         for (int i = 0; i < tabs.size(); i++) {
             final int index = i;
             final Tab t = tabs.get(i);
-            String mark = (i == active ? "\u25CF" : ContainerManager.symbol(t.containerId));
+            String mark = (i == active ? "\u25CF" : (t.priv ? "\u25D1" : "\u25CB"));
             String host = t.url.isEmpty() ? "vide" : t.url;
-            if (host.length() > 38) host = host.substring(0, 38) + "…";
-            m.add(mark, tabLabel(t),
-                  ContainerManager.name(t.containerId) + " \u00B7 " + host,
-                  () -> selectTab(index));
+            if (host.length() > 46) host = host.substring(0, 46) + "…";
+            m.add(mark, tabLabel(t), host, () -> selectTab(index));
         }
-        m.add("\u002B", "Nouvel onglet",
-              "identite par defaut \u00B7 "
-                      + ContainerManager.name(ContainerManager.defaultId(this)), () -> {
+        m.add("\u002B", "Nouvel onglet", () -> {
             setupSession(false, null);
             selectTab(tabs.size() - 1);
         });
-        m.add("\u25C8", "Nouvel onglet dans une identite",
-              this::showNewTabIdentityPicker);
-        m.add("\u25D1", "Nouvel onglet prive", "identite Temporaire", () -> {
+        m.add("\u25D1", "Nouvel onglet prive", () -> {
             setupSession(true, null);
             selectTab(tabs.size() - 1);
         });
@@ -726,19 +735,21 @@ public class MainActivity extends Activity {
         tabs.clear();
         tabs.add(keep);
         selectTab(0);
-        for (ContainerManager.Identity identity : ContainerManager.all()) {
-            if (identity.ephemeral) cleanupEphemeralIfUnused(identity.id);
-        }
+        scheduleSessionSave();
     }
 
     // -----------------------------------------------------------------------
-    //  Restauration de session
+    //  Restauration complete de session
     // -----------------------------------------------------------------------
+    private void scheduleSessionSave() {
+        if (sessionSaveHandler == null) return;
+        sessionSaveHandler.removeCallbacks(sessionSaveRunnable);
+        sessionSaveHandler.postDelayed(sessionSaveRunnable, 700);
+    }
+
     private void saveTabs() {
         try {
             JSONArray arr = new JSONArray();
-            // L'index actif doit viser la liste sauvegardee, qui exclut les
-            // onglets prives et l'accueil : l'index brut ne correspondait pas.
             int savedActive = -1;
             Tab cur = (active >= 0 && active < tabs.size()) ? tabs.get(active) : null;
             for (Tab t : tabs) {
@@ -748,40 +759,60 @@ public class MainActivity extends Activity {
                 JSONObject o = new JSONObject();
                 o.put("url", t.url);
                 o.put("title", t.title);
-                o.put("container", t.containerId);
+                if (t.state != null && !t.state.isEmpty()) o.put("state", t.state);
                 arr.put(o);
             }
-            prefs.edit().putString("session", arr.toString())
-                 .putInt("sessionActive", savedActive).apply();
+
+            if (SessionStore.write(this, arr, savedActive)) {
+                // Supprime l'ancien format seulement apres une ecriture reussie.
+                prefs.edit().remove("session").remove("sessionActive").apply();
+            }
         } catch (Exception ignored) { }
     }
 
-    /** Rouvre les onglets du dernier lancement, l'accueil restant le premier. */
+    /** Demande a Gecko un instantane frais, puis enregistre aussi un repli immediat. */
+    private void flushAndSaveTabs() {
+        for (Tab t : tabs) {
+            if (t.priv || t.session == null || !t.session.isOpen()) continue;
+            try { t.session.flushSessionState(); } catch (Throwable ignored) { }
+        }
+        saveTabs();
+        if (sessionSaveHandler != null) {
+            sessionSaveHandler.removeCallbacks(sessionSaveRunnable);
+            sessionSaveHandler.postDelayed(sessionSaveRunnable, 350);
+        }
+    }
+
+    /** Rouvre les onglets avec historique, defilement, zoom et formulaires. */
     private void restoreTabs() {
         if (!prefs.getBoolean("restoreSession", true)) return;
         try {
-            JSONArray arr = new JSONArray(prefs.getString("session", "[]"));
+            SessionStore.Snapshot snapshot = SessionStore.read(this);
+            JSONArray arr;
+            int wanted;
+
+            if (snapshot != null) {
+                arr = snapshot.tabs;
+                wanted = snapshot.active;
+            } else {
+                // Migration transparente depuis l'ancien format URL + titre.
+                arr = new JSONArray(prefs.getString("session", "[]"));
+                wanted = prefs.getInt("sessionActive", -1);
+            }
+
             int limit = Math.min(arr.length(), 12);
-            int wanted = prefs.getInt("sessionActive", -1);
             int target = -1;
             for (int i = 0; i < limit; i++) {
                 JSONObject o = arr.optJSONObject(i);
                 if (o == null) continue;
                 String u = o.optString("url", "");
                 if (u.isEmpty()) continue;
-                // Paresseux : l'onglet existe, la page attendra sa selection.
-                String identity = ContainerManager.normalize(
-                        o.optString("container", ContainerManager.defaultId(this)));
-                // Une ancienne sauvegarde ne doit jamais ressusciter un contexte prive.
-                if (ContainerManager.isPrivate(identity)) {
-                    identity = ContainerManager.defaultId(this);
-                }
-                setupSession(identity, false, u, true);
+                String encoded = o.optString("state", "");
+                setupSession(false, u, true, encoded);
                 tabs.get(tabs.size() - 1).title = o.optString("title", "");
                 if (i == wanted) target = tabs.size() - 1;
             }
-            // L'onglet actif du dernier lancement est re-affiche ;
-            // a defaut, l'accueil reste au premier plan.
+
             if (target != -1) selectTab(target);
             else if (tabs.size() > 1) selectTab(0);
         } catch (Exception ignored) { }
@@ -789,8 +820,14 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onPause() {
+        flushAndSaveTabs();
         super.onPause();
+    }
+
+    @Override
+    protected void onStop() {
         saveTabs();
+        super.onStop();
     }
 
     // =======================================================================
@@ -1044,8 +1081,6 @@ public class MainActivity extends Activity {
             .add("\u2302", "Accueil", () -> session.loadUri(homeUrl()))
             .add("\u21BB", "Recharger", () -> session.reload())
             .sub("\u25A5", "Onglets", tabs.size() + " ouvert(s)", this::showTabs)
-            .sub("\u25C8", "Identites", ContainerManager.name(activeContainerId()),
-                 this::showIdentityMenu)
             .sub("\u25A4", "Page", pageHost(), this::showPageMenu)
             .sub("\u2315", "Recherche", engineName(), this::showSearchMenu)
             .sub("\u26E8", "Confidentialite",
@@ -1100,156 +1135,6 @@ public class MainActivity extends Activity {
                 tab.session.getCompositorController().setClearColor(color);
             } catch (Throwable ignored) { }
         }
-    }
-
-
-    // =======================================================================
-    //  Identites / conteneurs GeckoView
-    // =======================================================================
-    private String activeContainerId() {
-        if (active >= 0 && active < tabs.size()) {
-            return ContainerManager.normalize(tabs.get(active).containerId);
-        }
-        return ContainerManager.defaultId(this);
-    }
-
-    private boolean hasTabsForIdentity(String identity) {
-        String normalized = ContainerManager.normalize(identity);
-        for (Tab tab : tabs) {
-            if (normalized.equals(ContainerManager.normalize(tab.containerId))) return true;
-        }
-        return false;
-    }
-
-    private void cleanupEphemeralIfUnused(String identity) {
-        String normalized = ContainerManager.normalize(identity);
-        if (!ContainerManager.isEphemeral(normalized) || hasTabsForIdentity(normalized)) return;
-        try {
-            sRuntime.getStorageController().clearDataForSessionContext(
-                    ContainerManager.contextId(normalized));
-        } catch (Throwable ignored) { }
-    }
-
-    private void showIdentityMenu() {
-        final String current = activeContainerId();
-        new Menus(this, "Identites")
-            .add(ContainerManager.symbol(current), "Identite actuelle",
-                 ContainerManager.name(current) + " \u00B7 "
-                         + ContainerManager.description(current),
-                 () -> showIdentityInfo(current))
-            .add("\u002B", "Nouvel onglet dans une identite",
-                 this::showNewTabIdentityPicker)
-            .add("\u21C4", "Dupliquer cette page ailleurs",
-                 this::showDuplicateIdentityPicker)
-            .sub("\u2605", "Identite par defaut",
-                 ContainerManager.name(ContainerManager.defaultId(this)),
-                 this::showDefaultIdentityPicker)
-            .add("\u2327", "Effacer les donnees de cette identite",
-                 ContainerManager.name(current), () -> confirmClearIdentity(current))
-            .add("\u24D8", "Comment fonctionne l'isolation", this::identityHelp)
-            .back(this::showMenu)
-            .show();
-    }
-
-    private void showIdentityPicker(String title,
-                                    java.util.function.Consumer<String> selected,
-                                    Runnable back, boolean defaultsOnly) {
-        Menus menu = new Menus(this, title);
-        for (ContainerManager.Identity identity : ContainerManager.all()) {
-            if (defaultsOnly && !identity.canBeDefault) continue;
-            final String id = identity.id;
-            menu.add(identity.symbol, identity.name, identity.description,
-                    () -> selected.accept(id));
-        }
-        menu.back(back).show();
-    }
-
-    private void showNewTabIdentityPicker() {
-        showIdentityPicker("Nouvel onglet", id -> {
-            setupSession(id, ContainerManager.isPrivate(id), null, false);
-            selectTab(tabs.size() - 1);
-            Toast.makeText(this, "Nouvel onglet : " + ContainerManager.name(id),
-                    Toast.LENGTH_SHORT).show();
-        }, this::showTabs, false);
-    }
-
-    private void showDuplicateIdentityPicker() {
-        final String target = currentUrl.isEmpty() || currentUrl.startsWith("moz-extension://")
-                ? null : currentUrl;
-        showIdentityPicker("Dupliquer dans", id -> {
-            setupSession(id, ContainerManager.isPrivate(id), target, false);
-            selectTab(tabs.size() - 1);
-            Toast.makeText(this, "Page ouverte dans " + ContainerManager.name(id),
-                    Toast.LENGTH_SHORT).show();
-        }, this::showIdentityMenu, false);
-    }
-
-    private void showDefaultIdentityPicker() {
-        showIdentityPicker("Identite par defaut", id -> {
-            ContainerManager.setDefault(this, id);
-            Toast.makeText(this, "Identite par defaut : " + ContainerManager.name(id),
-                    Toast.LENGTH_SHORT).show();
-            showIdentityMenu();
-        }, this::showIdentityMenu, true);
-    }
-
-    private void showIdentityInfo(String identity) {
-        ContainerManager.Identity item = ContainerManager.find(identity);
-        Menus.info(this, item.name,
-                item.description + "\n\nContexte GeckoView : "
-                + ContainerManager.contextId(item.id)
-                + "\n\nLes cookies, connexions et stockages de sites sont partages "
-                + "uniquement entre les onglets de cette identite.");
-    }
-
-    private void identityHelp() {
-        Menus.info(this, "Identites isolees",
-                "Chaque identite utilise un contextId GeckoView distinct. Cela separe "
-              + "les cookies, les comptes connectes et le stockage local. Vous pouvez "
-              + "donc ouvrir le meme site avec plusieurs comptes en meme temps.\n\n"
-              + "Temporaire et Anonyme utilisent aussi le mode prive et sont purges "
-              + "apres leur dernier onglet. Le nom Anonyme concerne le stockage local : "
-              + "il ne masque pas votre adresse IP. Activez Tor separement pour router "
-              + "le trafic par Orbot.\n\n"
-              + "Lors de la premiere utilisation, les identites commencent avec un "
-              + "nouvel espace de cookies : certains sites demanderont de vous reconnecter.");
-    }
-
-    private void confirmClearIdentity(final String identity) {
-        final String normalized = ContainerManager.normalize(identity);
-        Menus.dialog(this)
-            .setTitle("Effacer " + ContainerManager.name(normalized) + " ?")
-            .setMessage("Tous les onglets de cette identite seront fermes, puis ses "
-                      + "cookies, connexions et stockages locaux seront supprimes. "
-                      + "Les autres identites ne seront pas touchees.")
-            .setPositiveButton("Effacer", (d, w) -> clearIdentityData(normalized))
-            .setNegativeButton("Annuler", null)
-            .show();
-    }
-
-    private void clearIdentityData(String identity) {
-        String normalized = ContainerManager.normalize(identity);
-        for (int i = tabs.size() - 1; i >= 0; i--) {
-            Tab tab = tabs.get(i);
-            if (!normalized.equals(ContainerManager.normalize(tab.containerId))) continue;
-            try { tab.session.close(); } catch (Throwable ignored) { }
-            tabs.remove(i);
-        }
-
-        try {
-            sRuntime.getStorageController().clearDataForSessionContext(
-                    ContainerManager.contextId(normalized));
-        } catch (Throwable error) {
-            Toast.makeText(this, "Nettoyage partiel : " + error.getMessage(),
-                    Toast.LENGTH_LONG).show();
-        }
-
-        if (tabs.isEmpty()) {
-            setupSession(ContainerManager.defaultId(this), false, null, false);
-        }
-        selectTab(Math.min(Math.max(active, 0), tabs.size() - 1));
-        Toast.makeText(this, "Donnees effacees : " + ContainerManager.name(normalized),
-                Toast.LENGTH_SHORT).show();
     }
 
     private String pageHost() {
