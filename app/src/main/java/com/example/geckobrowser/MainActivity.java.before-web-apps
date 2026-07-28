@@ -65,14 +65,6 @@ public class MainActivity extends Activity {
         String pendingState;
         /** Langue detectee par Gecko, pour la traduction de page. */
         String langTag;
-
-        // WEB_APPS_V1 — onglet ouvert comme application web autonome.
-        boolean webAppMode = false;
-        String webAppId = "";
-        String webAppName = "";
-        String webAppScope = "";
-        String webAppTheme = "";
-        String webAppDisplay = "standalone";
     }
 
     private final java.util.List<Tab> tabs = new java.util.ArrayList<>();
@@ -94,9 +86,6 @@ public class MainActivity extends Activity {
 
     // PASSWORD_VAULT_V1 — coffre chiffre et remplissage GeckoView.
     private PasswordVault passwordVault;
-
-    // WEB_APPS_V1 — manifestes, catalogue et raccourcis Android.
-    private WebAppManager webApps;
 
     private static final int REQ_FILE = 8123;
     private GeckoResult<GeckoSession.PromptDelegate.PromptResponse> pendingFile;
@@ -209,7 +198,6 @@ public class MainActivity extends Activity {
             sRuntime.getSettings().setLoginAutofillEnabled(
                     passwordVault.isAutofillEnabled());
         } catch (Throwable ignored) { }
-        webApps = new WebAppManager(this);
         installBlocker();
 
         setupSession(false, null);
@@ -262,13 +250,6 @@ public class MainActivity extends Activity {
     private void handleIncomingLink(Intent intent) {
         if (intent == null) return;
         if (!Intent.ACTION_VIEW.equals(intent.getAction())) return;
-
-        WebAppManager.App launchedApp = WebAppManager.fromIntent(intent);
-        if (launchedApp != null) {
-            WebAppManager.consumeIntent(intent);
-            openWebApp(launchedApp, true);
-            return;
-        }
 
         android.net.Uri data = intent.getData();
         if (data == null) return;
@@ -371,25 +352,11 @@ public class MainActivity extends Activity {
                                          Boolean hasUserGesture) {
                 if (url == null) return;
                 tab.url = url;
-                webApps.onLocation(s, url);
-                boolean leftWebApp = tab.webAppMode
-                        && (url.startsWith("http://") || url.startsWith("https://"))
-                        && !WebAppManager.inScope(url, tab.webAppScope);
-                if (leftWebApp) {
-                    tab.webAppMode = false;
-                    tab.webAppId = "";
-                }
                 scheduleSessionSave();
                 // Un onglet d'arriere-plan ne doit pas ecraser la barre d'adresse.
                 if (s != session) return;
                 currentUrl = url;
                 urlBar.setText(url.startsWith("moz-extension://") ? "" : url);
-                if (leftWebApp) {
-                    applyWebAppChrome(tab);
-                    Toast.makeText(MainActivity.this,
-                            "Lien ouvert hors de l'application web",
-                            Toast.LENGTH_SHORT).show();
-                }
             }
 
             @Override
@@ -434,11 +401,6 @@ public class MainActivity extends Activity {
                 tab.title = title == null ? "" : title;
                 scheduleSessionSave();
                 if (s == session) currentTitle = tab.title;
-            }
-
-            @Override
-            public void onWebAppManifest(GeckoSession s, JSONObject manifest) {
-                webApps.onManifest(s, manifest, tab.url, tab.title);
             }
 
             // Fichier que Gecko ne peut pas afficher : on l'enregistre.
@@ -655,7 +617,6 @@ public class MainActivity extends Activity {
         }
 
         urlBar.setText(currentUrl.startsWith("moz-extension://") ? "" : currentUrl);
-        applyWebAppChrome(t);
         updateTabButton();
         scheduleSessionSave();
     }
@@ -749,15 +710,7 @@ public class MainActivity extends Activity {
         if (tabs.size() == 1) {
             t.url = "";
             t.title = "";
-            t.webAppMode = false;
-            t.webAppId = "";
-            t.webAppName = "";
-            t.webAppScope = "";
-            t.webAppTheme = "";
-            t.webAppDisplay = "standalone";
-            applyWebAppChrome(t);
             session.loadUri(homeUrl());
-            scheduleSessionSave();
             return;
         }
 
@@ -847,14 +800,6 @@ public class MainActivity extends Activity {
                 JSONObject o = new JSONObject();
                 o.put("url", t.url);
                 o.put("title", t.title);
-                if (t.webAppMode) {
-                    o.put("webAppMode", true);
-                    o.put("webAppId", t.webAppId);
-                    o.put("webAppName", t.webAppName);
-                    o.put("webAppScope", t.webAppScope);
-                    o.put("webAppTheme", t.webAppTheme);
-                    o.put("webAppDisplay", t.webAppDisplay);
-                }
                 if (t.state != null && !t.state.isEmpty()) o.put("state", t.state);
                 arr.put(o);
             }
@@ -905,18 +850,7 @@ public class MainActivity extends Activity {
                 if (u.isEmpty()) continue;
                 String encoded = o.optString("state", "");
                 setupSession(false, u, true, encoded);
-                Tab restored = tabs.get(tabs.size() - 1);
-                restored.title = o.optString("title", "");
-                restored.webAppMode = o.optBoolean("webAppMode", false);
-                restored.webAppId = o.optString("webAppId", "");
-                restored.webAppName = o.optString("webAppName", "");
-                restored.webAppScope = o.optString("webAppScope", "");
-                restored.webAppTheme = o.optString("webAppTheme", "");
-                restored.webAppDisplay = o.optString("webAppDisplay", "standalone");
-                if (restored.webAppMode
-                        && !WebAppManager.inScope(u, restored.webAppScope)) {
-                    restored.webAppMode = false;
-                }
+                tabs.get(tabs.size() - 1).title = o.optString("title", "");
                 if (i == wanted) target = tabs.size() - 1;
             }
 
@@ -948,18 +882,12 @@ public class MainActivity extends Activity {
             android.content.res.Configuration configuration) {
         super.onPictureInPictureModeChanged(inPip, configuration);
         if (mediaHub != null) mediaHub.onPipModeChanged(inPip);
-        if (inPip) {
-            if (webApps != null) webApps.hideStandaloneBar();
-            setBrowserChromeVisible(false);
-        } else if (!mediaFullscreen) {
-            applyWebAppChrome(currentTab());
-        }
+        setBrowserChromeVisible(!inPip && !mediaFullscreen);
     }
 
     @Override
     protected void onDestroy() {
         if (passwordVault != null) passwordVault.onActivityDestroyed(this);
-        if (webApps != null) webApps.release();
         if (mediaHub != null) mediaHub.release();
         super.onDestroy();
     }
@@ -1264,7 +1192,7 @@ public class MainActivity extends Activity {
             setBrowserChromeVisible(false);
             enterPictureInPictureMode(builder.build());
         } catch (Throwable e) {
-            if (!mediaFullscreen) applyWebAppChrome(currentTab());
+            setBrowserChromeVisible(!mediaFullscreen);
             Toast.makeText(this, "Image dans l'image indisponible",
                     Toast.LENGTH_SHORT).show();
         }
@@ -1272,12 +1200,7 @@ public class MainActivity extends Activity {
 
     private void setMediaFullscreen(boolean enabled) {
         mediaFullscreen = enabled;
-        if (enabled) {
-            if (webApps != null) webApps.hideStandaloneBar();
-            setBrowserChromeVisible(false);
-        } else if (!isInPictureInPictureMode()) {
-            applyWebAppChrome(currentTab());
-        }
+        setBrowserChromeVisible(!enabled && !isInPictureInPictureMode());
         android.view.View decor = getWindow().getDecorView();
         if (enabled) {
             decor.setSystemUiVisibility(
@@ -1303,98 +1226,6 @@ public class MainActivity extends Activity {
     private void exitMediaFullscreen() {
         if (onWebPage()) sendCommand("mediaExitFullscreen");
         setMediaFullscreen(false);
-    }
-
-
-    // =======================================================================
-    //  Applications web installables
-    // =======================================================================
-    private Tab currentTab() {
-        return active >= 0 && active < tabs.size() ? tabs.get(active) : null;
-    }
-
-    private boolean isCurrentWebAppMode() {
-        Tab tab = currentTab();
-        return tab != null && tab.webAppMode;
-    }
-
-    private WebAppManager.App webAppFor(Tab tab) {
-        if (tab == null) return null;
-        WebAppManager.App app = new WebAppManager.App();
-        app.id = tab.webAppId;
-        app.name = tab.webAppName == null || tab.webAppName.isEmpty()
-                ? tabLabel(tab) : tab.webAppName;
-        app.startUrl = tab.url;
-        app.scope = tab.webAppScope;
-        app.themeColor = tab.webAppTheme;
-        app.display = tab.webAppDisplay;
-        app.manifestBacked = true;
-        return app;
-    }
-
-    private void openWebApp(WebAppManager.App app, boolean standalone) {
-        if (app == null || app.startUrl == null || app.startUrl.isEmpty()) return;
-        if (!standalone) {
-            setupSession(false, app.startUrl);
-            selectTab(tabs.size() - 1);
-            return;
-        }
-
-        Tab target;
-        if (tabs.size() == 1 && active == 0
-                && (currentUrl.isEmpty() || currentUrl.startsWith("moz-extension://"))) {
-            target = tabs.get(0);
-            target.pending = null;
-            target.pendingState = null;
-            target.session.loadUri(app.startUrl);
-        } else {
-            setupSession(false, app.startUrl);
-            target = tabs.get(tabs.size() - 1);
-        }
-
-        target.webAppMode = true;
-        target.webAppId = app.id == null ? "" : app.id;
-        target.webAppName = app.name == null ? "Application web" : app.name;
-        target.webAppScope = app.scope == null || app.scope.isEmpty()
-                ? app.startUrl : app.scope;
-        target.webAppTheme = app.themeColor == null ? "" : app.themeColor;
-        target.webAppDisplay = app.display == null ? "standalone" : app.display;
-        selectTab(tabs.indexOf(target));
-        scheduleSessionSave();
-    }
-
-    private void showWebApps() {
-        webApps.show(session, currentUrl, currentTitle, privateMode,
-                this::showMenu, this::openWebApp);
-    }
-
-    private void applyWebAppChrome(Tab tab) {
-        if (webApps == null) return;
-        if (mediaFullscreen || isInPictureInPictureMode()) {
-            webApps.hideStandaloneBar();
-            return;
-        }
-        if (tab != null && tab.webAppMode) {
-            setBrowserChromeVisible(false);
-            android.view.ViewGroup root = findViewById(R.id.root_container);
-            android.view.View content = findViewById(R.id.browser_column);
-            webApps.showStandaloneBar(root, content, webAppFor(tab),
-                    () -> exitCurrentWebAppMode(false),
-                    () -> exitCurrentWebAppMode(true));
-        } else {
-            webApps.hideStandaloneBar();
-            setBrowserChromeVisible(true);
-        }
-    }
-
-    private void exitCurrentWebAppMode(boolean close) {
-        Tab tab = currentTab();
-        if (tab == null) return;
-        tab.webAppMode = false;
-        tab.webAppId = "";
-        applyWebAppChrome(tab);
-        scheduleSessionSave();
-        if (close && tabs.size() > 1) closeTab(active);
     }
 
     // =======================================================================
@@ -1425,8 +1256,6 @@ public class MainActivity extends Activity {
             .sub("\u25A5", "Onglets", tabs.size() + " ouvert(s)", this::showTabs)
             .sub("\u25B6", "Multimedia", mediaHub.summary(),
                  () -> mediaHub.showMenu(this::showMenu))
-            .sub("\u25A3", "Applications web", webApps.summary(session, currentUrl),
-                 this::showWebApps)
             .sub("\u25A4", "Page", pageHost(), this::showPageMenu)
             .sub("\u2315", "Recherche", engineName(), this::showSearchMenu)
             .sub("\u26E8", "Confidentialite",
@@ -2553,7 +2382,6 @@ public class MainActivity extends Activity {
         GeckoRuntimeSettings.Builder b = new GeckoRuntimeSettings.Builder()
                 .contentBlocking(blocking)
                 .javaScriptEnabled(true)
-                .webManifest(true)
                 .loginAutofillEnabled(
                         prefs.getBoolean("passwordAutofill", true));
 
@@ -2820,8 +2648,6 @@ public class MainActivity extends Activity {
             hideFindBar();
         } else if (canGoBack) {
             session.goBack();
-        } else if (isCurrentWebAppMode()) {
-            exitCurrentWebAppMode(tabs.size() > 1);
         } else if (tabs.size() > 1) {
             // Fermer l'onglet plutot que quitter : c'est l'attente courante.
             closeTab(active);

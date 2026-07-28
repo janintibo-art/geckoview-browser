@@ -1,11 +1,9 @@
-GeckoBrowser — overlay étape 9
+GeckoBrowser — overlay étape 10
 
 Fichiers ajoutés :
-- app/src/main/java/com/example/geckobrowser/PasswordVault.java
-- app/src/main/java/com/example/geckobrowser/VaultPrompts.java
-- app/src/main/res/xml/backup_rules.xml
-- app/src/main/res/xml/data_extraction_rules.xml
-- tools/apply_password_vault.py
-- INSTALLATION_COFFRE_MOTS_DE_PASSE.md
+- app/src/main/java/com/example/geckobrowser/WebAppManager.java
+- tools/apply_web_apps.py
+- INSTALLATION_APPLICATIONS_WEB.md
 
-Le script modifie MainActivity.java et AndroidManifest.xml, avec sauvegarde avant modification.
+Le script modifie MainActivity.java de façon contrôlée et crée une sauvegarde
+avant modification.
