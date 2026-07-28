@@ -339,3 +339,54 @@ html, body {
     to   { opacity: 1; transform: none; }
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Panneau « Affiner » : recherche mondiale et filtres combinables
+--------------------------------------------------------------------------- */
+#adv {
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  padding: 12px 14px 16px;
+}
+#adv h3 { margin: 0 0 4px; font-size: 14px; }
+#adv label {
+  display: block;
+  font-size: 12px;
+  color: var(--dim);
+  margin: 10px 0 4px;
+}
+#adv input, #adv select {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px;
+  font-size: 13px;
+  outline: none;
+}
+#adv input:focus, #adv select:focus { border-color: var(--accent); }
+#adv .row2 { display: flex; gap: 10px; }
+#adv .row2 > div { flex: 1; min-width: 0; }
+#adv .btns { display: flex; gap: 8px; margin-top: 14px; }
+#adv .btns button {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 13px;
+}
+#adv .btns #af-apply {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+#adv .note {
+  color: var(--dim);
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 12px 0 0;
+}

@@ -15,10 +15,17 @@ function withTimeout(promise, ms) {
   ]);
 }
 
-async function fetchDoc(url) {
+/**
+ * @param lang "all" (defaut) = aucune preference de langue annoncee : les
+ *             moteurs ne peuvent pas en deduire un pays. Sinon "fr", "en"...
+ * credentials:"omit" : jamais de cookie envoye ni accepte, aucun moteur ne
+ * peut personnaliser ou geolocaliser via une session.
+ */
+async function fetchDoc(url, lang) {
+  const al = (!lang || lang === "all") ? "*" : lang + ";q=0.9, *;q=0.5";
   const resp = await withTimeout(fetch(url, {
     credentials: "omit",
-    headers: { "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.6" }
+    headers: { "Accept-Language": al }
   }), UA_TIMEOUT);
   if (!resp.ok) throw new Error("HTTP " + resp.status);
   const text = await resp.text();
@@ -56,7 +63,16 @@ const ENGINES = [
   {
     id: "ddg",
     label: "DuckDuckGo",
-    url: q => "https://html.duckduckgo.com/html/?kl=fr-fr&q=" + encodeURIComponent(q),
+    url: (q, p) => {
+      p = p || {};
+      // wt-wt = « no region » : la meme requete partout dans le monde
+      const kl = { fr: "fr-fr", en: "us-en", de: "de-de",
+                   es: "es-es", it: "it-it" }[p.lang] || "wt-wt";
+      let u = "https://html.duckduckgo.com/html/?kl=" + kl +
+              "&q=" + encodeURIComponent(q);
+      if (p.df) u += "&df=" + p.df;
+      return u;
+    },
     parse: doc => {
       const out = [];
       doc.querySelectorAll(".result, .web-result").forEach(el => {
@@ -77,7 +93,11 @@ const ENGINES = [
   {
     id: "mojeek",
     label: "Mojeek",
-    url: q => "https://www.mojeek.com/search?q=" + encodeURIComponent(q),
+    url: (q, p) => {
+      let u = "https://www.mojeek.com/search?q=" + encodeURIComponent(q);
+      if (p && p.lang && p.lang !== "all") u += "&lb=" + p.lang;
+      return u;
+    },
     parse: doc => {
       const out = [];
       doc.querySelectorAll("ul.results-standard li, .results li, li.r").forEach(el => {
@@ -98,7 +118,12 @@ const ENGINES = [
   {
     id: "brave",
     label: "Brave",
-    url: q => "https://search.brave.com/search?q=" + encodeURIComponent(q),
+    url: (q, p) => {
+      const c = { fr: "fr", en: "us", de: "de", es: "es", it: "it" }
+        [(p && p.lang) || ""] || "all";
+      return "https://search.brave.com/search?q=" + encodeURIComponent(q) +
+             "&country=" + c;
+    },
     parse: doc => {
       const out = [];
       doc.querySelectorAll("[data-type='web'], .snippet, #results .fdb").forEach(el => {
@@ -168,7 +193,14 @@ function searxEngine(base) {
   return {
     id: "searx",
     label: "SearXNG",
-    url: q => root + "/search?q=" + encodeURIComponent(q),
+    url: (q, p) => {
+      p = p || {};
+      let u = root + "/search?q=" + encodeURIComponent(q) +
+              "&language=" + (p.lang && p.lang !== "all" ? p.lang : "all");
+      const tr = { d: "day", w: "week", m: "month", y: "year" }[p.df];
+      if (tr) u += "&time_range=" + tr;
+      return u;
+    },
     parse: doc => {
       const out = [];
       doc.querySelectorAll("article.result, .result, #urls .result").forEach(el => {

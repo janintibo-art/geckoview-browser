@@ -17,9 +17,76 @@
   <div id="tools">
     <button class="chip" data-scope="web">Web</button>
     <button class="chip" data-scope="news">Actualites</button>
+    <button class="chip" id="adv-btn">Affiner</button>
     <button class="chip" id="prefs-btn">Filtres</button>
   </div>
 </header>
+
+<section id="adv" hidden>
+  <h3>Recherche affinee</h3>
+
+  <label for="af-exact">Expression exacte</label>
+  <input id="af-exact" placeholder="cherchee telle quelle, entre guillemets">
+
+  <label for="af-none">Aucun de ces mots</label>
+  <input id="af-none" placeholder="mots a ecarter, separes par des espaces">
+
+  <div class="row2">
+    <div>
+      <label for="af-inc">Uniquement ces sites</label>
+      <input id="af-inc" placeholder="wikipedia.org legifrance.gouv.fr">
+    </div>
+    <div>
+      <label for="af-exc">Exclure ces sites</label>
+      <input id="af-exc" placeholder="pinterest.com quora.com">
+    </div>
+  </div>
+
+  <div class="row2">
+    <div>
+      <label for="af-ftype">Type de fichier</label>
+      <select id="af-ftype">
+        <option value="">Tous</option>
+        <option value="pdf">PDF</option>
+        <option value="doc">Word (doc)</option>
+        <option value="xls">Tableur (xls)</option>
+        <option value="ppt">Diaporama (ppt)</option>
+        <option value="epub">Livre (epub)</option>
+      </select>
+    </div>
+    <div>
+      <label for="af-df">Fraicheur</label>
+      <select id="af-df">
+        <option value="">Toutes dates</option>
+        <option value="d">24 heures</option>
+        <option value="w">Cette semaine</option>
+        <option value="m">Ce mois</option>
+        <option value="y">Cette annee</option>
+      </select>
+    </div>
+  </div>
+
+  <label for="af-lang">Langue des resultats</label>
+  <select id="af-lang">
+    <option value="all">Toutes — recherche mondiale</option>
+    <option value="fr">Francais</option>
+    <option value="en">Anglais</option>
+    <option value="de">Allemand</option>
+    <option value="es">Espagnol</option>
+    <option value="it">Italien</option>
+  </select>
+
+  <div class="btns">
+    <button id="af-apply">Appliquer</button>
+    <button id="af-reset">Reinitialiser</button>
+  </div>
+
+  <p class="note">Les filtres de sites s'appliquent a tous les resultats, quel que
+  soit le moteur. La fraicheur et la langue ne valent que pour les moteurs qui les
+  acceptent (DuckDuckGo, SearXNG ; langue aussi sur Mojeek et Brave). Sans langue
+  choisie, la recherche est mondiale : aucune region ni langue n'est annoncee aux
+  moteurs, et aucun cookie ne leur est jamais envoye.</p>
+</section>
 
 <section id="prefs" hidden>
   <h3>Categories filtrees</h3>

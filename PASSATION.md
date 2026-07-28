@@ -116,6 +116,12 @@ concentration des médias, et plus. Voir la liste complète plus bas.
 36. Recherche dans la page (barre native sous la barre d'adresse, moteur
     `SessionFinder` de Gecko : surlignage, compteur, précédent/suivant ;
     le bouton retour la ferme avant de remonter l'historique)
+37. Recherche mondiale + panneau « Affiner » (métamoteur délocalisé :
+    `kl=wt-wt`, `country=all`, `language=all`, `Accept-Language: *`, jamais
+    de cookie ; filtres combinables : expression exacte, mots exclus,
+    domaines inclus/exclus — appliqués localement à tous les moteurs —,
+    type de fichier, fraîcheur, langue ; filtres portés par l'URL et par la
+    clé du cache de reprise)
 
 ## Choix de conception à connaître (évite de les redécouvrir)
 
@@ -132,6 +138,12 @@ concentration des médias, et plus. Voir la liste complète plus bas.
   titres deviendrait vite envahissant. L'utilisateur active au cas par cas.
 - **Détecteur de dark patterns = indices, pas verdicts** : la formulation
   insiste toujours sur le fait qu'un signal peut être un faux positif.
+- **Le métamoteur est mondial par défaut** : `fetchDoc(url, lang)` envoie
+  `Accept-Language: *` et chaque moteur reçoit son paramètre « sans région »
+  (voir `engines.js`). Les `url()` des moteurs prennent `(q, p)` avec
+  `p = { lang, df }`. Ne jamais réintroduire de région en dur ; un filtre de
+  langue explicite passe par le panneau « Affiner » (`adv` dans search.js),
+  dont l'état vit dans l'URL et dans la clé du cache.
 - **`GB.pick()` est le seul pointeur d'élément** : la dette des pointeurs
   maison (styles.js, watcher.js) est soldée. `GB.pick()` accepte désormais
   `actions` (boutons multiples, champ `action` en retour), `extra` (HTML

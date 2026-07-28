@@ -29,6 +29,80 @@ let excludeOnce = [];
 let excludeOwner = "";
 
 // ---------------------------------------------------------------------------
+//  Recherche affinee (panneau « Affiner »)
+//  Les filtres de domaine s'appliquent localement a tous les resultats ;
+//  fraicheur et langue passent aux moteurs qui les acceptent.
+// ---------------------------------------------------------------------------
+let adv = { exact: "", none: "", inc: "", exc: "", ftype: "", df: "", lang: "all" };
+
+function advActive() {
+  return !!(adv.exact || adv.none || adv.inc || adv.exc || adv.ftype ||
+            adv.df || (adv.lang && adv.lang !== "all"));
+}
+
+function advDomains(s) {
+  return (s || "").split(/[\s,;]+/)
+    .map(d => d.trim().toLowerCase()
+               .replace(/^https?:\/\//, "").replace(/^www\./, "")
+               .replace(/\/.*$/, ""))
+    .filter(d => d && d.indexOf(".") !== -1);
+}
+
+// Requete effective envoyee aux moteurs : la saisie + les operateurs
+function advQuery(q) {
+  let out = q;
+  if (adv.exact) out += ' "' + adv.exact.replace(/"/g, "").trim() + '"';
+  (adv.none || "").split(/[\s,]+/).filter(Boolean)
+    .forEach(w => { out += " -" + w; });
+  const inc = advDomains(adv.inc);
+  if (inc.length === 1) out += " site:" + inc[0];
+  advDomains(adv.exc).slice(0, 5).forEach(d => { out += " -site:" + d; });
+  if (adv.ftype) out += " filetype:" + adv.ftype;
+  return out;
+}
+
+function advParams() {
+  return { df: adv.df, lang: adv.lang || "all" };
+}
+
+// Filtre local par domaine : fiable quel que soit le moteur, y compris ceux
+// qui ignorent les operateurs site:/-site:
+function advFilter(list) {
+  const inc = advDomains(adv.inc);
+  const exc = advDomains(adv.exc);
+  if (!inc.length && !exc.length) return list;
+  const match = (h, d) => h === d || h.endsWith("." + d);
+  return list.filter(r => {
+    const h = (r.host || "").toLowerCase();
+    if (exc.some(d => match(h, d))) return false;
+    if (inc.length && !inc.some(d => match(h, d))) return false;
+    return true;
+  });
+}
+
+function advFields() {
+  adv.exact = $("#af-exact").value.trim();
+  adv.none = $("#af-none").value.trim();
+  adv.inc = $("#af-inc").value.trim();
+  adv.exc = $("#af-exc").value.trim();
+  adv.ftype = $("#af-ftype").value;
+  adv.df = $("#af-df").value;
+  adv.lang = $("#af-lang").value || "all";
+}
+
+function advFill() {
+  $("#af-exact").value = adv.exact;
+  $("#af-none").value = adv.none;
+  $("#af-inc").value = adv.inc;
+  $("#af-exc").value = adv.exc;
+  $("#af-ftype").value = adv.ftype;
+  $("#af-df").value = adv.df;
+  $("#af-lang").value = adv.lang || "all";
+  const b = $("#adv-btn");
+  if (b) b.classList.toggle("on", advActive());
+}
+
+// ---------------------------------------------------------------------------
 //  Raccourcis
 //  Pastilles coloree + initiale plutot que favicons : aucune requete vers
 //  les sites concernes, donc aucune trace laissee en ouvrant l'accueil.
@@ -418,7 +492,7 @@ function renderResults(raw, ia, t0, opts) {
     return;
   }
 
-  const merged = merge(raw);
+  const merged = advFilter(merge(raw));
   const { kept, removed } = applyFilter(merged);
 
   out.innerHTML = renderCard(ia) + renderFiltered(removed) +
@@ -456,12 +530,15 @@ function renderResults(raw, ia, t0, opts) {
 // ---------------------------------------------------------------------------
 const CACHE_MS = 10 * 60 * 1000;
 
+function cacheKey(query) {
+  return JSON.stringify([query, scope, adv]);
+}
+
 async function cacheGet(query) {
   try {
     const s = await browser.storage.local.get("searchCache");
     const c = s && s.searchCache;
-    if (c && c.q === query && c.scope === scope &&
-        (Date.now() - c.at) < CACHE_MS) return c;
+    if (c && c.k === cacheKey(query) && (Date.now() - c.at) < CACHE_MS) return c;
   } catch (e) { }
   return null;
 }
@@ -469,7 +546,7 @@ async function cacheGet(query) {
 function cacheSet(query, raw, ia) {
   try {
     browser.storage.local.set({
-      searchCache: { q: query, scope: scope, at: Date.now(), raw: raw, ia: ia }
+      searchCache: { k: cacheKey(query), at: Date.now(), raw: raw, ia: ia }
     });
   } catch (e) { }
 }
@@ -478,7 +555,15 @@ async function run(query, force) {
   const bang = resolveBang(query);
   if (bang) { location.href = bang; return; }
 
-  history.replaceState(null, "", "?q=" + encodeURIComponent(query) + "&s=" + scope);
+  let ustr = "?q=" + encodeURIComponent(query) + "&s=" + scope;
+  if (adv.exact) ustr += "&ex=" + encodeURIComponent(adv.exact);
+  if (adv.none) ustr += "&no=" + encodeURIComponent(adv.none);
+  if (adv.inc) ustr += "&in=" + encodeURIComponent(adv.inc);
+  if (adv.exc) ustr += "&xd=" + encodeURIComponent(adv.exc);
+  if (adv.ftype) ustr += "&ft=" + adv.ftype;
+  if (adv.df) ustr += "&df=" + adv.df;
+  if (adv.lang && adv.lang !== "all") ustr += "&lg=" + adv.lang;
+  history.replaceState(null, "", ustr);
   const brand = $("#brand");
   if (brand) brand.style.display = "none";
   dialVisible(false);
@@ -523,6 +608,8 @@ async function run(query, force) {
     return;
   }
 
+  const q2 = advQuery(query);
+  const p = advParams();
   let raw = [];
   let ia = null;
   let pending = list.length;
@@ -535,7 +622,7 @@ async function run(query, force) {
   });
 
   await Promise.all(list.map(eng =>
-    fetchDoc(eng.url(query))
+    fetchDoc(eng.url(q2, p), p.lang)
       .then(doc => eng.parse(doc).slice(0, 15)
                       .map((r, i) => ({ ...r, engine: eng.label, rank: i })))
       .catch(() => [])
@@ -587,7 +674,25 @@ document.querySelectorAll(".chip[data-scope]").forEach(c => {
 
 $("#prefs-btn").addEventListener("click", () => {
   $("#prefs").hidden = !$("#prefs").hidden;
-  if (!$("#prefs").hidden) showStats();
+  if (!$("#prefs").hidden) { $("#adv").hidden = true; showStats(); }
+});
+
+$("#adv-btn").addEventListener("click", () => {
+  $("#adv").hidden = !$("#adv").hidden;
+  if (!$("#adv").hidden) { $("#prefs").hidden = true; advFill(); }
+});
+
+$("#af-apply").addEventListener("click", () => {
+  advFields();
+  $("#adv").hidden = true;
+  $("#adv-btn").classList.toggle("on", advActive());
+  const v = qBox.value.trim();
+  if (v) run(v, true);
+});
+
+$("#af-reset").addEventListener("click", () => {
+  adv = { exact: "", none: "", inc: "", exc: "", ftype: "", df: "", lang: "all" };
+  advFill();
 });
 $("#prefs-save").addEventListener("click", savePrefs);
 
@@ -665,6 +770,15 @@ async function firstRun() {
         : excludeOnce.length + " domaine(s) ecarte(s) de cette recherche";
     }
   }
+
+  adv.exact = params.get("ex") || "";
+  adv.none = params.get("no") || "";
+  adv.inc = params.get("in") || "";
+  adv.exc = params.get("xd") || "";
+  adv.ftype = params.get("ft") || "";
+  adv.df = params.get("df") || "";
+  adv.lang = params.get("lg") || "all";
+  advFill();
 
   if (params.get("s")) {
     scope = params.get("s");
