@@ -453,12 +453,6 @@ public class MainActivity extends Activity {
         });
 
         session.setPromptDelegate(new Prompts(this, this::startFilePicker));
-        session.setSelectionActionDelegate(new SmartSelectionDelegate(
-                this,
-                this::searchUrl,
-                () -> sendCommand("translateSel"),
-                () -> currentTitle,
-                () -> currentUrl));
 
         // Traduction de page : Gecko detecte la langue du document, on la
         // retient pour proposer « traduire depuis X » sans rien deviner.
@@ -1112,9 +1106,6 @@ public class MainActivity extends Activity {
             .sub("\u2699", "Scripts et styles", null, this::showScriptsMenu)
             .sub("\u2605", "Favoris", bookmarks().length() + " enregistre(s)",
                  this::showBookmarksMenu)
-            .sub("\u275D", "Citations",
-                 SelectionNotebook.count(this) + " enregistree(s)",
-                 () -> SelectionNotebook.show(this))
             .sub("\u267B", "Corbeille", null, this::showTrash)
             .add("\u26D4", blockerEnabled ? "Desactiver le blocage" : "Activer le blocage",
                  blockerEnabled ? blockedCount + " elements bloques" : "blocage inactif",

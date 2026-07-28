@@ -241,3 +241,11 @@ dans `shared.js` ou `publishers.js`, écrire, faire tourner
 
 
 40. Identites et conteneurs GeckoView : six espaces de navigation (Personnel, Travail, Banque, Reseaux sociaux, Temporaire, Anonyme) fondes sur GeckoSessionSettings.contextId. Les cookies et stockages sont separes, l'identite est sauvegardee avec les onglets persistants, et un contexte peut etre purge sans toucher les autres. Temporaire et Anonyme utilisent le mode prive.
+
+## Barre intelligente de selection
+
+La selection native GeckoView est enrichie avec Traduire, Rechercher, Lire,
+Partager, Enregistrer et Markdown. Les actions sont masquees dans les champs de
+mot de passe. Les citations restent locales dans les preferences Android et
+sont accessibles depuis le menu principal.
+
