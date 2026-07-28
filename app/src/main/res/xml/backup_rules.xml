@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- La cle AndroidKeyStore ne suit pas une sauvegarde cloud. -->
+    <exclude domain="file" path="password-vault.bin" />
+    <exclude domain="file" path="password-vault.bin.tmp" />
+</full-backup-content>

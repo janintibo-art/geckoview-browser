@@ -1,9 +1,11 @@
-GECKOBROWSER — IDENTITES ET CONTENEURS
-======================================
+GeckoBrowser — overlay étape 9
 
-Fichiers fournis :
-- app/src/main/java/com/example/geckobrowser/ContainerManager.java
-- tools/apply_containers.py
-- INSTALLATION-CONTENEURS.md
+Fichiers ajoutés :
+- app/src/main/java/com/example/geckobrowser/PasswordVault.java
+- app/src/main/java/com/example/geckobrowser/VaultPrompts.java
+- app/src/main/res/xml/backup_rules.xml
+- app/src/main/res/xml/data_extraction_rules.xml
+- tools/apply_password_vault.py
+- INSTALLATION_COFFRE_MOTS_DE_PASSE.md
 
-Le script modifie MainActivity.java de façon contrôlée et crée une sauvegarde.
+Le script modifie MainActivity.java et AndroidManifest.xml, avec sauvegarde avant modification.
