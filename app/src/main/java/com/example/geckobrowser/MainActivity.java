@@ -167,6 +167,7 @@ public class MainActivity extends Activity {
         progress = findViewById(R.id.progress);
         splash = findViewById(R.id.splash);
         tabButton = findViewById(R.id.tab_button);
+        initFindBar();
 
         if (sRuntime == null) {
             sRuntime = GeckoRuntime.create(this, buildSettings());
@@ -479,6 +480,7 @@ public class MainActivity extends Activity {
 
     private void selectTab(int index) {
         if (index < 0 || index >= tabs.size()) return;
+        hideFindBar();
         active = index;
         Tab t = tabs.get(index);
         session = t.session;
@@ -804,6 +806,75 @@ public class MainActivity extends Activity {
     }
 
     // =======================================================================
+    //  Recherche dans la page
+    //  S'appuie sur le moteur de Gecko (SessionFinder) : surlignage et
+    //  compteur natifs, aucun script injecte, la page n'est pas modifiee.
+    // =======================================================================
+    private android.view.View findBar;
+    private EditText findInput;
+    private TextView findCount;
+
+    private void initFindBar() {
+        findBar = findViewById(R.id.find_bar);
+        findInput = findViewById(R.id.find_input);
+        findCount = findViewById(R.id.find_count);
+
+        findInput.addTextChangedListener(new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) { }
+            @Override public void onTextChanged(CharSequence s, int a, int b, int c) { }
+            @Override public void afterTextChanged(android.text.Editable s) {
+                doFind(s.toString(), 0);
+            }
+        });
+        findInput.setOnEditorActionListener((v, actionId, ev) -> {
+            doFind(findInput.getText().toString(), 0);
+            return true;
+        });
+        findViewById(R.id.find_prev).setOnClickListener(v ->
+                doFind(findInput.getText().toString(), GeckoSession.FINDER_FIND_BACKWARDS));
+        findViewById(R.id.find_next).setOnClickListener(v ->
+                doFind(findInput.getText().toString(), 0));
+        findViewById(R.id.find_close).setOnClickListener(v -> hideFindBar());
+    }
+
+    private void showFindBar() {
+        findBar.setVisibility(android.view.View.VISIBLE);
+        try {
+            session.getFinder().setDisplayFlags(GeckoSession.FINDER_DISPLAY_HIGHLIGHT_ALL);
+        } catch (Throwable ignored) { }
+        findInput.setText("");
+        findCount.setText("");
+        findInput.requestFocus();
+        InputMethodManager imm =
+                (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (imm != null) imm.showSoftInput(findInput, InputMethodManager.SHOW_IMPLICIT);
+    }
+
+    private void hideFindBar() {
+        if (findBar == null || findBar.getVisibility() != android.view.View.VISIBLE) return;
+        findBar.setVisibility(android.view.View.GONE);
+        findCount.setText("");
+        try { session.getFinder().clear(); } catch (Throwable ignored) { }
+        InputMethodManager imm =
+                (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (imm != null) imm.hideSoftInputFromWindow(findInput.getWindowToken(), 0);
+    }
+
+    private void doFind(String text, int flags) {
+        if (text == null || text.isEmpty()) {
+            try { session.getFinder().clear(); } catch (Throwable ignored) { }
+            findCount.setText("");
+            return;
+        }
+        try {
+            session.getFinder().find(text, flags).accept(r -> runOnUiThread(() -> {
+                if (r == null || r.total <= 0) { findCount.setText("aucun"); return; }
+                findCount.setText(r.current + "/" + r.total);
+            }));
+        } catch (Throwable ignored) { }
+    }
+
+    // =======================================================================
     //  Menu
     // =======================================================================
     private void showMenu() {
@@ -853,6 +924,8 @@ public class MainActivity extends Activity {
     // -----------------------------------------------------------------------
     private void showPageMenu() {
         new Menus(this, "Page")
+            .add("\u2316", "Rechercher dans la page",
+                 () -> { if (onWebPage()) showFindBar(); })
             .add("\u2315", "Analyser la page", this::inspectPage)
             .add("\u2039", "Code source", this::viewSource)
             .add("\u2194", "Ce sujet vu ailleurs",
@@ -2152,7 +2225,9 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        if (canGoBack) {
+        if (findBar != null && findBar.getVisibility() == android.view.View.VISIBLE) {
+            hideFindBar();
+        } else if (canGoBack) {
             session.goBack();
         } else if (tabs.size() > 1) {
             // Fermer l'onglet plutot que quitter : c'est l'attente courante.

@@ -113,6 +113,9 @@ concentration des médias, et plus. Voir la liste complète plus bas.
 34. Corbeille (onglets fermés / favoris supprimés, restaurables)
 35. Tutoriel intégré par onglets avec recherche plein texte (`help.html` /
     `help.js`), tenu à jour à chaque fonctionnalité
+36. Recherche dans la page (barre native sous la barre d'adresse, moteur
+    `SessionFinder` de Gecko : surlignage, compteur, précédent/suivant ;
+    le bouton retour la ferme avant de remonter l'historique)
 
 ## Choix de conception à connaître (évite de les redécouvrir)
 
@@ -190,9 +193,9 @@ concentration des médias, et plus. Voir la liste complète plus bas.
 
 ## Pour la prochaine session
 
-Idées déjà évoquées mais pas faites : recherche dans la page (Ctrl+F web),
-migration des anciens pointeurs vers `GB.pick()` (dette technique connue),
-détecteur de mouchards *dans* le rapport réseau enrichi. Demander à
+Idées déjà évoquées mais pas faites : migration des anciens pointeurs vers
+`GB.pick()` (dette technique connue), détecteur de mouchards *dans* le
+rapport réseau enrichi. Demander à
 l'utilisateur ce qu'il veut avant de partir dans une direction.
 
 Toujours commencer une nouvelle demande de fonctionnalité par : lire les

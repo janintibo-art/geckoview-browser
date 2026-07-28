@@ -80,6 +80,65 @@
                 android:background="?android:attr/selectableItemBackground" />
         </LinearLayout>
 
+        <!-- Recherche dans la page : masquee tant que le menu ne l'ouvre pas -->
+        <LinearLayout
+            android:id="@+id/find_bar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="8dp"
+            android:paddingEnd="2dp"
+            android:background="#1C1F26"
+            android:visibility="gone">
+
+            <EditText
+                android:id="@+id/find_input"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="@string/find_hint"
+                android:textColor="#E8EAEE"
+                android:textColorHint="#8A9099"
+                android:textSize="14sp"
+                android:inputType="text"
+                android:imeOptions="actionSearch"
+                android:maxLines="1" />
+
+            <TextView
+                android:id="@+id/find_count"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:paddingStart="6dp"
+                android:paddingEnd="6dp"
+                android:textSize="12sp"
+                android:textColor="#99A0AD" />
+
+            <ImageButton
+                android:id="@+id/find_prev"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:src="@drawable/ic_chevron_up"
+                android:contentDescription="@string/find_prev"
+                android:background="?android:attr/selectableItemBackground" />
+
+            <ImageButton
+                android:id="@+id/find_next"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:src="@drawable/ic_chevron_down"
+                android:contentDescription="@string/find_next"
+                android:background="?android:attr/selectableItemBackground" />
+
+            <ImageButton
+                android:id="@+id/find_close"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:src="@drawable/ic_close"
+                android:contentDescription="@string/find_close"
+                android:background="?android:attr/selectableItemBackground" />
+        </LinearLayout>
+
         <ProgressBar
             android:id="@+id/progress"
             style="?android:attr/progressBarStyleHorizontal"

@@ -6,6 +6,11 @@
     <string name="menu">Menu</string>
     <string name="tabs">Onglets</string>
 
+    <string name="find_hint">Rechercher dans la page</string>
+    <string name="find_prev">Occurrence precedente</string>
+    <string name="find_next">Occurrence suivante</string>
+    <string name="find_close">Fermer la recherche</string>
+
     <string name="widget_search_hint">Rechercher</string>
     <string name="widget_private">Navigation privee</string>
     <string name="widget_bookmarks">Favoris</string>
