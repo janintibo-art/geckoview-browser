@@ -80,10 +80,6 @@ public class MainActivity extends Activity {
     private android.os.Handler sessionSaveHandler;
     private final Runnable sessionSaveRunnable = this::saveTabs;
 
-    // MEDIA_HUB_V1 — lecture native, notification, plein ecran et PiP.
-    private MediaHub mediaHub;
-    private boolean mediaFullscreen = false;
-
     private static final int REQ_FILE = 8123;
     private GeckoResult<GeckoSession.PromptDelegate.PromptResponse> pendingFile;
     private GeckoSession.PromptDelegate.FilePrompt pendingFilePrompt;
@@ -184,7 +180,6 @@ public class MainActivity extends Activity {
         initFindBar();
         ThemeManager.apply(this);
         sessionSaveHandler = new android.os.Handler(getMainLooper());
-        mediaHub = new MediaHub(this);
 
         if (sRuntime == null) {
             sRuntime = GeckoRuntime.create(this, buildSettings());
@@ -334,7 +329,6 @@ public class MainActivity extends Activity {
         session = new GeckoSession(settings);
         tab.session = session;
         PrivacyCockpit.attach(tab.session);
-        mediaHub.attach(tab.session);
 
         session.setNavigationDelegate(new GeckoSession.NavigationDelegate() {
             @Override
@@ -410,11 +404,6 @@ public class MainActivity extends Activity {
                 // about:blank declenche aussi ce signal : ceder maintenant
                 // decouvrirait la page vierge, blanche par defaut.
                 if (s == session && isRealPage(tab.url)) hideSplash();
-            }
-
-            @Override
-            public void onFullScreen(GeckoSession s, boolean fullScreen) {
-                if (s == session) setMediaFullscreen(fullScreen);
             }
         });
 
@@ -849,12 +838,6 @@ public class MainActivity extends Activity {
     }
 
     @Override
-    protected void onUserLeaveHint() {
-        if (mediaHub != null) mediaHub.onUserLeaveHint();
-        super.onUserLeaveHint();
-    }
-
-    @Override
     protected void onPause() {
         flushAndSaveTabs();
         super.onPause();
@@ -864,20 +847,6 @@ public class MainActivity extends Activity {
     protected void onStop() {
         saveTabs();
         super.onStop();
-    }
-
-    @Override
-    public void onPictureInPictureModeChanged(boolean inPip,
-            android.content.res.Configuration configuration) {
-        super.onPictureInPictureModeChanged(inPip, configuration);
-        if (mediaHub != null) mediaHub.onPipModeChanged(inPip);
-        setBrowserChromeVisible(!inPip && !mediaFullscreen);
-    }
-
-    @Override
-    protected void onDestroy() {
-        if (mediaHub != null) mediaHub.release();
-        super.onDestroy();
     }
 
     // =======================================================================
@@ -1123,95 +1092,6 @@ public class MainActivity extends Activity {
         }
     }
 
-
-    // =======================================================================
-    //  Multimedia, plein ecran et image dans l'image
-    // =======================================================================
-    String mediaTitleFor(GeckoSession target) {
-        if (target == null) return currentTitle;
-        for (Tab tab : tabs) {
-            if (tab.session == target) {
-                if (tab.title != null && !tab.title.isEmpty()) return tab.title;
-                return tabLabel(tab);
-            }
-        }
-        return currentTitle;
-    }
-
-    void openMediaSession(GeckoSession target) {
-        if (target == null) return;
-        for (int i = 0; i < tabs.size(); i++) {
-            if (tabs.get(i).session == target) {
-                selectTab(i);
-                return;
-            }
-        }
-    }
-
-    void onMediaFullscreen(GeckoSession target, boolean enabled) {
-        if (target == session) setMediaFullscreen(enabled);
-    }
-
-    void prepareMediaPictureInPicture() {
-        if (onWebPage()) sendCommand("mediaPip");
-    }
-
-    void requestMediaPictureInPicture(long width, long height) {
-        if (android.os.Build.VERSION.SDK_INT < 26 || isInPictureInPictureMode()) return;
-        try {
-            long w = width > 0 ? width : 16;
-            long h = height > 0 ? height : 9;
-            double ratio = w / (double) h;
-            if (!Double.isFinite(ratio) || ratio < 0.42 || ratio > 2.39) {
-                w = 16;
-                h = 9;
-            }
-            android.app.PictureInPictureParams.Builder builder =
-                    new android.app.PictureInPictureParams.Builder()
-                            .setAspectRatio(new android.util.Rational((int) Math.min(w, 10000),
-                                                                     (int) Math.min(h, 10000)));
-            if (android.os.Build.VERSION.SDK_INT >= 31) {
-                builder.setSeamlessResizeEnabled(true);
-            }
-            setBrowserChromeVisible(false);
-            enterPictureInPictureMode(builder.build());
-        } catch (Throwable e) {
-            setBrowserChromeVisible(!mediaFullscreen);
-            Toast.makeText(this, "Image dans l'image indisponible",
-                    Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    private void setMediaFullscreen(boolean enabled) {
-        mediaFullscreen = enabled;
-        setBrowserChromeVisible(!enabled && !isInPictureInPictureMode());
-        android.view.View decor = getWindow().getDecorView();
-        if (enabled) {
-            decor.setSystemUiVisibility(
-                    android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                  | android.view.View.SYSTEM_UI_FLAG_FULLSCREEN
-                  | android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                  | android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                  | android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                  | android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
-        } else {
-            decor.setSystemUiVisibility(android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
-        }
-    }
-
-    private void setBrowserChromeVisible(boolean visible) {
-        android.view.View toolbar = findViewById(R.id.toolbar);
-        if (toolbar != null) toolbar.setVisibility(
-                visible ? android.view.View.VISIBLE : android.view.View.GONE);
-        if (!visible && findBar != null) findBar.setVisibility(android.view.View.GONE);
-        if (progress != null && !visible) progress.setVisibility(android.view.View.GONE);
-    }
-
-    private void exitMediaFullscreen() {
-        if (onWebPage()) sendCommand("mediaExitFullscreen");
-        setMediaFullscreen(false);
-    }
-
     // =======================================================================
     //  Menu
     // =======================================================================
@@ -1220,8 +1100,6 @@ public class MainActivity extends Activity {
             .add("\u2302", "Accueil", () -> session.loadUri(homeUrl()))
             .add("\u21BB", "Recharger", () -> session.reload())
             .sub("\u25A5", "Onglets", tabs.size() + " ouvert(s)", this::showTabs)
-            .sub("\u25B6", "Multimedia", mediaHub.summary(),
-                 () -> mediaHub.showMenu(this::showMenu))
             .sub("\u25A4", "Page", pageHost(), this::showPageMenu)
             .sub("\u2315", "Recherche", engineName(), this::showSearchMenu)
             .sub("\u26E8", "Confidentialite",
@@ -2602,10 +2480,6 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        if (mediaFullscreen) {
-            exitMediaFullscreen();
-            return;
-        }
         if (findBar != null && findBar.getVisibility() == android.view.View.VISIBLE) {
             hideFindBar();
         } else if (canGoBack) {

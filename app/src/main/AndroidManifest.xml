@@ -48,6 +48,7 @@
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
+            android:supportsPictureInPicture="true"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize|density">
 
             <intent-filter>
@@ -64,6 +65,10 @@
                 <data android:scheme="https" />
             </intent-filter>
         </activity>
+
+        <receiver
+            android:name=".MediaActionReceiver"
+            android:exported="false" />
 
         <receiver
             android:name=".SearchWidget"
