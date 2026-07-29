@@ -109,7 +109,15 @@
           }
         });
         n.addEventListener("pause", () => saveResume(n));
-        n.addEventListener("ended", () => saveResume(n));
+        n.addEventListener("ended", () => {
+          saveResume(n);
+          // Signaler la fin pour enchainer la file d'attente. Seul le cadre
+          // principal l'envoie, et seulement pour une video de duree reelle
+          // (evite les pubs/preroll de quelques secondes).
+          if (window.top === window.self && isFinite(n.duration) && n.duration > 30) {
+            try { browser.runtime.sendMessage({ type: "mediaEnded" }); } catch (e) { }
+          }
+        });
       }
     }
   }

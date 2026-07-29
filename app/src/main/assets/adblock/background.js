@@ -1114,6 +1114,23 @@ browser.runtime.onMessage.addListener(msg => {
       return Promise.resolve({ error: String(e) });
     }
   }
+  if (msg.type === "mediaEnded") {
+    if (nativePort) {
+      try { nativePort.postMessage({ type: "mediaEnded" }); } catch (e) { }
+    }
+    return Promise.resolve({ ok: true });
+  }
+  if (msg.type === "queueAdd") {
+    if (!nativePort) return Promise.resolve({ error: "app non connectee" });
+    try {
+      nativePort.postMessage({
+        type: "queueAdd", url: msg.url || "", title: msg.title || ""
+      });
+      return Promise.resolve({ ok: true });
+    } catch (e) {
+      return Promise.resolve({ error: String(e) });
+    }
+  }
   if (msg.type === "openVideoExternal") {
     if (!nativePort) return Promise.resolve({ error: "app non connectee" });
     try {

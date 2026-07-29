@@ -105,6 +105,11 @@
           '<button data-open="' + i + '" style="flex:1;padding:8px;border:1px solid ' +
           '#2b4a63;border-radius:7px;background:#1c1f26;color:#8ab4f8;font-size:12px">' +
           'Ouvrir (VLC\u2026)</button>';
+        // « + File » ajoute la video a la file d'attente de lecture.
+        const queueBtn =
+          '<button data-queue="' + i + '" style="padding:8px 12px;border:1px solid ' +
+          '#4a3d5c;border-radius:7px;background:#1c1f26;color:#b58ad1;font-size:12px">' +
+          '+ File</button>';
         return '<div style="border:1px solid #2b303a;border-radius:8px;padding:9px;' +
           'margin-bottom:8px">' +
           '<div style="font-size:11px;color:#8ab4f8;word-break:break-all;' +
@@ -112,7 +117,7 @@
           '<div style="font-size:11px;color:#99a0ad;margin-bottom:6px">' +
           esc(k.label) + '</div>' +
           '<div style="display:flex;align-items:center;gap:8px">' +
-          btn + openBtn + '</div></div>';
+          btn + openBtn + queueBtn + '</div></div>';
       }).join("");
       panel.innerHTML =
         '<div style="font-weight:600;margin-bottom:8px">Videos de cette page ' +
@@ -130,10 +135,30 @@
       const dl = e.target.getAttribute && e.target.getAttribute("data-dl");
       if (dl != null) { startDownload(list[+dl], e.target); return; }
       const op = e.target.getAttribute && e.target.getAttribute("data-open");
-      if (op != null) openExternal(list[+op], e.target);
+      if (op != null) { openExternal(list[+op], e.target); return; }
+      const q = e.target.getAttribute && e.target.getAttribute("data-queue");
+      if (q != null) addToQueue(list[+q], e.target);
     });
 
     document.documentElement.appendChild(panel);
+  }
+
+  async function addToQueue(v, btn) {
+    if (!v) return;
+    // Une video de flux (hls) ne se rejoue pas hors de sa page : pour la
+    // file, on met plutot l'URL de la page courante, qui rechargera le
+    // lecteur du site. Un fichier direct peut etre mis tel quel.
+    const target = (v.kind === "file") ? v.url : location.href;
+    const title = (document.title || location.hostname).slice(0, 80);
+    btn.textContent = "\u2026";
+    try {
+      const res = await browser.runtime.sendMessage({
+        type: "queueAdd", url: target, title: title
+      });
+      btn.textContent = (res && res.ok) ? "Ajoute" : "Echec";
+    } catch (e) {
+      btn.textContent = "Echec";
+    }
   }
 
   async function openExternal(v, btn) {

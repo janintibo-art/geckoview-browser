@@ -2853,6 +2853,9 @@ public class MainActivity extends Activity {
             .sub("\u23F2", "Minuteur d'arret",
                  sleepTimerAt > 0 ? "actif" : "arreter la lecture apres un delai",
                  () -> showSleepTimerMenu(this::showMenu))
+            // MEDIA_QUEUE_V1 — file d'attente de lecture.
+            .sub("\u2630", "File d'attente", MediaQueue.summary(this),
+                 this::showMediaQueue)
             // DOWNLOAD_CENTER_V1 — file systeme, progression et historique.
             .sub("\u21E9", "Telechargements", DownloadCenter.summary(this),
                  () -> DownloadCenter.show(this, this::showMenu))
@@ -3079,6 +3082,29 @@ public class MainActivity extends Activity {
             sleepTimerTask = null;
         }
         sleepTimerAt = 0;
+    }
+
+    // =======================================================================
+    //  File d'attente de lecture
+    // =======================================================================
+    private void playNextInQueue() {
+        MediaQueue.Item next = MediaQueue.poll(this);
+        if (next == null) return;
+        Toast.makeText(this, "File : lecture suivante", Toast.LENGTH_SHORT).show();
+        loadUrlInCurrentTab(next.url);
+    }
+
+    private void loadUrlInCurrentTab(String url) {
+        if (url == null || url.isEmpty()) return;
+        if (session != null) {
+            if (!session.isOpen()) session.open(sRuntime);
+            session.loadUri(url);
+        }
+    }
+
+    private void showMediaQueue() {
+        MediaQueue.show(this, this::showMenu,
+                item -> loadUrlInCurrentTab(item.url));
     }
 
     private void sendCommand(String cmd) {
@@ -4209,6 +4235,28 @@ public class MainActivity extends Activity {
                         if ("gmCommands".equals(kind)) {
                             org.json.JSONArray list = json.optJSONArray("list");
                             gmCommands = list != null ? list : new org.json.JSONArray();
+                            return;
+                        }
+
+                        if ("queueAdd".equals(kind)) {
+                            final String url = json.optString("url", "");
+                            final String title = json.optString("title", "");
+                            if (!url.isEmpty()) {
+                                runOnUiThread(() -> {
+                                    boolean ok = MediaQueue.add(MainActivity.this, url, title);
+                                    Toast.makeText(MainActivity.this, ok
+                                            ? "Ajoute a la file (" + MediaQueue.size(MainActivity.this) + ")"
+                                            : "Deja dans la file", Toast.LENGTH_SHORT).show();
+                                });
+                            }
+                            return;
+                        }
+
+                        if ("mediaEnded".equals(kind)) {
+                            // Une video s'est terminee : enchainer la file si
+                            // elle contient quelque chose, et si l'onglet actif
+                            // est bien celui qui jouait.
+                            runOnUiThread(MainActivity.this::playNextInQueue);
                             return;
                         }
 

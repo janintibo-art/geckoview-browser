@@ -314,8 +314,12 @@ inconditionnel dans le panneau video, y compris pour DASH/proteges.
 sous-titres / boost+capture, dans cet ordre). Fait : reprise de position
 (player.js, cle playerResume par URL, propose une fois par element video) et
 minuteur d'arret (MainActivity, Handler qui envoie mediaPauseAll -- commande
-ajoutee dans media-tools.js). Reste a faire : file d'attente audio, telechargement
-des sous-titres, boost du volume + capture d'image.
+ajoutee dans media-tools.js). File d'attente : MediaQueue.java (persistee, cle mediaQueue). Ajout via
+bouton « + File » du panneau video (commande queueAdd). Enchainement : player.js
+envoie mediaEnded a la fin d'une video (>30s, cadre principal), MainActivity
+charge la suivante. Un flux de plateforme remet la PAGE en file (pas l'URL du
+flux, injouable hors contexte) ; un fichier direct est mis tel quel.
+Reste a faire : telechargement des sous-titres, boost du volume + capture d'image.
 
 **`qualifyDomain()` (background.js) est le seul endroit qui qualifie un
 domaine tiers** — propriétaire, catégorie, régie. Le rapport « qui parle à
