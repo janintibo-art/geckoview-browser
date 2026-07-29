@@ -217,10 +217,100 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // Capteur global : toute exception non geree, sur n'importe quel
+        // thread (y compris les threads internes de GeckoView), est ecrite sur
+        // disque avant que le systeme ne tue le processus. Le contenu est
+        // affiche au lancement suivant. C'est ce qui permet de diagnostiquer un
+        // blocage sans PC ni adb.
+        installCrashCatcher();
+
+        // Un plantage precedent a-t-il ete enregistre ? l'afficher et s'arreter.
+        if (showSavedCrash()) return;
+
         try {
             startBrowser(savedInstanceState);
         } catch (Throwable fatal) {
+            saveCrash("onCreate", fatal);
             showStartupError(fatal);
+        }
+    }
+
+    private java.io.File crashFile() {
+        return new java.io.File(getFilesDir(), "last-crash.txt");
+    }
+
+    private void installCrashCatcher() {
+        final Thread.UncaughtExceptionHandler prev =
+                Thread.getDefaultUncaughtExceptionHandler();
+        Thread.setDefaultUncaughtExceptionHandler((thread, ex) -> {
+            saveCrash("thread " + thread.getName(), ex);
+            if (prev != null) prev.uncaughtException(thread, ex);
+        });
+    }
+
+    private void saveCrash(String where, Throwable e) {
+        try {
+            StringBuilder sb = new StringBuilder();
+            sb.append("Contexte : ").append(where).append("\n");
+            sb.append(e.toString()).append("\n\n");
+            for (StackTraceElement el : e.getStackTrace()) {
+                sb.append("  ").append(el.toString()).append("\n");
+            }
+            Throwable cause = e.getCause();
+            while (cause != null) {
+                sb.append("\nCause : ").append(cause.toString()).append("\n");
+                for (StackTraceElement el : cause.getStackTrace()) {
+                    sb.append("  ").append(el.toString()).append("\n");
+                }
+                cause = cause.getCause();
+            }
+            java.io.FileWriter w = new java.io.FileWriter(crashFile(), false);
+            w.write(sb.toString());
+            w.close();
+        } catch (Throwable ignored) { }
+    }
+
+    private boolean showSavedCrash() {
+        try {
+            java.io.File f = crashFile();
+            if (!f.exists()) return false;
+            StringBuilder sb = new StringBuilder();
+            java.io.BufferedReader r = new java.io.BufferedReader(new java.io.FileReader(f));
+            String line;
+            while ((line = r.readLine()) != null) sb.append(line).append("\n");
+            r.close();
+            f.delete();
+
+            android.widget.LinearLayout col = new android.widget.LinearLayout(this);
+            col.setOrientation(android.widget.LinearLayout.VERTICAL);
+            col.setBackgroundColor(0xFF14161A);
+            col.setPadding(40, 80, 40, 40);
+
+            android.widget.TextView head = new android.widget.TextView(this);
+            head.setText("Dernier plantage enregistre\n(copiez ce texte pour le diagnostic)");
+            head.setTextColor(0xFFD97757);
+            head.setTextSize(16);
+            col.addView(head);
+
+            android.widget.TextView tv = new android.widget.TextView(this);
+            tv.setText("\n" + sb);
+            tv.setTextIsSelectable(true);
+            tv.setTextColor(0xFFE8EAEE);
+            tv.setTextSize(12);
+            android.widget.ScrollView sv = new android.widget.ScrollView(this);
+            sv.addView(tv);
+            col.addView(sv);
+
+            android.widget.Button btn = new android.widget.Button(this);
+            btn.setText("Continuer quand meme");
+            btn.setOnClickListener(v -> { finish(); startActivity(getIntent()); });
+            col.addView(btn);
+
+            setContentView(col);
+            return true;
+        } catch (Throwable ignored) {
+            return false;
         }
     }
 
@@ -263,6 +353,37 @@ public class MainActivity extends Activity {
         ImageButton menuButton = findViewById(R.id.menu_button);
         progress = findViewById(R.id.progress);
         splash = findViewById(R.id.splash);
+
+        // Chien de garde : si l'ecran de demarrage est toujours la au bout de
+        // 9 s, c'est un gel (pas un plantage -- aucune exception ne serait
+        // levee). On affiche alors l'etat atteint et l'adresse d'accueil
+        // calculee, pour savoir OU ca coince.
+        splash.postDelayed(() -> {
+            if (splash == null || splash.getVisibility() != android.view.View.VISIBLE) return;
+            StringBuilder sb = new StringBuilder();
+            sb.append("Le demarrage n'a pas abouti.\n\n");
+            sb.append("searchBase : ").append(searchBase == null ? "non defini (extension pas chargee)" : searchBase).append("\n");
+            sb.append("homeLoaded : ").append(homeLoaded).append("\n");
+            sb.append("awaitingHome : ").append(awaitingHome).append("\n");
+            sb.append("onglets : ").append(tabs.size()).append("\n");
+            sb.append("actif : ").append(active).append("\n");
+            try {
+                sb.append("session ouverte : ").append(session != null && session.isOpen()).append("\n");
+                sb.append("url onglet actif : ").append(active >= 0 && active < tabs.size() ? tabs.get(active).url : "?").append("\n");
+            } catch (Throwable ignored) { }
+            sb.append("accueil calcule : ").append(safeHomeUrl()).append("\n");
+
+            android.widget.TextView tv = new android.widget.TextView(this);
+            tv.setText("Diagnostic du demarrage\n\n" + sb);
+            tv.setTextIsSelectable(true);
+            tv.setPadding(40, 90, 40, 40);
+            tv.setTextColor(0xFFE8EAEE);
+            tv.setBackgroundColor(0xFF14161A);
+            tv.setTextSize(13);
+            android.widget.ScrollView sv = new android.widget.ScrollView(this);
+            sv.addView(tv);
+            setContentView(sv);
+        }, 9000);
         tabButton = findViewById(R.id.tab_button);
         initFindBar();
 
@@ -4135,6 +4256,10 @@ public class MainActivity extends Activity {
             session.loadUri(homeUrl());
         } catch (Throwable ignored) { }
         hideSplash();
+    }
+
+    private String safeHomeUrl() {
+        try { return homeUrl(); } catch (Throwable e) { return "erreur: " + e; }
     }
 
     private String homeUrl() {
