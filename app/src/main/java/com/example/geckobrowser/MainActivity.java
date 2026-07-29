@@ -214,7 +214,39 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        try {
+            startBrowser(savedInstanceState);
+        } catch (Throwable fatal) {
+            showStartupError(fatal);
+        }
+    }
 
+    /**
+     * Filet de diagnostic : au moindre plantage du demarrage, montrer
+     * l'erreur a l'ecran plutot que de figer l'ecran d'accueil. Cela evite
+     * un blocage muet et donne tout de suite la classe et la ligne fautives.
+     */
+    private void showStartupError(Throwable e) {
+        try {
+            StringBuilder sb = new StringBuilder();
+            sb.append(e.toString()).append("\n\n");
+            StackTraceElement[] tr = e.getStackTrace();
+            for (int i = 0; i < tr.length && i < 12; i++) {
+                sb.append("  ").append(tr[i].toString()).append("\n");
+            }
+            android.widget.ScrollView sv = new android.widget.ScrollView(this);
+            android.widget.TextView tv = new android.widget.TextView(this);
+            tv.setText("Erreur au demarrage\n\n" + sb);
+            tv.setTextIsSelectable(true);
+            tv.setPadding(40, 80, 40, 40);
+            tv.setTextColor(0xFFE8EAEE);
+            tv.setBackgroundColor(0xFF14161A);
+            sv.addView(tv);
+            setContentView(sv);
+        } catch (Throwable ignored) { }
+    }
+
+    private void startBrowser(Bundle savedInstanceState) {
         prefs = getSharedPreferences("geckobrowser", MODE_PRIVATE);
         ThemeManager.applyWindow(this);
         setContentView(R.layout.activity_main);
@@ -258,9 +290,10 @@ public class MainActivity extends Activity {
 
         // WEB_NOTIFICATIONS_V1 — sans ce delegue, une page qui appelle
         // Notification() ne produit rien du tout.
-        webNotifications = new WebNotifications(this);
-        try { sRuntime.setWebNotificationDelegate(webNotifications); }
-        catch (Throwable ignored) { }
+        try {
+            webNotifications = new WebNotifications(this);
+            sRuntime.setWebNotificationDelegate(webNotifications);
+        } catch (Throwable ignored) { }
 
         // WEBAUTHN_V1 — chainon manquant pour que les passkeys fonctionnent
         // dans les pages : Gecko a besoin de faire lancer un PendingIntent
