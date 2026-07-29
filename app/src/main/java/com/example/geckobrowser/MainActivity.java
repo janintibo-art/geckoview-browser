@@ -2471,9 +2471,16 @@ public class MainActivity extends Activity {
 
     private void showToolbar() {
         android.view.View toolbar = findViewById(R.id.toolbar);
-        if (toolbar == null || !toolbarHidden) return;
-        toolbarHidden = false;
-        toolbar.animate().translationY(0f).setDuration(140).start();
+        if (toolbar == null) return;
+        // On remet la position meme si toolbarHidden dit deja « visible » :
+        // c'est le seul moyen de rattraper un decalage residuel.
+        if (toolbarHidden) {
+            toolbarHidden = false;
+            toolbar.animate().translationY(0f).setDuration(140).start();
+        } else if (toolbar.getTranslationY() != 0f) {
+            toolbar.animate().cancel();
+            toolbar.setTranslationY(0f);
+        }
     }
 
     private void hideToolbar() {
@@ -2487,8 +2494,18 @@ public class MainActivity extends Activity {
     }
 
     private void setBrowserChromeVisible(boolean visible) {
-        showToolbar();
         android.view.View toolbar = findViewById(R.id.toolbar);
+        if (visible && toolbar != null) {
+            // Rendre la barre visible ne suffit pas : la barre retractable a
+            // pu la decaler hors ecran via translationY. On remet la position
+            // a zero de facon synchrone (pas en animation, qui pourrait etre
+            // sautee si l'etat toolbarHidden s'est desynchronise) -- sinon la
+            // barre est « visible » mais invisible a l'ecran, ce qui donnait
+            // l'impression que le bouton menu avait disparu.
+            toolbar.animate().cancel();
+            toolbar.setTranslationY(0f);
+            toolbarHidden = false;
+        }
         if (toolbar != null) toolbar.setVisibility(
                 visible ? android.view.View.VISIBLE : android.view.View.GONE);
         if (!visible && findBar != null) findBar.setVisibility(android.view.View.GONE);

@@ -290,6 +290,20 @@ GB.foreground() est vrai dans toutes les iframes de l'onglet actif ; le cadre
 principal route donc la commande vers ses sous-cadres via postMessage pour
 qu'elle ne s'applique qu'a une video. La partie video est complete.
 
+**Barre retractable + visibilite** : deux systemes agissent sur la meme
+barre — `translationY` (repli au defilement) et `setVisibility` (mode app
+web, plein ecran). Piege : rendre la barre VISIBLE sans remettre
+translationY a 0 la laisse decalee hors ecran (le bouton menu « disparait »).
+`setBrowserChromeVisible(true)` force donc la position de facon synchrone, et
+`showToolbar()` rattrape tout decalage residuel meme si toolbarHidden dit
+« visible ». Ne jamais toucher l'un sans penser a l'autre.
+
+**Demarrage** : about:blank est charge implicitement a l'ouverture d'une
+session et renseigne currentUrl — le traiter comme "vide" (isBlankUrl) partout
+ou l'on decide de charger l'accueil, sinon blocage sur ecran de demarrage.
+Un capteur de plantage global (last-crash.txt, affiche au lancement suivant)
+reste en place, discret.
+
 **`qualifyDomain()` (background.js) est le seul endroit qui qualifie un
 domaine tiers** — propriétaire, catégorie, régie. Le rapport « qui parle à
 qui » et le journal réseau l'utilisent tous les deux ; ne pas dupliquer
