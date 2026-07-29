@@ -353,37 +353,6 @@ public class MainActivity extends Activity {
         ImageButton menuButton = findViewById(R.id.menu_button);
         progress = findViewById(R.id.progress);
         splash = findViewById(R.id.splash);
-
-        // Chien de garde : si l'ecran de demarrage est toujours la au bout de
-        // 9 s, c'est un gel (pas un plantage -- aucune exception ne serait
-        // levee). On affiche alors l'etat atteint et l'adresse d'accueil
-        // calculee, pour savoir OU ca coince.
-        splash.postDelayed(() -> {
-            if (splash == null || splash.getVisibility() != android.view.View.VISIBLE) return;
-            StringBuilder sb = new StringBuilder();
-            sb.append("Le demarrage n'a pas abouti.\n\n");
-            sb.append("searchBase : ").append(searchBase == null ? "non defini (extension pas chargee)" : searchBase).append("\n");
-            sb.append("homeLoaded : ").append(homeLoaded).append("\n");
-            sb.append("awaitingHome : ").append(awaitingHome).append("\n");
-            sb.append("onglets : ").append(tabs.size()).append("\n");
-            sb.append("actif : ").append(active).append("\n");
-            try {
-                sb.append("session ouverte : ").append(session != null && session.isOpen()).append("\n");
-                sb.append("url onglet actif : ").append(active >= 0 && active < tabs.size() ? tabs.get(active).url : "?").append("\n");
-            } catch (Throwable ignored) { }
-            sb.append("accueil calcule : ").append(safeHomeUrl()).append("\n");
-
-            android.widget.TextView tv = new android.widget.TextView(this);
-            tv.setText("Diagnostic du demarrage\n\n" + sb);
-            tv.setTextIsSelectable(true);
-            tv.setPadding(40, 90, 40, 40);
-            tv.setTextColor(0xFFE8EAEE);
-            tv.setBackgroundColor(0xFF14161A);
-            tv.setTextSize(13);
-            android.widget.ScrollView sv = new android.widget.ScrollView(this);
-            sv.addView(tv);
-            setContentView(sv);
-        }, 9000);
         tabButton = findViewById(R.id.tab_button);
         initFindBar();
 
@@ -4051,7 +4020,7 @@ public class MainActivity extends Activity {
                     // l'etat d'ouverture : c'est ce qui bloquait le lancement
                     // par l'icone (le widget, lui, forcait deja le chargement).
                     if (awaitingHome && !homeLoaded && session != null
-                            && (currentUrl == null || currentUrl.isEmpty())) {
+                            && isBlankUrl(currentUrl)) {
                         homeLoaded = true;
                         awaitingHome = false;
                         if (!session.isOpen()) session.open(sRuntime);
@@ -4246,7 +4215,7 @@ public class MainActivity extends Activity {
     private void forceHomeFallback() {
         if (homeLoaded || !awaitingHome) return;
         if (session == null) return;
-        if (currentUrl != null && !currentUrl.isEmpty()) { awaitingHome = false; return; }
+        if (!isBlankUrl(currentUrl)) { awaitingHome = false; return; }
         homeLoaded = true;
         awaitingHome = false;
         try {
@@ -4256,6 +4225,16 @@ public class MainActivity extends Activity {
             session.loadUri(homeUrl());
         } catch (Throwable ignored) { }
         hideSplash();
+    }
+
+    /**
+     * Une page « vide » au demarrage : chaine vide OU about:blank. GeckoView
+     * charge implicitement about:blank a l'ouverture d'une session, ce qui
+     * renseignait currentUrl et faisait croire, a tort, qu'une vraie page
+     * etait deja affichee -- c'est ce qui bloquait tout le demarrage.
+     */
+    private static boolean isBlankUrl(String url) {
+        return url == null || url.isEmpty() || "about:blank".equals(url);
     }
 
     private String safeHomeUrl() {
