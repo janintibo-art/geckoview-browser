@@ -193,6 +193,11 @@ def check_java():
         src = read(os.path.join(JAVA, cls + ".java"))
         defs = set(re.findall(
             r"(?:public|private|protected|static)[\w\s<>\[\].]*?\s(\w+)\s*\(", src))
+        # CHECK_NESTED_TYPES_V1 — ClassName.NestedType(...) est un constructeur,
+        # pas un appel de methode statique. Le controleur doit donc reconnaitre
+        # les types imbriques declares dans la classe cible.
+        defs.update(re.findall(
+            r"\b(?:class|interface|enum|record)\s+(\w+)\b", src))
         for caller in sorted(classes):
             if caller == cls:
                 continue
