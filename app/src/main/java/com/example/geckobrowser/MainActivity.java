@@ -117,6 +117,13 @@ public class MainActivity extends Activity {
     // EXTENSION_MANAGER_V1 — installation, permissions et actions WebExtension.
     private ExtensionManager extensionManager;
 
+    /**
+     * Adresses deja visitees, pour la coloration des liens dans les pages.
+     * En memoire seulement, et jamais alimente par un onglet prive.
+     */
+    private final java.util.Set<String> visited =
+            java.util.Collections.synchronizedSet(new java.util.HashSet<>());
+
     private static final int REQ_FILE = 8123;
     private static final int REQ_EXTENSION = 8124;
     private GeckoResult<GeckoSession.PromptDelegate.PromptResponse> pendingFile;
@@ -216,6 +223,15 @@ public class MainActivity extends Activity {
         splash = findViewById(R.id.splash);
         tabButton = findViewById(R.id.tab_button);
         initFindBar();
+
+        // La hauteur de la barre n'est connue qu'apres la premiere mise en
+        // page : c'est le seul moment ou on peut la transmettre au moteur.
+        android.view.View bar = findViewById(R.id.toolbar);
+        if (bar != null) {
+            bar.post(this::updateDynamicToolbar);
+            bar.addOnLayoutChangeListener(
+                (v, l, tp, r, b, ol, otp, orr, ob) -> updateDynamicToolbar());
+        }
         ThemeManager.apply(this);
         sessionSaveHandler = new android.os.Handler(getMainLooper());
         mediaHub = new MediaHub(this);
@@ -504,6 +520,37 @@ public class MainActivity extends Activity {
             }
         });
 
+        // La barre se replie au defilement vers le bas, reapparait vers le haut.
+        session.setScrollDelegate((s, scrollX, scrollY) -> {
+            if (!dynamicToolbar() || s != session) return;
+            if (scrollY <= 8) { showToolbar(); return; }
+            if (scrollY > lastScrollY + 12) hideToolbar();
+            else if (scrollY < lastScrollY - 12) showToolbar();
+            lastScrollY = scrollY;
+        });
+
+        // HISTORY_DELEGATE_V1 — sans ce delegue, aucun lien ne s'affiche
+        // comme deja visite dans les pages.
+        session.setHistoryDelegate(new GeckoSession.HistoryDelegate() {
+            @Override
+            public GeckoResult<Boolean> onVisited(GeckoSession s, String url,
+                                                  String lastVisitedURL, int flags) {
+                if (!priv && url != null && url.startsWith("http")) {
+                    visited.add(url);
+                }
+                return GeckoResult.fromValue(true);
+            }
+
+            @Override
+            public GeckoResult<boolean[]> getVisited(GeckoSession s, String[] urls) {
+                boolean[] out = new boolean[urls.length];
+                for (int i = 0; i < urls.length; i++) {
+                    out[i] = !priv && visited.contains(urls[i]);
+                }
+                return GeckoResult.fromValue(out);
+            }
+        });
+
         session.setContentDelegate(new GeckoSession.ContentDelegate() {
             @Override
             public void onTitleChange(GeckoSession s, String title) {
@@ -515,6 +562,13 @@ public class MainActivity extends Activity {
             @Override
             public void onWebAppManifest(GeckoSession s, JSONObject manifest) {
                 webApps.onManifest(s, manifest, tab.url, tab.title);
+            }
+
+            // CONTEXT_MENU_V1 — appui long sur un lien, une image ou un media.
+            @Override
+            public void onContextMenu(GeckoSession s, int screenX, int screenY,
+                                      GeckoSession.ContentDelegate.ContextElement element) {
+                showContextMenu(element);
             }
 
             // Fichier que Gecko ne peut pas afficher : on l'enregistre.
@@ -1753,6 +1807,77 @@ public class MainActivity extends Activity {
     }
 
     // =======================================================================
+    //  Menu contextuel (appui long)
+    //  Gecko fournit l'element touche et ses adresses : on branche dessus
+    //  les fonctions deja presentes (identites, telechargements, traduction)
+    //  plutot que d'en reecrire.
+    // =======================================================================
+    private void showContextMenu(GeckoSession.ContentDelegate.ContextElement el) {
+        if (el == null) return;
+        final String link = el.linkUri == null ? "" : el.linkUri;
+        final String src = el.srcUri == null ? "" : el.srcUri;
+        final String title = el.title == null || el.title.isEmpty()
+                ? (el.altText == null ? "" : el.altText) : el.title;
+
+        String heading = !link.isEmpty() ? shortUrl(link)
+                : (!src.isEmpty() ? shortUrl(src) : "Element");
+        Menus m = new Menus(this, heading);
+
+        if (!link.isEmpty()) {
+            m.add("\u002B", "Ouvrir dans un nouvel onglet", () -> {
+                setupSession(privateMode, link);
+                selectTab(tabs.size() - 1);
+            });
+            m.add("\u25D1", "Ouvrir dans un onglet prive", () -> {
+                setupSession(true, link);
+                selectTab(tabs.size() - 1);
+            });
+            m.add("\u25F3", "Ouvrir dans une identite", () ->
+                ContainerManager.pick(this, "Ouvrir le lien", false, null, null,
+                    id -> setupSessionIn(id, link)));
+            m.add("\u2398", "Copier l'adresse du lien", shortUrl(link),
+                  () -> copyText("lien", link));
+            final String label = title.isEmpty() ? shortUrl(link) : title;
+            m.add("\u2606", "Ajouter aux favoris", label, () ->
+                  pickCategory("Classer dans", cat -> saveBookmark(link, label, cat)));
+        }
+
+        if (!src.isEmpty()) {
+            boolean media = el.type == GeckoSession.ContentDelegate.ContextElement.TYPE_VIDEO
+                    || el.type == GeckoSession.ContentDelegate.ContextElement.TYPE_AUDIO;
+            String what = el.type == GeckoSession.ContentDelegate.ContextElement.TYPE_IMAGE
+                    ? "l'image" : (media ? "le media" : "la ressource");
+
+            m.add("\u21E9", "Telecharger " + what, shortUrl(src), () ->
+                  Downloads.saveUrls(this, new String[] { src }, currentUrl));
+            m.add("\u2398", "Copier l'adresse de " + what, () -> copyText("adresse", src));
+            m.add("\u29C9", "Ouvrir " + what + " dans un onglet", () -> {
+                setupSession(privateMode, src);
+                selectTab(tabs.size() - 1);
+            });
+        }
+
+        m.add("\u6587", "Traduire la selection", "vers " + trLangName(),
+              () -> sendCommand("translateSel"));
+
+        m.show();
+    }
+
+    /** Adresse raccourcie pour tenir sur une ligne de menu. */
+    private String shortUrl(String url) {
+        if (url == null) return "";
+        String u = url.replaceFirst("^https?://(www\\.)?", "");
+        return u.length() > 48 ? u.substring(0, 48) + "\u2026" : u;
+    }
+
+    private void copyText(String label, String value) {
+        ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+        if (cm == null) return;
+        cm.setPrimaryClip(ClipData.newPlainText(label, value));
+        Toast.makeText(this, "Copie", Toast.LENGTH_SHORT).show();
+    }
+
+    // =======================================================================
     //  Identites et conteneurs
     // =======================================================================
     private String currentContainer() {
@@ -2009,7 +2134,47 @@ public class MainActivity extends Activity {
         }
     }
 
+    // =======================================================================
+    //  Barre d'adresse retractable
+    //  Gecko decale lui-meme le contenu et signale le defilement : la barre
+    //  se replie vers le haut sans que la page ne saute.
+    // =======================================================================
+    private boolean toolbarHidden = false;
+    private int lastScrollY = 0;
+
+    private boolean dynamicToolbar() {
+        return prefs.getBoolean("dynamicToolbar", true);
+    }
+
+    /** Hauteur reelle de la barre, transmise au moteur. */
+    private void updateDynamicToolbar() {
+        android.view.View toolbar = findViewById(R.id.toolbar);
+        if (toolbar == null) return;
+        int h = dynamicToolbar() && toolbar.getVisibility() == android.view.View.VISIBLE
+                ? toolbar.getHeight() : 0;
+        try { geckoView.setDynamicToolbarMaxHeight(h); } catch (Throwable ignored) { }
+        if (h == 0) showToolbar();
+    }
+
+    private void showToolbar() {
+        android.view.View toolbar = findViewById(R.id.toolbar);
+        if (toolbar == null || !toolbarHidden) return;
+        toolbarHidden = false;
+        toolbar.animate().translationY(0f).setDuration(140).start();
+    }
+
+    private void hideToolbar() {
+        android.view.View toolbar = findViewById(R.id.toolbar);
+        if (toolbar == null || toolbarHidden) return;
+        // Jamais pendant une saisie d'adresse ou une recherche dans la page.
+        if (urlBar.hasFocus()) return;
+        if (findBar != null && findBar.getVisibility() == android.view.View.VISIBLE) return;
+        toolbarHidden = true;
+        toolbar.animate().translationY(-toolbar.getHeight()).setDuration(140).start();
+    }
+
     private void setBrowserChromeVisible(boolean visible) {
+        showToolbar();
         android.view.View toolbar = findViewById(R.id.toolbar);
         if (toolbar != null) toolbar.setVisibility(
                 visible ? android.view.View.VISIBLE : android.view.View.GONE);
@@ -2330,6 +2495,13 @@ public class MainActivity extends Activity {
             .sub("\u25F3", "Identites",
                  ContainerManager.summary(this, currentContainer()),
                  this::showContainers)
+            .add(dynamicToolbar() ? "\u25C9" : "\u25CB", "Barre retractable",
+                 dynamicToolbar() ? "se replie au defilement" : "toujours visible",
+                 () -> {
+                     prefs.edit().putBoolean("dynamicToolbar", !dynamicToolbar()).apply();
+                     updateDynamicToolbar();
+                     showMenu();
+                 })
             .sub("\u2318", "Mode developpeur", DeveloperMode.summary(this),
                  () -> DeveloperMode.show(this, sRuntime, this::showMenu))
             // LAB_V1 — fonctions experimentales du moteur.

@@ -252,13 +252,24 @@ ancres d'un coup plutôt que de corriger une erreur à la fois, et préférer
 des ancres **courtes et stables** (une ligne unique) à de longs blocs.
 
 `tools/balance.py` vérifie l'équilibre accolades/parenthèses en
-comprenant chaînes, caractères et commentaires — à lancer après tout
-overlay, en complément de `check.py`.
+comprenant chaînes, caractères et commentaires. `tools/arity.py` vérifie
+que chaque appel a le bon nombre d'arguments — `check.py` vérifie qu'une
+méthode existe, pas qu'elle est appelée correctement (`addBookmark(a, b)`
+passait alors que la méthode n'en prend aucun). Lancer les trois après
+tout overlay.
 
 ## Pour la prochaine session
 
-La liste des 14 étapes est terminée. Idées restantes : détecteur de
-mouchards *dans* le rapport réseau enrichi, menu contextuel sur appui long. Autres idées : détecteur de
+La liste des 14 étapes est terminée, plus le menu contextuel, la barre
+rétractable et les liens visités.
+
+API GeckoView repérées et **pas encore exploitées** : `PrintDelegate`
+(impression / export PDF natif), `gotoHistoryIndex` (pile d'historique sur
+appui long de Précédent), `WebNotificationDelegate` (notifications des
+sites), `setActivityDelegate` (passkeys WebAuthn dans les pages),
+exceptions de protection par site via les `ContentPermission`,
+`crashHandler` (survie à un plantage du moteur), `ProfilerController`.
+Autre idée : détecteur de mouchards *dans* le rapport réseau enrichi. Autres idées : détecteur de
 mouchards *dans* le rapport réseau enrichi, menu contextuel sur appui long.
 
 Dette connue : 7 fichiers `MainActivity.java.before-*` (~780 Ko) et deux
