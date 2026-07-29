@@ -66,6 +66,9 @@ public class MainActivity extends Activity {
         /** Langue detectee par Gecko, pour la traduction de page. */
         String langTag;
 
+        // CONTAINERS_V1 — identite (contextId Gecko) de cet onglet.
+        String container = "";
+
         // TAB_WORKSPACE_V1 — organisation, apercu et economie de memoire.
         String id = java.util.UUID.randomUUID().toString();
         String group = "";
@@ -363,7 +366,25 @@ public class MainActivity extends Activity {
     // =======================================================================
     /** Cree un onglet, l'ajoute a la liste et l'affiche. */
     private void setupSession(boolean priv, String target) {
-        setupSession(priv, target, false, null);
+        setupSession(priv, target, false, null, pendingContainer());
+    }
+
+    /** Ouvre un onglet dans une identite donnee. */
+    private void setupSessionIn(String container, String target) {
+        setupSession(ContainerManager.isPrivateId(container), target, false, null, container);
+        selectTab(tabs.size() - 1);
+    }
+
+    /**
+     * Identite d'un nouvel onglet : celle demandee explicitement, sinon
+     * celle de l'onglet courant, sinon l'identite par defaut.
+     */
+    private String pendingContainer() {
+        if (active >= 0 && active < tabs.size()) {
+            String c = tabs.get(active).container;
+            if (c != null && !c.isEmpty()) return c;
+        }
+        return ContainerManager.defaultId(this);
     }
 
     /**
@@ -373,29 +394,42 @@ public class MainActivity extends Activity {
      *             simultanement au demarrage rendait le lancement poussif.
      */
     private void setupSession(boolean priv, String target, boolean lazy) {
-        setupSession(priv, target, lazy, null);
+        setupSession(priv, target, lazy, null, pendingContainer());
+    }
+
+    private void setupSession(boolean priv, String target, boolean lazy,
+                              String restoredState) {
+        setupSession(priv, target, lazy, restoredState, pendingContainer());
     }
 
     /** Cree une session, eventuellement avec un etat Gecko a restaurer. */
-    private void setupSession(boolean priv, String target, boolean lazy, String restoredState) {
+    private void setupSession(boolean priv, String target, boolean lazy,
+                              String restoredState, String container) {
         privateMode = priv;
         if (!lazy) DownloadCenter.setPrivateBrowsing(priv);
 
         int pi = profileIndex();
         if (pi > 0 && pi < PROFILES.length) desktopMode = "1".equals(PROFILES[pi][4]);
 
-        GeckoSessionSettings settings = new GeckoSessionSettings.Builder()
+        // CONTAINERS_V1 — un contextId distinct cloisonne cookies, stockage
+        // local et connexions entre identites.
+        final String containerId = container == null ? "" : container;
+        GeckoSessionSettings.Builder builder = new GeckoSessionSettings.Builder()
                 .usePrivateMode(priv)
                 .userAgentMode(desktopMode
                         ? GeckoSessionSettings.USER_AGENT_MODE_DESKTOP
                         : GeckoSessionSettings.USER_AGENT_MODE_MOBILE)
                 .viewportMode(desktopMode
                         ? GeckoSessionSettings.VIEWPORT_MODE_DESKTOP
-                        : GeckoSessionSettings.VIEWPORT_MODE_MOBILE)
-                .build();
+                        : GeckoSessionSettings.VIEWPORT_MODE_MOBILE);
+        if (!containerId.isEmpty()) {
+            try { builder.contextId(containerId); } catch (Throwable ignored) { }
+        }
+        GeckoSessionSettings settings = builder.build();
 
         final Tab tab = new Tab();
         tab.priv = priv;
+        tab.container = containerId;
         tab.state = restoredState;
         tab.lastUsed = System.currentTimeMillis();
         session = new GeckoSession(settings);
@@ -965,6 +999,9 @@ public class MainActivity extends Activity {
         if (t.pinned) bits.add("epingle");
         if (t.sleeping) bits.add("en veille");
         if (t.priv) bits.add("prive");
+        if (t.container != null && !t.container.isEmpty()) {
+            bits.add(ContainerManager.nameOf(t.container));
+        }
         if (!"Sans groupe".equals(groupName(t))) bits.add(groupName(t));
         bits.add(hostForTab(t));
         bits.add(lastUsedText(t.lastUsed));
@@ -1365,6 +1402,9 @@ public class MainActivity extends Activity {
                 o.put("pinned", t.pinned);
                 o.put("sleeping", t.sleeping);
                 o.put("lastUsed", t.lastUsed);
+                if (t.container != null && !t.container.isEmpty()) {
+                    o.put("container", t.container);
+                }
                 if (t.webAppMode) {
                     o.put("webAppMode", true);
                     o.put("webAppId", t.webAppId);
@@ -1426,7 +1466,7 @@ public class MainActivity extends Activity {
                 String u = o.optString("url", "");
                 if (u.isEmpty()) continue;
                 String encoded = o.optString("state", "");
-                setupSession(false, u, true, encoded);
+                setupSession(false, u, true, encoded, o.optString("container", ""));
                 Tab restored = tabs.get(tabs.size() - 1);
                 restored.title = o.optString("title", "");
                 restored.id = o.optString("id", restored.id);
@@ -1685,6 +1725,89 @@ public class MainActivity extends Activity {
                 findCount.setText(r.current + "/" + r.total);
             }));
         } catch (Throwable ignored) { }
+    }
+
+    // =======================================================================
+    //  Identites et conteneurs
+    // =======================================================================
+    private String currentContainer() {
+        if (active < 0 || active >= tabs.size()) return "";
+        String c = tabs.get(active).container;
+        return c == null ? "" : c;
+    }
+
+    private void showContainers() {
+        String current = currentContainer();
+        Menus m = new Menus(this, "Identites");
+
+        m.add(ContainerManager.iconOf(current), "Identite de cet onglet",
+              ContainerManager.nameOf(current), () -> Menus.info(this, "Identite",
+                  "Cet onglet navigue dans l'identite \u00ab "
+                  + ContainerManager.nameOf(current) + " \u00bb.\n\n"
+                  + "L'identite se choisit a l'ouverture d'un onglet et ne peut "
+                  + "pas changer ensuite : le cloisonnement est fixe par Gecko a "
+                  + "la creation de la session."));
+
+        m.add("\u002B", "Nouvel onglet dans une identite", () ->
+              ContainerManager.pick(this, "Nouvel onglet", false, null,
+                  this::showContainers, id -> setupSessionIn(id, null)));
+
+        if (onWebPage()) {
+            m.add("\u29C9", "Ouvrir cette page dans une autre identite",
+                  pageHost(), () -> {
+                      final String url = currentUrl;
+                      ContainerManager.pick(this, "Ouvrir ailleurs", false, current,
+                          this::showContainers, id -> setupSessionIn(id, url));
+                  });
+        }
+
+        m.sub("\u2699", "Identite par defaut",
+              ContainerManager.nameOf(ContainerManager.defaultId(this)), () ->
+              ContainerManager.pick(this, "Identite par defaut", true, null,
+                  this::showContainers, id -> {
+                      ContainerManager.setDefaultId(this, id);
+                      showContainers();
+                  }));
+
+        m.add("\u2327", "Effacer les donnees d'une identite", () ->
+              ContainerManager.pick(this, "Effacer une identite", true, null,
+                  this::showContainers, this::confirmClearContainer));
+
+        m.add("\u24D8", "Fonctionnement", "ce qui est isole, ce qui ne l'est pas",
+              () -> Menus.info(this, "Identites et conteneurs",
+                  "Chaque identite possede son propre espace de cookies, de "
+                  + "stockage local et de connexions. Etre connecte a un site "
+                  + "dans une identite n'a aucun effet dans les autres.\n\n"
+                  + "Temporaire et Anonyme n'ecrivent rien sur le disque et ne "
+                  + "sont pas restaures au redemarrage.\n\n"
+                  + "Ce cloisonnement ne masque pas l'adresse IP et n'empeche "
+                  + "pas un site de reconnaitre l'appareil par son empreinte. "
+                  + "Pour l'adresse IP, le routage Tor est une fonction "
+                  + "distincte."));
+
+        m.back(this::showMenu).show();
+    }
+
+    private void confirmClearContainer(String id) {
+        final String name = ContainerManager.nameOf(id);
+        int open = 0;
+        for (Tab t : tabs) if (id.equals(t.container == null ? "" : t.container)) open++;
+        final int openTabs = open;
+
+        Menus.dialog(this)
+            .setTitle("Effacer \u00ab " + name + " \u00bb ?")
+            .setMessage("Cookies, stockage local et connexions de cette identite "
+                    + "seront effaces. Les autres identites ne sont pas touchees."
+                    + (openTabs > 0
+                       ? "\n\n" + openTabs + " onglet(s) de cette identite sont "
+                         + "ouverts : rechargez-les ensuite."
+                       : ""))
+            .setPositiveButton("Effacer", (d, w) ->
+                ContainerManager.clear(sRuntime, id, () ->
+                    Toast.makeText(this, "Donnees de \u00ab " + name + " \u00bb effacees",
+                            Toast.LENGTH_SHORT).show()))
+            .setNegativeButton("Annuler", null)
+            .show();
     }
 
     // =======================================================================
@@ -2178,6 +2301,10 @@ public class MainActivity extends Activity {
             .add("\u2302", "Accueil", () -> session.loadUri(homeUrl()))
             .add("\u21BB", "Recharger", () -> session.reload())
             .sub("\u25A5", "Onglets", tabs.size() + " ouvert(s)", this::showTabs)
+            // CONTAINERS_V1 — espaces de navigation cloisonnes.
+            .sub("\u25F3", "Identites",
+                 ContainerManager.summary(this, currentContainer()),
+                 this::showContainers)
             .sub("\u25EB", "Ecran partage", splitScreen.summary(),
                  this::showSplitScreenMenu)
             .sub("\u25B6", "Multimedia", mediaHub.summary(),

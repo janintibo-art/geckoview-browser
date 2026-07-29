@@ -163,6 +163,12 @@ concentration des médias, et plus. Voir la liste complète plus bas.
   `p = { lang, df }`. Ne jamais réintroduire de région en dur ; un filtre de
   langue explicite passe par le panneau « Affiner » (`adv` dans search.js),
   dont l'état vit dans l'URL et dans la clé du cache.
+- **L'identité d'un onglet est fixée à sa création** : `contextId` se pose
+  dans `GeckoSessionSettings` et n'est plus modifiable. Toute restauration
+  ou duplication doit donc passer l'identité à `setupSession(..., container)`
+  *avant* la création de la session — l'affecter au `Tab` ensuite ne
+  cloisonne rien. Temporaire et Anonyme sont en mode privé, donc exclus de
+  la sauvegarde de session.
 - **`GB.pick()` est le seul pointeur d'élément** : la dette des pointeurs
   maison (styles.js, watcher.js) est soldée. `GB.pick()` accepte désormais
   `actions` (boutons multiples, champ `action` en retour), `extra` (HTML
@@ -244,9 +250,7 @@ overlay, en complément de `check.py`.
 
 ## Pour la prochaine session
 
-Reste de la liste : identités et conteneurs (`contextId` par espace —
-étape jamais appliquée malgré le fichier `.before-containers`), mode
-développeur, version laboratoire GeckoView. Autres idées : détecteur de
+Reste de la liste : mode développeur, version laboratoire GeckoView. Autres idées : détecteur de
 mouchards *dans* le rapport réseau enrichi, menu contextuel sur appui long.
 
 Dette connue : 7 fichiers `MainActivity.java.before-*` (~780 Ko) et deux
