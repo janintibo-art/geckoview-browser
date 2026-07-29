@@ -574,12 +574,17 @@ public class MainActivity extends Activity {
         });
 
         // La barre se replie au defilement vers le bas, reapparait vers le haut.
-        session.setScrollDelegate((s, scrollX, scrollY) -> {
-            if (!dynamicToolbar() || s != session) return;
-            if (scrollY <= 8) { showToolbar(); return; }
-            if (scrollY > lastScrollY + 12) hideToolbar();
-            else if (scrollY < lastScrollY - 12) showToolbar();
-            lastScrollY = scrollY;
+        // Classe anonyme et non lambda : ScrollDelegate declare sa methode
+        // en `default`, ce n'est donc pas une interface fonctionnelle.
+        session.setScrollDelegate(new GeckoSession.ScrollDelegate() {
+            @Override
+            public void onScrollChanged(GeckoSession s, int scrollX, int scrollY) {
+                if (!dynamicToolbar() || s != session) return;
+                if (scrollY <= 8) { showToolbar(); return; }
+                if (scrollY > lastScrollY + 12) hideToolbar();
+                else if (scrollY < lastScrollY - 12) showToolbar();
+                lastScrollY = scrollY;
+            }
         });
 
         // HISTORY_DELEGATE_V1 — sans ce delegue, aucun lien ne s'affiche
@@ -4112,10 +4117,12 @@ public class MainActivity extends Activity {
             final int index = i;
             org.mozilla.geckoview.GeckoSession.HistoryDelegate.HistoryItem item = list.get(i);
             if (item == null) continue;
-            String title = item.title == null || item.title.isEmpty()
-                    ? shortUrl(item.uri) : item.title;
+            String itemUri = item.getUri();
+            String itemTitle = item.getTitle();
+            String title = itemTitle == null || itemTitle.isEmpty()
+                    ? shortUrl(itemUri) : itemTitle;
             m.add(i == current ? "\u25CF" : "\u25CB", title,
-                  shortUrl(item.uri),
+                  shortUrl(itemUri),
                   () -> { try { session.gotoHistoryIndex(index); } catch (Throwable ignored) { } });
         }
         m.back(this::showMenu).show();
