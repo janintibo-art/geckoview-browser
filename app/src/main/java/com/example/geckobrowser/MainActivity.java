@@ -706,8 +706,11 @@ public class MainActivity extends Activity {
             @Override
             public void onFirstContentfulPaint(GeckoSession s) {
                 // about:blank declenche aussi ce signal : ceder maintenant
-                // decouvrirait la page vierge, blanche par defaut.
-                if (s == session && isRealPage(tab.url)) hideSplash();
+                // decouvrirait la page vierge, blanche par defaut. On accepte
+                // donc soit une vraie page (URL connue), soit le fait que
+                // l'accueil a ete demande (homeLoaded) -- car au premier paint
+                // du metamoteur, tab.url n'est pas toujours encore renseigne.
+                if (s == session && (isRealPage(tab.url) || homeLoaded)) hideSplash();
             }
 
             @Override
@@ -830,7 +833,7 @@ public class MainActivity extends Activity {
                 // temporel garantit qu'on ne reste jamais bloque sur l'ecran
                 // de demarrage, meme si l'extension tarde ou echoue.
                 awaitingHome = true;
-                geckoView.postDelayed(this::forceHomeFallback, 6000);
+                geckoView.postDelayed(this::forceHomeFallback, 3500);
             }
         }
 
@@ -4101,6 +4104,14 @@ public class MainActivity extends Activity {
             homeLoaded = true;
             awaitingHome = false;
             session.loadUri(homeUrl());
+        } else {
+            // Metamoteur pas encore pret : au lieu de ne rien faire (ce qui
+            // laissait le splash fige), on marque l'onglet en attente. bindPort
+            // le chargera des que possible, et le repli temporel garantit le
+            // deblocage. On arme aussi ce repli ici, car loadHome() peut etre
+            // le seul declencheur (lancement par le widget de recherche).
+            awaitingHome = true;
+            geckoView.postDelayed(this::forceHomeFallback, 3500);
         }
     }
 
