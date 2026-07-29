@@ -249,3 +249,8 @@ Partager, Enregistrer et Markdown. Les actions sont masquees dans les champs de
 mot de passe. Les citations restent locales dans les preferences Android et
 sont accessibles depuis le menu principal.
 
+## Etape 11 — ecran partage
+
+- `SplitScreenManager.java` gere deux surfaces GeckoView sans dupliquer les sessions.
+- `MainActivity.java.before-split-screen` conserve la version precedente.
+- Le volet entoure est celui controle par la barre d'adresse et les menus.

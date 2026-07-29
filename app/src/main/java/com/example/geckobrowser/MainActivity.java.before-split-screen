@@ -98,9 +98,6 @@ public class MainActivity extends Activity {
     // WEB_APPS_V1 — manifestes, catalogue et raccourcis Android.
     private WebAppManager webApps;
 
-    // SPLIT_SCREEN_V1 — deux onglets visibles et redimensionnables.
-    private SplitScreenManager splitScreen;
-
     private static final int REQ_FILE = 8123;
     private GeckoResult<GeckoSession.PromptDelegate.PromptResponse> pendingFile;
     private GeckoSession.PromptDelegate.FilePrompt pendingFilePrompt;
@@ -213,18 +210,6 @@ public class MainActivity extends Activity {
                     passwordVault.isAutofillEnabled());
         } catch (Throwable ignored) { }
         webApps = new WebAppManager(this);
-        splitScreen = new SplitScreenManager(this, geckoView,
-                new SplitScreenManager.Host() {
-                    @Override
-                    public void onPaneFocused(GeckoSession target) {
-                        focusSplitSession(target);
-                    }
-
-                    @Override
-                    public String titleFor(GeckoSession target) {
-                        return splitTitleFor(target);
-                    }
-                });
         installBlocker();
 
         setupSession(false, null);
@@ -567,11 +552,7 @@ public class MainActivity extends Activity {
             tab.url = target == null ? "" : target;
         } else {
             session.open(sRuntime);
-            if (splitScreen != null && splitScreen.isActive()) {
-                splitScreen.selectSession(session);
-            } else {
-                attachPrimarySession(session);
-            }
+            geckoView.setSession(session);
 
             // Le compositeur n'existe qu'une fois la session rattachee a la vue :
             // fixer la couleur avant n'avait aucun effet.
@@ -619,22 +600,12 @@ public class MainActivity extends Activity {
      * la fois. C'est aussi ce qui permet a Gecko de reduire la priorite des
      * onglets non affiches (processeur, batterie).
      */
-    private void attachPrimarySession(GeckoSession target) {
-        if (target == null || geckoView.getSession() == target) return;
-        try {
-            if (geckoView.getSession() != null) geckoView.releaseSession();
-        } catch (Throwable ignored) { }
-        geckoView.setSession(target);
-    }
-
     private void applyTabActivity() {
         for (int i = 0; i < tabs.size(); i++) {
             GeckoSession s = tabs.get(i).session;
             if (s == null || !s.isOpen()) continue;
             try {
-                boolean visible = i == active
-                        || (splitScreen != null && splitScreen.isVisible(s));
-                s.setActive(visible);
+                s.setActive(i == active);
                 s.setFocused(i == active);
             } catch (Throwable ignored) { }
         }
@@ -655,11 +626,7 @@ public class MainActivity extends Activity {
         boolean firstOpen = !session.isOpen();
         if (firstOpen) session.open(sRuntime);
 
-        if (splitScreen != null && splitScreen.isActive()) {
-            splitScreen.selectSession(session);
-        } else {
-            attachPrimarySession(session);
-        }
+        geckoView.setSession(session);
         applyTabActivity();
 
         if (firstOpen) {
@@ -689,11 +656,6 @@ public class MainActivity extends Activity {
 
         urlBar.setText(currentUrl.startsWith("moz-extension://") ? "" : currentUrl);
         applyWebAppChrome(t);
-        if (splitScreen != null && splitScreen.isActive()) {
-            if (webApps != null) webApps.hideStandaloneBar();
-            setBrowserChromeVisible(true);
-            splitScreen.refreshLabels();
-        }
         updateTabButton();
         scheduleSessionSave();
     }
@@ -781,9 +743,6 @@ public class MainActivity extends Activity {
     private void closeTab(int index) {
         if (index < 0 || index >= tabs.size()) return;
         Tab t = tabs.get(index);
-        if (splitScreen != null && splitScreen.contains(t.session)) {
-            splitScreen.exit();
-        }
         if (!t.priv) toTrash("onglet", t.title, t.url);
 
         // Le dernier onglet n'est pas ferme : on le ramene a l'accueil.
@@ -811,8 +770,7 @@ public class MainActivity extends Activity {
 
     private void updateTabButton() {
         if (tabButton == null) return;
-        tabButton.setText(splitScreen != null && splitScreen.isActive()
-                ? "2/" + tabs.size() : String.valueOf(tabs.size()));
+        tabButton.setText(String.valueOf(tabs.size()));
         tabButton.setTextColor(privateMode ? 0xFF8AB4F8 : 0xFFE8EAEE);
     }
 
@@ -834,9 +792,7 @@ public class MainActivity extends Activity {
         for (int i = 0; i < tabs.size(); i++) {
             final int index = i;
             final Tab t = tabs.get(i);
-            String mark = i == active ? "\u25CF"
-                    : (splitScreen != null && splitScreen.contains(t.session) ? "\u25C9"
-                    : (t.priv ? "\u25D1" : "\u25CB"));
+            String mark = (i == active ? "\u25CF" : (t.priv ? "\u25D1" : "\u25CB"));
             String host = t.url.isEmpty() ? "vide" : t.url;
             if (host.length() > 46) host = host.substring(0, 46) + "…";
             m.add(mark, tabLabel(t), host, () -> selectTab(index));
@@ -858,7 +814,6 @@ public class MainActivity extends Activity {
     }
 
     private void closeOthers() {
-        if (splitScreen != null && splitScreen.isActive()) splitScreen.exit();
         Tab keep = tabs.get(active);
         for (Tab t : tabs) {
             if (t != keep) {
@@ -1002,15 +957,8 @@ public class MainActivity extends Activity {
     }
 
     @Override
-    public void onConfigurationChanged(android.content.res.Configuration configuration) {
-        super.onConfigurationChanged(configuration);
-        if (splitScreen != null) splitScreen.onConfigurationChanged(configuration);
-    }
-
-    @Override
     protected void onDestroy() {
         if (passwordVault != null) passwordVault.onActivityDestroyed(this);
-        if (splitScreen != null) splitScreen.release();
         if (webApps != null) webApps.release();
         if (mediaHub != null) mediaHub.release();
         super.onDestroy();
@@ -1298,7 +1246,6 @@ public class MainActivity extends Activity {
 
     void requestMediaPictureInPicture(long width, long height) {
         if (android.os.Build.VERSION.SDK_INT < 26 || isInPictureInPictureMode()) return;
-        if (splitScreen != null && splitScreen.isActive()) splitScreen.exit();
         try {
             long w = width > 0 ? width : 16;
             long h = height > 0 ? height : 9;
@@ -1324,7 +1271,6 @@ public class MainActivity extends Activity {
     }
 
     private void setMediaFullscreen(boolean enabled) {
-        if (enabled && splitScreen != null && splitScreen.isActive()) splitScreen.exit();
         mediaFullscreen = enabled;
         if (enabled) {
             if (webApps != null) webApps.hideStandaloneBar();
@@ -1360,181 +1306,6 @@ public class MainActivity extends Activity {
     }
 
 
-
-    // =======================================================================
-    //  Ecran partage
-    // =======================================================================
-    private String splitTitleFor(GeckoSession target) {
-        if (target == null) return "";
-        for (Tab tab : tabs) {
-            if (tab.session == target) return tabLabel(tab);
-        }
-        return "";
-    }
-
-    private int splitIndexFor(GeckoSession target) {
-        if (target == null) return -1;
-        for (int i = 0; i < tabs.size(); i++) {
-            if (tabs.get(i).session == target) return i;
-        }
-        return -1;
-    }
-
-    private void focusSplitSession(GeckoSession target) {
-        int index = splitIndexFor(target);
-        if (index < 0) return;
-
-        hideFindBar();
-        active = index;
-        Tab tab = tabs.get(index);
-        session = tab.session;
-        privateMode = tab.priv;
-        currentUrl = tab.url == null ? "" : tab.url;
-        currentTitle = tab.title == null ? "" : tab.title;
-
-        urlBar.setText(currentUrl.startsWith("moz-extension://") ? "" : currentUrl);
-        if (webApps != null) webApps.hideStandaloneBar();
-        setBrowserChromeVisible(true);
-        applyTabActivity();
-        updateTabButton();
-        if (splitScreen != null) splitScreen.refreshLabels();
-        scheduleSessionSave();
-    }
-
-    private void showSplitScreenMenu() {
-        if (splitScreen == null) return;
-        Menus menu = new Menus(this, "Ecran partage");
-
-        if (!splitScreen.isActive()) {
-            menu.add("\u25EB", "Choisir le second onglet",
-                    tabs.size() > 1 ? "afficher deux pages" : "aucun autre onglet",
-                    () -> chooseSplitTab(false));
-            menu.add("\u002B", "Nouveau volet",
-                    "ouvrir un nouvel onglet a cote", this::createSplitTab);
-            menu.add("\u24D8", "Fonctionnement",
-                    "touchez un volet pour lui donner le focus",
-                    () -> Toast.makeText(this,
-                            "La barre d'adresse, la recherche et les commandes agissent "
-                          + "sur le volet entoure. Faites glisser la separation pour "
-                          + "redimensionner les deux pages.",
-                            Toast.LENGTH_LONG).show());
-        } else {
-            menu.add("\u21C4", "Permuter les volets", () -> splitScreen.swap());
-            menu.add("\u25A3", "Remplacer le volet actif",
-                    "par un autre onglet", () -> chooseSplitTab(true));
-            menu.sub("\u2194", "Disposition", splitScreen.orientationName(),
-                    this::showSplitOrientationMenu);
-            menu.sub("\u00BD", "Repartition", splitScreen.ratioName(),
-                    this::showSplitRatioMenu);
-            menu.add("\u2715", "Quitter l'ecran partage", () -> {
-                splitScreen.exit();
-                applyTabActivity();
-                applyWebAppChrome(currentTab());
-                updateTabButton();
-            });
-        }
-        menu.back(this::showMenu).show();
-    }
-
-    private void chooseSplitTab(boolean replaceFocused) {
-        Menus menu = new Menus(this,
-                replaceFocused ? "Remplacer le volet" : "Second volet");
-        boolean any = false;
-        for (int i = 0; i < tabs.size(); i++) {
-            if (!replaceFocused && i == active) continue;
-            final int index = i;
-            final Tab tab = tabs.get(i);
-            any = true;
-            String detail = tab.url == null || tab.url.isEmpty() ? "vide" : tab.url;
-            if (detail.length() > 48) detail = detail.substring(0, 47) + "\u2026";
-            menu.add(tab.priv ? "\u25D1" : "\u25CB", tabLabel(tab), detail, () -> {
-                if (replaceFocused && splitScreen.isActive()) selectTab(index);
-                else startSplitWith(index);
-            });
-        }
-
-        if (!any) menu.add("\u002B", "Creer un nouvel onglet", this::createSplitTab);
-        menu.back(this::showSplitScreenMenu).show();
-    }
-
-    private void createSplitTab() {
-        if (splitScreen != null && splitScreen.isActive()) {
-            setupSession(false, null);
-            selectTab(tabs.size() - 1);
-            return;
-        }
-        int first = active;
-        setupSession(false, null);
-        int second = tabs.size() - 1;
-        selectTab(first);
-        startSplitWith(second);
-    }
-
-    private void startSplitWith(int secondIndex) {
-        if (splitScreen == null || splitScreen.isActive()) return;
-        if (active < 0 || active >= tabs.size()
-                || secondIndex < 0 || secondIndex >= tabs.size()
-                || secondIndex == active) return;
-        if (mediaFullscreen || isInPictureInPictureMode()) {
-            Toast.makeText(this, "Quittez d'abord le plein ecran",
-                    Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        int firstIndex = active;
-        Tab first = tabs.get(firstIndex);
-        Tab second = tabs.get(secondIndex);
-        first.webAppMode = false;
-        second.webAppMode = false;
-        if (webApps != null) webApps.hideStandaloneBar();
-        setBrowserChromeVisible(true);
-
-        selectTab(secondIndex);
-        selectTab(firstIndex);
-
-        if (splitScreen.start(first.session, second.session)) {
-            focusSplitSession(first.session);
-            applyTabActivity();
-            updateTabButton();
-            Toast.makeText(this, "Ecran partage active", Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    private void showSplitOrientationMenu() {
-        new Menus(this, "Disposition")
-            .add("A", "Automatique", "cote a cote en paysage, haut / bas en portrait",
-                    () -> {
-                        splitScreen.setOrientationMode(SplitScreenManager.ORIENTATION_AUTO);
-                        showSplitScreenMenu();
-                    })
-            .add("\u2194", "Cote a cote", () -> {
-                splitScreen.setOrientationMode(SplitScreenManager.ORIENTATION_HORIZONTAL);
-                showSplitScreenMenu();
-            })
-            .add("\u2195", "Haut / bas", () -> {
-                splitScreen.setOrientationMode(SplitScreenManager.ORIENTATION_VERTICAL);
-                showSplitScreenMenu();
-            })
-            .back(this::showSplitScreenMenu)
-            .show();
-    }
-
-    private void showSplitRatioMenu() {
-        new Menus(this, "Repartition")
-            .add("30", "30 / 70", () -> setSplitRatio(0.30f))
-            .add("40", "40 / 60", () -> setSplitRatio(0.40f))
-            .add("50", "50 / 50", () -> setSplitRatio(0.50f))
-            .add("60", "60 / 40", () -> setSplitRatio(0.60f))
-            .add("70", "70 / 30", () -> setSplitRatio(0.70f))
-            .back(this::showSplitScreenMenu)
-            .show();
-    }
-
-    private void setSplitRatio(float ratio) {
-        splitScreen.setRatio(ratio);
-        showSplitScreenMenu();
-    }
-
     // =======================================================================
     //  Applications web installables
     // =======================================================================
@@ -1563,9 +1334,6 @@ public class MainActivity extends Activity {
 
     private void openWebApp(WebAppManager.App app, boolean standalone) {
         if (app == null || app.startUrl == null || app.startUrl.isEmpty()) return;
-        if (standalone && splitScreen != null && splitScreen.isActive()) {
-            splitScreen.exit();
-        }
         if (!standalone) {
             setupSession(false, app.startUrl);
             selectTab(tabs.size() - 1);
@@ -1655,8 +1423,6 @@ public class MainActivity extends Activity {
             .add("\u2302", "Accueil", () -> session.loadUri(homeUrl()))
             .add("\u21BB", "Recharger", () -> session.reload())
             .sub("\u25A5", "Onglets", tabs.size() + " ouvert(s)", this::showTabs)
-            .sub("\u25EB", "Ecran partage", splitScreen.summary(),
-                 this::showSplitScreenMenu)
             .sub("\u25B6", "Multimedia", mediaHub.summary(),
                  () -> mediaHub.showMenu(this::showMenu))
             .sub("\u25A3", "Applications web", webApps.summary(session, currentUrl),
@@ -1714,7 +1480,6 @@ public class MainActivity extends Activity {
         ThemeManager.apply(this);
         int color = ThemeManager.browserBackground(this);
         geckoView.setBackgroundColor(color);
-        if (splitScreen != null) splitScreen.applyTheme(color);
         for (Tab tab : tabs) {
             if (tab.session == null || !tab.session.isOpen()) continue;
             try {

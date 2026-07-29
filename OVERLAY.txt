@@ -1,0 +1,8 @@
+GeckoBrowser — overlay étape 11
+
+Fichiers ajoutés :
+- app/src/main/java/com/example/geckobrowser/SplitScreenManager.java
+- tools/apply_split_screen.py
+- INSTALLATION_ECRAN_PARTAGE.md
+
+Le script modifie MainActivity.java et conserve une sauvegarde avant modification.
