@@ -272,6 +272,13 @@ Toutes les idées listées sont faites. Le catalogue GeckoView repéré est
 épuisé. Demander à l'utilisateur ce qu'il veut avant de partir dans une
 direction.
 
+**Telechargement video HLS** : `HlsDownloader.java` lit la playlist .m3u8,
+choisit la variante de plus haute resolution, telecharge les segments et les
+remuxe en MP4 via MediaMuxer (comme AudioExtractor, sans reencodage). Route
+depuis inspector.js quand une ressource .m3u8 est telechargee ou "extraite".
+Non gere : DASH (.mpd, structure differente), segments chiffres. Prochaine
+etape prevue : detection de la video en cours + bouton telecharger direct.
+
 **`qualifyDomain()` (background.js) est le seul endroit qui qualifie un
 domaine tiers** — propriétaire, catégorie, régie. Le rapport « qui parle à
 qui » et le journal réseau l'utilisent tous les deux ; ne pas dupliquer

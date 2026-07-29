@@ -1393,12 +1393,38 @@
 
   // Le telechargement est confie a l'application : elle gere le binaire,
   // les gros fichiers, et passe par Tor si le mode est actif.
+  // Envoie un flux HLS (.m3u8) au telechargeur dedie : l'application lit la
+  // playlist, assemble les segments et remuxe en MP4.
+  async function downloadHls(url, btn) {
+    const label = btn ? btn.textContent : "";
+    if (btn) btn.textContent = "Analyse\u2026";
+    let name = "video";
+    try { name = (document.title || location.hostname).slice(0, 80); } catch (e) { }
+    try {
+      const res = await browser.runtime.sendMessage({
+        type: "downloadHls", url: url, referer: location.href, name: name
+      });
+      if (btn) {
+        btn.textContent = (res && res.ok) ? "Telechargement lance"
+          : "Echec : " + ((res && res.error) || "inconnu");
+        setTimeout(() => { btn.textContent = label; }, 3500);
+      }
+    } catch (e) {
+      if (btn) btn.textContent = "Echec";
+    }
+  }
+
   async function download(urls, btn) {
     urls = (urls || []).filter(Boolean);
     if (!urls.length) {
       if (btn) btn.textContent = "Rien a telecharger";
       return;
     }
+
+    // Un flux segmente ne se telecharge pas comme un fichier : on route le
+    // premier .m3u8 rencontre vers le telechargeur HLS.
+    const hls = urls.find(u => /\.m3u8/i.test(u));
+    if (hls) { downloadHls(hls, btn); return; }
     if (urls.length > 25 &&
         !confirm(urls.length + " fichiers vont etre telecharges. Continuer ?")) {
       return;
@@ -1429,9 +1455,11 @@
     urls = urls.filter(u => !/\.m3u8|\.mpd/i.test(u));
 
     if (!urls.length) {
-      if (btn) btn.textContent = streams.length
-        ? "Flux segmente non pris en charge"
-        : "Aucun media";
+      // Un flux segmente n'a pas de piste audio isolee a recopier ; on
+      // propose plutot de telecharger la video complete.
+      const hls = streams.find(u => /\.m3u8/i.test(u));
+      if (hls) { downloadHls(hls, btn); return; }
+      if (btn) btn.textContent = "Aucun media";
       return;
     }
     if (urls.length > 10 &&

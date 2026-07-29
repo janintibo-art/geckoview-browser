@@ -1071,6 +1071,20 @@ browser.runtime.onMessage.addListener(msg => {
       return Promise.resolve({ error: String(e) });
     }
   }
+  if (msg.type === "downloadHls") {
+    if (!nativePort) return Promise.resolve({ error: "app non connectee" });
+    try {
+      nativePort.postMessage({
+        type: "downloadHls",
+        url: msg.url || "",
+        referer: msg.referer || "",
+        name: msg.name || ""
+      });
+      return Promise.resolve({ ok: true });
+    } catch (e) {
+      return Promise.resolve({ error: String(e) });
+    }
+  }
   if (msg.type === "extractAudio") {
     if (!nativePort) return Promise.resolve({ error: "app non connectee" });
     try {

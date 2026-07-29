@@ -3965,6 +3965,17 @@ public class MainActivity extends Activity {
                             return;
                         }
 
+                        if ("downloadHls".equals(kind)) {
+                            final String url = json.optString("url", "");
+                            final String ref = json.optString("referer", currentUrl);
+                            final String name = json.optString("name", "");
+                            if (!url.isEmpty()) {
+                                runOnUiThread(() -> HlsDownloader.download(
+                                        MainActivity.this, url, ref, name));
+                            }
+                            return;
+                        }
+
                         if ("extractAudio".equals(kind)) {
                             org.json.JSONArray arr = json.optJSONArray("urls");
                             if (arr != null && arr.length() > 0) {

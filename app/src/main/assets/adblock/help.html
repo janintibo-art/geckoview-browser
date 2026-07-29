@@ -312,6 +312,26 @@
 </details>
 
 <details data-cat="outils">
+  <summary>Telecharger les videos en flux (HLS) <span class="step">nouveau</span></summary>
+  <div class="c">
+    <p>La plupart des videos en ligne ne sont pas un fichier unique mais un
+    <b>flux segmente</b> (une playlist .m3u8 pointant vers des centaines de
+    petits morceaux). Le telechargeur les refusait ; il sait maintenant les
+    reconstituer.</p>
+    <p>Dans <span class="path">Analyser la page &#8250; Ressources &#8250;
+    Videos</span>, un flux .m3u8 propose <span class="path">Telecharger</span> :
+    l'application lit la playlist, choisit la meilleure qualite disponible,
+    telecharge les segments dans l'ordre et les assemble en un fichier MP4
+    unique, sans reencodage et sans outil externe. Le fichier arrive dans
+    <i>Films/GeckoBrowser</i>. Un point d'etape s'affiche regulierement, et le
+    tout passe par Tor si le mode est actif.</p>
+    <p><b>Limites.</b> Les flux chiffres ou proteges par DRM ne peuvent pas
+    etre telecharges. Les flux DASH (.mpd) ne sont pas encore geres. Un flux
+    tres long est refuse pour eviter de saturer le stockage.</p>
+  </div>
+</details>
+
+<details data-cat="outils">
   <summary>Imprimer, historique de l'onglet, reprise apres plantage <span class="step">nouveau</span></summary>
   <div class="c">
     <p><b>Imprimer ou exporter en PDF.</b>
