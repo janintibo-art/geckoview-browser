@@ -155,6 +155,10 @@ public class Privacy {
             s.append("pref(\"network.proxy.type\", 0);\n");
         }
 
+        // LAB_V1 — fonctions experimentales, ecrites en dernier mais choisies
+        // pour ne jamais recouvrir une preference de confidentialite.
+        s.append(Lab.prefLines(ctx));
+
         try {
             File f = new File(ctx.getFilesDir(), CONFIG_NAME);
             FileWriter w = new FileWriter(f, false);

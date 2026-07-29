@@ -230,6 +230,8 @@ public class MainActivity extends Activity {
                     selectTab(tabs.size() - 1);
                 },
                 this::pickExtensionPackage);
+        // DEVELOPER_MODE_V1 — reglages a chaud memorises d'une session a l'autre.
+        DeveloperMode.apply(this, sRuntime);
         passwordVault = PasswordVault.get(this);
         sRuntime.setAutocompleteStorageDelegate(passwordVault);
         try {
@@ -1727,6 +1729,29 @@ public class MainActivity extends Activity {
         } catch (Throwable ignored) { }
     }
 
+    /**
+     * Redemarre l'application pour relire le fichier de preferences du moteur.
+     *
+     * commit() et non apply() : le processus est tue juste apres, une
+     * ecriture asynchrone n'aurait pas le temps d'aboutir.
+     */
+    private void restartForLab() {
+        Privacy.writeConfig(this);
+        prefs.edit().commit();
+        flushAndSaveTabs();
+        Toast.makeText(this, "Redemarrage\u2026", Toast.LENGTH_SHORT).show();
+        new android.os.Handler(getMainLooper()).postDelayed(() -> {
+            android.content.Intent i = getPackageManager()
+                    .getLaunchIntentForPackage(getPackageName());
+            if (i != null) {
+                i.addFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        | android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(i);
+            }
+            Runtime.getRuntime().exit(0);
+        }, 600);
+    }
+
     // =======================================================================
     //  Identites et conteneurs
     // =======================================================================
@@ -2305,6 +2330,11 @@ public class MainActivity extends Activity {
             .sub("\u25F3", "Identites",
                  ContainerManager.summary(this, currentContainer()),
                  this::showContainers)
+            .sub("\u2318", "Mode developpeur", DeveloperMode.summary(this),
+                 () -> DeveloperMode.show(this, sRuntime, this::showMenu))
+            // LAB_V1 — fonctions experimentales du moteur.
+            .sub("\u2697", "Laboratoire", Lab.summary(this),
+                 () -> Lab.show(this, this::showMenu, this::restartForLab))
             .sub("\u25EB", "Ecran partage", splitScreen.summary(),
                  this::showSplitScreenMenu)
             .sub("\u25B6", "Multimedia", mediaHub.summary(),

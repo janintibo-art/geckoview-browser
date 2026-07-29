@@ -169,6 +169,13 @@ concentration des médias, et plus. Voir la liste complète plus bas.
   *avant* la création de la session — l'affecter au `Tab` ensuite ne
   cloisonne rien. Temporaire et Anonyme sont en mode privé, donc exclus de
   la sauvegarde de session.
+- **Laboratoire et canal du moteur** : les préférences expérimentales
+  (`Lab.prefLines`) sont écrites **en dernier** dans le fichier de
+  configuration, mais choisies pour ne jamais recouvrir une préférence de
+  `Privacy` — vérifier ce point avant d'ajouter une entrée (le cache disque
+  a été écarté pour cette raison). Le canal GeckoView est un paramètre
+  Gradle (`-PgeckoChannel=stable|beta|nightly`), exposé aussi comme liste
+  déroulante dans le workflow ; `stable` reste le défaut partout.
 - **`GB.pick()` est le seul pointeur d'élément** : la dette des pointeurs
   maison (styles.js, watcher.js) est soldée. `GB.pick()` accepte désormais
   `actions` (boutons multiples, champ `action` en retour), `extra` (HTML
@@ -250,7 +257,8 @@ overlay, en complément de `check.py`.
 
 ## Pour la prochaine session
 
-Reste de la liste : mode développeur, version laboratoire GeckoView. Autres idées : détecteur de
+La liste des 14 étapes est terminée. Idées restantes : détecteur de
+mouchards *dans* le rapport réseau enrichi, menu contextuel sur appui long. Autres idées : détecteur de
 mouchards *dans* le rapport réseau enrichi, menu contextuel sur appui long.
 
 Dette connue : 7 fichiers `MainActivity.java.before-*` (~780 Ko) et deux

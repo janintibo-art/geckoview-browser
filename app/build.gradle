@@ -56,6 +56,39 @@ android {
     }
 }
 
+// LAB_V1 — canal du moteur.
+//
+// « stable » est le defaut et le seul canal recommande pour un usage
+// quotidien. « beta » et « nightly » servent a essayer un moteur plus
+// recent ; ils changent tous les jours et peuvent casser la compilation
+// ou l'application sans preavis.
+//
+//   gradle assembleDebug -PgeckoChannel=nightly
+//
+// Le canal choisi apparait dans Menu > Laboratoire.
+def geckoChannel = (project.findProperty('geckoChannel') ?: 'stable').toString()
+def geckoArtifact = [
+    stable : 'org.mozilla.geckoview:geckoview:151.+',
+    beta   : 'org.mozilla.geckoview:geckoview-beta:152.+',
+    nightly: 'org.mozilla.geckoview:geckoview-nightly:153.+'
+][geckoChannel]
+
+if (geckoArtifact == null) {
+    throw new GradleException("geckoChannel inconnu : ${geckoChannel} " +
+            "(valeurs acceptees : stable, beta, nightly)")
+}
+logger.lifecycle("GeckoView : canal ${geckoChannel} -> ${geckoArtifact}")
+
+android {
+    defaultConfig {
+        // Lu par l'application pour afficher le canal reellement compile.
+        buildConfigField "String", "GECKO_CHANNEL", "\"${geckoChannel}\""
+    }
+    buildFeatures {
+        buildConfig true
+    }
+}
+
 dependencies {
-    implementation 'org.mozilla.geckoview:geckoview:151.+'
+    implementation geckoArtifact
 }

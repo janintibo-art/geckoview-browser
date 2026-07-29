@@ -201,6 +201,53 @@
   </div>
 </details>
 
+<details data-cat="outils">
+  <summary>Laboratoire <span class="step">nouveau</span></summary>
+  <div class="c">
+    <p><span class="path">Menu &#8250; Laboratoire</span> active des fonctions
+    que Mozilla n'a pas encore stabilisees : WebGPU, HTTP/3, images AVIF et
+    JPEG&nbsp;XL, ordonnanceur de taches, analyse anticipee du mode lecture.
+    Tout est desactive par defaut, et chaque entree annonce ce qu'elle risque
+    de casser.</p>
+    <p>Ces reglages sont des preferences du moteur : elles ne prennent effet
+    qu'au <b>redemarrage</b>, propose depuis le menu. Une preference retiree
+    par une mise a jour du moteur est simplement ignoree, donc sans danger.
+    En cas de comportement etrange, « Tout desactiver » puis redemarrer
+    revient a un moteur standard.</p>
+    <p><b>Canal du moteur.</b> Le menu indique avec quel canal de GeckoView
+    l'application a ete compilee. Il se choisit a la compilation, pas dans
+    l'application :</p>
+    <p><span class="path">gradle assembleDebug -PgeckoChannel=nightly</span></p>
+    <p>Sur GitHub Actions, le canal est une liste deroulante au lancement
+    manuel du workflow. <b>stable</b> est le defaut et le seul canal
+    recommande pour un usage quotidien ; <b>beta</b> et <b>nightly</b>
+    changent tous les jours et peuvent casser l'application sans preavis.</p>
+  </div>
+</details>
+
+<details data-cat="outils">
+  <summary>Mode developpeur <span class="step">nouveau</span></summary>
+  <div class="c">
+    <p><span class="path">Menu &#8250; Mode developpeur</span> active des leviers
+    du moteur normalement absents d'un navigateur grand public. Tout est
+    desactive par defaut ; les reglages sont memorises d'une session a l'autre.</p>
+    <ul>
+      <li><b>Debogage distant</b> — le navigateur apparait dans
+      <span class="path">about:debugging</span> de Firefox sur ordinateur
+      (telephone branche, debogage USB actif). Inspecteur, console et reseau
+      complets depuis le bureau.</li>
+      <li><b>about:config</b> — acces brut aux preferences du moteur.</li>
+      <li><b>Sortie console</b> — messages du moteur vers logcat.</li>
+      <li><b>Couper JavaScript</b> — utile pour tester une page sans script.</li>
+      <li><b>Bloquer les polices web</b> — affichage avec les polices du systeme.</li>
+    </ul>
+    <p>Ces reglages affaiblissent des protections mises en place ailleurs :
+    le debogage distant ouvre un port auquel toute application locale peut se
+    connecter. Chaque entree annonce son cout, et « Tout remettre par defaut »
+    revient a un etat sain en une fois.</p>
+  </div>
+</details>
+
 <details data-cat="naviguer">
   <summary>Identites et conteneurs <span class="step">nouveau</span></summary>
   <div class="c">

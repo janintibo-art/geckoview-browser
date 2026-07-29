@@ -9,6 +9,11 @@ on:
         description: "Produire aussi un APK release signe"
         type: boolean
         default: false
+      gecko_channel:
+        description: "Canal GeckoView (stable recommande)"
+        type: choice
+        options: [ stable, beta, nightly ]
+        default: stable
 
 jobs:
   build:
@@ -35,7 +40,9 @@ jobs:
           gradle-version: '8.14.3'
 
       - name: Build debug APK
-        run: gradle assembleDebug --no-daemon
+        run: >
+          gradle assembleDebug --no-daemon
+          -PgeckoChannel=${{ github.event.inputs.gecko_channel || 'stable' }}
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
@@ -102,7 +109,9 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: gradle assembleRelease --no-daemon
+        run: >
+          gradle assembleRelease --no-daemon
+          -PgeckoChannel=${{ github.event.inputs.gecko_channel || 'stable' }}
 
       - name: Upload release APK
         if: ${{ steps.keystore.outputs.present == 'true' }}
