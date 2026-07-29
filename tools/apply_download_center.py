@@ -64,14 +64,12 @@ backup(MANIFEST, ".before-download-center")
 main = replace_once(
     main,
     '''            .sub("\\u25B6", "Multimedia", mediaHub.summary(),
-                 () -> mediaHub.showMenu(this::showMenu))
-            .sub("\\u25A4", "Page", pageHost(), this::showPageMenu)''',
+                 () -> mediaHub.showMenu(this::showMenu))''',
     '''            .sub("\\u25B6", "Multimedia", mediaHub.summary(),
                  () -> mediaHub.showMenu(this::showMenu))
             // DOWNLOAD_CENTER_V1 — file systeme, progression et historique.
             .sub("\\u21E9", "Telechargements", DownloadCenter.summary(this),
-                 () -> DownloadCenter.show(this, this::showMenu))
-            .sub("\\u25A4", "Page", pageHost(), this::showPageMenu)''',
+                 () -> DownloadCenter.show(this, this::showMenu))''',
     "menu principal",
 )
 

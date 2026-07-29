@@ -99,6 +99,21 @@ public final class DownloadCenter {
                 .getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     }
 
+    /**
+     * Agent annonce par DownloadManager.
+     *
+     * Il doit suivre l'identite d'appareil choisie dans le menu : un agent
+     * fixe trahirait un profil different de celui des pages, ce qui est
+     * exactement l'incoherence que le choix de profil cherche a eviter.
+     */
+    private static String userAgent(Context context) {
+        String ua = context.getApplicationContext()
+                .getSharedPreferences("geckobrowser", Context.MODE_PRIVATE)
+                .getString("profileUA", "");
+        if (ua != null && !ua.trim().isEmpty()) return ua;
+        return "Mozilla/5.0 (Android 14; Mobile; rv:151.0) Gecko/20100101 Firefox/151.0";
+    }
+
     public static boolean wifiOnly(Context context) {
         return prefs(context).getBoolean(KEY_WIFI_ONLY, false);
     }
@@ -141,8 +156,7 @@ public final class DownloadCenter {
             if (wifiOnly(context)) {
                 request.setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI);
             }
-            request.addRequestHeader("User-Agent",
-                    "Mozilla/5.0 (Android 14; Mobile; rv:151.0) Gecko/20100101 Firefox/151.0");
+            request.addRequestHeader("User-Agent", userAgent(context));
             if (referer != null && !referer.isEmpty()) {
                 request.addRequestHeader("Referer", referer);
             }
@@ -402,7 +416,20 @@ public final class DownloadCenter {
         }
     }
 
+    /**
+     * Navigation privee en cours : renseigne par MainActivity a chaque
+     * changement d'onglet.
+     */
+    private static volatile boolean privateBrowsing = false;
+
+    public static void setPrivateBrowsing(boolean enabled) {
+        privateBrowsing = enabled;
+    }
+
     private static void addRecord(Context context, Record record) {
+        // Un onglet prive ne laisse aucune trace : le fichier est bien
+        // telecharge, mais il n'entre pas dans l'historique persistant.
+        if (privateBrowsing) return;
         synchronized (LOCK) {
             List<Record> records = load(context);
             records.add(0, record);

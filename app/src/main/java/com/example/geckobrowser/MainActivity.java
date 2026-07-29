@@ -368,6 +368,7 @@ public class MainActivity extends Activity {
     /** Cree une session, eventuellement avec un etat Gecko a restaurer. */
     private void setupSession(boolean priv, String target, boolean lazy, String restoredState) {
         privateMode = priv;
+        if (!lazy) DownloadCenter.setPrivateBrowsing(priv);
 
         int pi = profileIndex();
         if (pi > 0 && pi < PROFILES.length) desktopMode = "1".equals(PROFILES[pi][4]);
@@ -675,6 +676,7 @@ public class MainActivity extends Activity {
         t.lastUsed = now;
         session = t.session;
         privateMode = t.priv;
+        DownloadCenter.setPrivateBrowsing(t.priv);
         currentUrl = t.url;
         currentTitle = t.title;
 
@@ -2140,6 +2142,9 @@ public class MainActivity extends Activity {
                  this::showSplitScreenMenu)
             .sub("\u25B6", "Multimedia", mediaHub.summary(),
                  () -> mediaHub.showMenu(this::showMenu))
+            // DOWNLOAD_CENTER_V1 — file systeme, progression et historique.
+            .sub("\u21E9", "Telechargements", DownloadCenter.summary(this),
+                 () -> DownloadCenter.show(this, this::showMenu))
             .sub("\u25A3", "Applications web", webApps.summary(session, currentUrl),
                  this::showWebApps)
             .sub("\u25A4", "Page", pageHost(), this::showPageMenu)
@@ -3181,7 +3186,9 @@ public class MainActivity extends Activity {
 
     private void applyProfile(int index, String ua, String platform,
                               String touch, boolean desktop) {
-        prefs.edit().putInt("profile", index).apply();
+        // L'agent est persiste : DownloadManager telecharge hors de la session
+        // Gecko et annoncerait sinon un agent different du profil choisi.
+        prefs.edit().putInt("profile", index).putString("profileUA", ua).apply();
         desktopMode = desktop;
 
         GeckoSessionSettings st = session.getSettings();

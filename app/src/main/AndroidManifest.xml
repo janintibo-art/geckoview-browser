@@ -73,6 +73,15 @@
             android:exported="false" />
 
         <receiver
+            android:name=".DownloadCompleteReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.DOWNLOAD_COMPLETE" />
+            </intent-filter>
+        </receiver>
+
+
+        <receiver
             android:name=".SearchWidget"
             android:exported="false">
             <intent-filter>

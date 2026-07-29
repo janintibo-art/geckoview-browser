@@ -43,8 +43,12 @@ public class Downloads {
             String message;
             try {
                 long written = write(ctx, response, name, mime);
+                DownloadCenter.recordDirectCompleted(ctx, name, mime, written,
+                        "", response.uri, false);
                 message = "Enregistre : " + name + " (" + human(written) + ")";
             } catch (Exception e) {
+                DownloadCenter.recordDirectFailed(ctx, name, response.uri,
+                        e.getMessage(), false);
                 message = "Echec du telechargement : " + e.getMessage();
             }
             final String msg = message;
@@ -77,15 +81,24 @@ public class Downloads {
         final AtomicInteger left = new AtomicInteger(urls.length);
         final android.os.Handler ui = new android.os.Handler(ctx.getMainLooper());
 
-        toast(ctx, ui, urls.length + " fichier(s) en telechargement"
-                + (tor ? " via Tor" : ""));
+        if (!tor) {
+            int queued = DownloadCenter.enqueueUrls(ctx, urls, referer);
+            toast(ctx, ui, queued + " fichier(s) ajoute(s) au centre de telechargements");
+            return;
+        }
+
+        toast(ctx, ui, urls.length + " fichier(s) en telechargement via Tor");
 
         for (final String url : urls) {
             pool().execute(() -> {
                 try {
                     fetchToDownloads(ctx, url, referer, tor);
+                    DownloadCenter.recordDirectCompleted(ctx,
+                            nameFrom(url, null, null), null, -1, "", url, true);
                     ok.incrementAndGet();
                 } catch (Exception e) {
+                    DownloadCenter.recordDirectFailed(ctx,
+                            nameFrom(url, null, null), url, e.getMessage(), true);
                     ko.incrementAndGet();
                 }
                 if (left.decrementAndGet() == 0) {
@@ -174,8 +187,10 @@ public class Downloads {
             String msg;
             try {
                 byte[] data = text.getBytes("UTF-8");
-                writeStream(ctx, new ByteArrayInputStream(data),
+                long written = writeStream(ctx, new ByteArrayInputStream(data),
                         sanitize(name), "text/plain");
+                DownloadCenter.recordDirectCompleted(ctx, sanitize(name),
+                        "text/plain", written, "", "", false);
                 msg = "Enregistre : " + name;
             } catch (Exception e) {
                 msg = "Echec : " + e.getMessage();
