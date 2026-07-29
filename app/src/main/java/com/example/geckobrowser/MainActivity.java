@@ -501,6 +501,7 @@ public class MainActivity extends Activity {
         tab.lastUsed = System.currentTimeMillis();
         session = new GeckoSession(settings);
         tab.session = session;
+        SiteExceptions.apply(this, tab.session, target);
         PrivacyCockpit.attach(tab.session);
         mediaHub.attach(tab.session);
         if (extensionManager != null) extensionManager.attachSession(tab.session);
@@ -512,6 +513,9 @@ public class MainActivity extends Activity {
                                          Boolean hasUserGesture) {
                 if (url == null) return;
                 tab.url = url;
+                // SITE_EXCEPTIONS_V1 — le reglage vit dans la session, il
+                // doit donc etre reapplique a chaque page.
+                SiteExceptions.apply(MainActivity.this, s, url);
                 webApps.onLocation(s, url);
                 boolean leftWebApp = tab.webAppMode
                         && (url.startsWith("http://") || url.startsWith("https://"))
@@ -3034,6 +3038,10 @@ public class MainActivity extends Activity {
                  this::togglePrivate)
             .sub("\u26E8", "Niveau de protection",
                  Privacy.levelName(Privacy.level(this)), this::showLevelPicker)
+            .sub("\u2296", "Exceptions par site",
+                 SiteExceptions.summary(this, currentUrl),
+                 () -> SiteExceptions.show(this, currentUrl,
+                         this::showPrivacyMenu, () -> session.reload()))
             .sub("\u2318", "DNS chiffre",
                  prefs.getBoolean("doh", false) ? "actif" : "inactif", this::toggleDoh)
             .add("\u21BA", "Redirections vers les facades",

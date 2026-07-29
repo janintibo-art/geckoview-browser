@@ -268,10 +268,18 @@ tout overlay.
 La liste des 14 étapes est terminée, plus le menu contextuel, la barre
 rétractable et les liens visités.
 
-API GeckoView repérées et **pas encore exploitées** : exceptions de
-protection par site via les `ContentPermission`, `ProfilerController`
-(profileur dans le mode développeur). Autre idée : détecteur de mouchards
-*dans* le rapport réseau enrichi.
+Le catalogue GeckoView repéré est épuisé. Idée restante : détecteur de
+mouchards *dans* le rapport réseau enrichi.
+
+**Deux appels passent par introspection** (impression, profileur) parce que
+ces API varient selon les versions de GeckoView. Si votre version les
+expose de façon stable, l'appel direct est préférable — ce sont les seuls
+endroits du projet qui utilisent la réflexion.
+
+**`SiteExceptions.apply()` doit être appelé à chaque `onLocationChange`** :
+`setUseTrackingProtection` est un réglage *de session*, pas de site. Le
+recouvrement de sous-domaines est testé (`example.com.evil.net` n'hérite
+pas de l'exception de `example.com`).
 
 **Impression** : l'appel passe par introspection (`didPrintPageContent` /
 `printPageContent`), le nom ayant changé selon les versions de GeckoView.

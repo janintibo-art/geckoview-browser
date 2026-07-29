@@ -125,6 +125,12 @@ public final class DeveloperMode {
                   + "toute application locale peut s'y connecter : ne laissez "
                   + "pas ce reglage actif en permanence."));
 
+        // PROFILER_V1 — mesurer ce qu'une page coute reellement.
+        m.add(profiling ? "\u25C9" : "\u25CB", "Profileur du moteur",
+              profiling ? "enregistrement en cours \u00b7 toucher pour arreter"
+                        : "mesure le travail du moteur", () ->
+              toggleProfiler(activity, runtime, back));
+
         m.add("\u2327", "Tout remettre par defaut", () -> {
             prefs(activity).edit()
                     .remove(KEY_REMOTE).remove(KEY_ABOUT_CONFIG)
@@ -137,6 +143,72 @@ public final class DeveloperMode {
         });
 
         m.back(back).show();
+    }
+
+    // -----------------------------------------------------------------------
+    //  Profileur
+    //  Demarre l'enregistrement du moteur puis ecrit le resultat dans un
+    //  fichier ouvrable sur profiler.firefox.com. L'API n'existe pas sur
+    //  toutes les versions de GeckoView : l'appel est donc protege et
+    //  annonce clairement son absence plutot que d'echouer en silence.
+    // -----------------------------------------------------------------------
+    private static boolean profiling = false;
+
+    private static void toggleProfiler(Activity activity, GeckoRuntime runtime,
+                                       Runnable back) {
+        Object controller;
+        try {
+            controller = GeckoRuntime.class
+                    .getMethod("getProfilerController").invoke(runtime);
+        } catch (Throwable e) {
+            Menus.info(activity, "Profileur",
+                "Le profileur n'est pas disponible dans cette version du "
+                + "moteur.\n\nLe debogage distant reste utilisable : il donne "
+                + "acces au profileur complet de Firefox depuis un ordinateur.");
+            return;
+        }
+        if (controller == null) return;
+
+        try {
+            if (!profiling) {
+                controller.getClass()
+                        .getMethod("startProfiler", String[].class, String[].class)
+                        .invoke(controller,
+                                new String[] { "stackwalk", "js", "leaf" },
+                                new String[] { "GeckoMain", "Compositor" });
+                profiling = true;
+                Toast.makeText(activity,
+                        "Enregistrement demarre \u00b7 naviguez puis revenez l'arreter",
+                        Toast.LENGTH_LONG).show();
+                show(activity, runtime, back);
+                return;
+            }
+
+            Object result = controller.getClass()
+                    .getMethod("stopProfilerAndGetProfileUrlAsync")
+                    .invoke(controller);
+            profiling = false;
+            if (result instanceof org.mozilla.geckoview.GeckoResult) {
+                ((org.mozilla.geckoview.GeckoResult<?>) result).accept(
+                    url -> activity.runOnUiThread(() -> Menus.info(activity,
+                        "Profil enregistre",
+                        "Le profil a ete produit.\n\n" + String.valueOf(url)
+                        + "\n\nOuvrez profiler.firefox.com sur un ordinateur "
+                        + "pour l'analyser.")),
+                    err -> activity.runOnUiThread(() -> Toast.makeText(activity,
+                        "Profil non recupere", Toast.LENGTH_SHORT).show()));
+            } else {
+                Toast.makeText(activity, "Enregistrement arrete",
+                        Toast.LENGTH_SHORT).show();
+            }
+            show(activity, runtime, back);
+        } catch (Throwable e) {
+            profiling = false;
+            Menus.info(activity, "Profileur",
+                "Le profileur n'a pas pu demarrer dans cette version du "
+                + "moteur.\n\nUtilisez le debogage distant depuis un "
+                + "ordinateur pour obtenir la meme mesure.");
+        }
     }
 
     private static void toggle(Activity activity, GeckoRuntime runtime, Runnable back,

@@ -240,11 +240,34 @@
       <li><b>Sortie console</b> — messages du moteur vers logcat.</li>
       <li><b>Couper JavaScript</b> — utile pour tester une page sans script.</li>
       <li><b>Bloquer les polices web</b> — affichage avec les polices du systeme.</li>
+      <li><b>Profileur du moteur</b> — enregistre le travail du moteur pendant
+      votre navigation, puis produit un profil analysable sur
+      profiler.firefox.com. Absent de certaines versions du moteur ; le
+      debogage distant donne alors la meme mesure depuis un ordinateur.</li>
     </ul>
     <p>Ces reglages affaiblissent des protections mises en place ailleurs :
     le debogage distant ouvre un port auquel toute application locale peut se
     connecter. Chaque entree annonce son cout, et « Tout remettre par defaut »
     revient a un etat sain en une fois.</p>
+  </div>
+</details>
+
+<details data-cat="confidentialite">
+  <summary>Exceptions de protection par site <span class="step">nouveau</span></summary>
+  <div class="c">
+    <p>Quand un site fonctionne mal sous protection stricte, le reflexe est de
+    baisser le niveau general — ce qui affaiblit la protection partout, et
+    n'est presque jamais remonte ensuite.
+    <span class="path">Confidentialite &#8250; Exceptions par site</span> permet
+    d'assouplir <b>ce site uniquement</b> : tous les autres gardent le niveau
+    choisi.</p>
+    <p>Une exception couvre le domaine et ses sous-domaines
+    (<i>example.com</i> couvre <i>app.example.com</i>), et rien d'autre. Elle
+    desactive la protection contre le pistage pour ce site ; le bloqueur de
+    publicites, les filtres editoriaux et le refus des cookies tiers
+    continuent de s'appliquer.</p>
+    <p>Le menu liste les sites assouplis, permet de les retablir un par un ou
+    tous d'un coup. Rechargez la page apres un changement.</p>
   </div>
 </details>
 
