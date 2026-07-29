@@ -101,9 +101,6 @@ public class MainActivity extends Activity {
     // SPLIT_SCREEN_V1 — deux onglets visibles et redimensionnables.
     private SplitScreenManager splitScreen;
 
-    // ENCRYPTED_SYNC_V1 — paquet chiffre partage via le selecteur Android.
-    private EncryptedSyncManager encryptedSync;
-
     private static final int REQ_FILE = 8123;
     private GeckoResult<GeckoSession.PromptDelegate.PromptResponse> pendingFile;
     private GeckoSession.PromptDelegate.FilePrompt pendingFilePrompt;
@@ -228,7 +225,6 @@ public class MainActivity extends Activity {
                         return splitTitleFor(target);
                     }
                 });
-        encryptedSync = new EncryptedSyncManager(this, this::flushAndSaveTabs);
         installBlocker();
 
         setupSession(false, null);
@@ -983,7 +979,6 @@ public class MainActivity extends Activity {
     @Override
     protected void onPause() {
         flushAndSaveTabs();
-        if (encryptedSync != null) encryptedSync.onPause();
         super.onPause();
     }
 
@@ -1015,7 +1010,6 @@ public class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         if (passwordVault != null) passwordVault.onActivityDestroyed(this);
-        if (encryptedSync != null) encryptedSync.release();
         if (splitScreen != null) splitScreen.release();
         if (webApps != null) webApps.release();
         if (mediaHub != null) mediaHub.release();
@@ -1069,10 +1063,6 @@ public class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (encryptedSync != null
-                && encryptedSync.onActivityResult(requestCode, resultCode, data)) {
-            return;
-        }
         if (passwordVault != null
                 && passwordVault.onActivityResult(this, requestCode, resultCode, data)) {
             return;
@@ -1640,14 +1630,6 @@ public class MainActivity extends Activity {
     }
 
     // =======================================================================
-    //  Synchronisation chiffree
-    // =======================================================================
-    private void showEncryptedSync() {
-        encryptedSync.show(this::showMenu,
-                () -> session.loadUri(extPage("sync.html")));
-    }
-
-    // =======================================================================
     //  Coffre de mots de passe
     // =======================================================================
     private boolean isPrivateSession(GeckoSession target) {
@@ -1712,8 +1694,7 @@ public class MainActivity extends Activity {
                  () -> session.loadUri(extPage("watch.html")))
             .sub("\u21C6", "Archives de pages", null,
                  () -> session.loadUri(extPage("versions.html")))
-            .sub("\u21C4", "Synchronisation chiffree", encryptedSync.summary(),
-                 this::showEncryptedSync)
+            .add("\u21C4", "Synchronisation", () -> session.loadUri(extPage("sync.html")))
             .add("\u24D8", "Aide et tutoriel", () -> session.loadUri(extPage("help.html")))
             .show();
     }
