@@ -121,6 +121,9 @@ public class MainActivity extends Activity {
      * Adresses deja visitees, pour la coloration des liens dans les pages.
      * En memoire seulement, et jamais alimente par un onglet prive.
      */
+    /** Pile d'historique de l'onglet affiche, pour le saut direct. */
+    private GeckoSession.HistoryDelegate.HistoryList historyList;
+
     private final java.util.Set<String> visited =
             java.util.Collections.synchronizedSet(new java.util.HashSet<>());
 
@@ -274,7 +277,13 @@ public class MainActivity extends Activity {
         restoreTabs();
 
         goButton.setOnClickListener(v -> loadFromBar());
+        // Appui : menu. Appui long : pile d'historique de l'onglet, pour
+        // sauter directement a une page au lieu d'appuyer n fois sur Precedent.
         menuButton.setOnClickListener(v -> showMenu());
+        menuButton.setOnLongClickListener(v -> {
+            showHistoryStack();
+            return true;
+        });
 
         tabButton.setOnClickListener(v -> showTabs());
         tabButton.setOnLongClickListener(v -> {
@@ -532,6 +541,13 @@ public class MainActivity extends Activity {
         // HISTORY_DELEGATE_V1 — sans ce delegue, aucun lien ne s'affiche
         // comme deja visite dans les pages.
         session.setHistoryDelegate(new GeckoSession.HistoryDelegate() {
+            // HISTORY_STACK_V1 — la pile complete, pour le saut direct.
+            @Override
+            public void onHistoryStateChange(GeckoSession s,
+                                             GeckoSession.HistoryDelegate.HistoryList list) {
+                if (s == session) historyList = list;
+            }
+
             @Override
             public GeckoResult<Boolean> onVisited(GeckoSession s, String url,
                                                   String lastVisitedURL, int flags) {
@@ -569,6 +585,24 @@ public class MainActivity extends Activity {
             public void onContextMenu(GeckoSession s, int screenX, int screenY,
                                       GeckoSession.ContentDelegate.ContextElement element) {
                 showContextMenu(element);
+            }
+
+            /**
+             * CRASH_RECOVERY_V1 — le processus de contenu est mort.
+             *
+             * Sans ce traitement, l'onglet reste figé sur une page blanche
+             * definitive. La session est fermee puis rouverte, et la page
+             * rechargee : l'onglet et sa place dans la liste survivent.
+             */
+            @Override
+            public void onCrash(GeckoSession s) {
+                recoverSession(s, "Le moteur a rencontre un probleme");
+            }
+
+            /** Le systeme a tue le processus pour recuperer de la memoire. */
+            @Override
+            public void onKill(GeckoSession s) {
+                recoverSession(s, "Onglet libere par le systeme");
             }
 
             // Fichier que Gecko ne peut pas afficher : on l'enregistre.
@@ -1807,6 +1841,94 @@ public class MainActivity extends Activity {
     }
 
     // =======================================================================
+    //  Reprise apres plantage du moteur
+    // =======================================================================
+    private void recoverSession(GeckoSession dead, String reason) {
+        Tab target = null;
+        for (Tab t : tabs) {
+            if (t.session == dead) { target = t; break; }
+        }
+        if (target == null) return;
+        final Tab tab = target;
+
+        // L'etat serialise permet de retrouver historique et defilement ;
+        // a defaut, l'adresse courante suffit.
+        final String state = tab.state;
+        final String url = tab.url;
+
+        try { dead.close(); } catch (Throwable ignored) { }
+
+        boolean inSplit = splitScreen != null && splitScreen.isVisible(dead);
+        boolean visible = tab == tabs.get(active) || inSplit;
+        if (visible) {
+            dead.open(sRuntime);
+            // En ecran partage, la session doit retrouver SON volet : la
+            // rattacher au volet principal la deplacerait.
+            if (inSplit) splitScreen.selectSession(dead);
+            else attachPrimarySession(dead);
+            applyTabActivity();
+            boolean restored = false;
+            if (state != null && !state.isEmpty()) {
+                try {
+                    GeckoSession.SessionState st = GeckoSession.SessionState.fromString(state);
+                    if (st != null) { dead.restoreState(st); restored = true; }
+                } catch (Throwable ignored) { }
+            }
+            if (!restored && url != null && !url.isEmpty()) dead.loadUri(url);
+            else if (!restored) dead.loadUri(homeUrl());
+        } else {
+            // Onglet en arriere-plan : il se rechargera a sa selection.
+            tab.pendingState = state;
+            tab.pending = url;
+        }
+
+        Toast.makeText(this, reason + " \u00b7 onglet restaure",
+                Toast.LENGTH_LONG).show();
+    }
+
+    // =======================================================================
+    //  Impression et export PDF
+    //  Gecko rend la page, Android fournit la boite de dialogue : le choix
+    //  « Enregistrer au format PDF » y produit un vrai PDF avec la mise en
+    //  page du moteur, la ou la sauvegarde HTML autonome garde la page
+    //  interactive. Les deux sont complementaires.
+    // =======================================================================
+    /**
+     * Le nom de la methode d'impression a change selon les versions de
+     * GeckoView (didPrintPageContent / printPageContent). L'appel passe donc
+     * par introspection : le code compile quelle que soit la version, et
+     * l'absence des deux donne un message clair au lieu d'une erreur de
+     * compilation. Si votre version expose l'une d'elles de facon stable,
+     * l'appel direct est preferable.
+     */
+    private void printPage() {
+        String[] candidates = { "didPrintPageContent", "printPageContent" };
+        for (String name : candidates) {
+            try {
+                java.lang.reflect.Method m =
+                        GeckoSession.class.getMethod(name);
+                Object r = m.invoke(session);
+                if (r instanceof GeckoResult) {
+                    ((GeckoResult<?>) r).accept(
+                        ok -> { },
+                        e -> runOnUiThread(() -> Toast.makeText(this,
+                                "Impression impossible : la page n'a pas pu "
+                                + "etre rendue", Toast.LENGTH_LONG).show()));
+                }
+                return;
+            } catch (NoSuchMethodException notThisOne) {
+                // version suivante
+            } catch (Throwable e) {
+                Toast.makeText(this, "Impression impossible sur cette page",
+                        Toast.LENGTH_SHORT).show();
+                return;
+            }
+        }
+        Toast.makeText(this, "Impression non disponible dans cette version du moteur",
+                Toast.LENGTH_LONG).show();
+    }
+
+    // =======================================================================
     //  Menu contextuel (appui long)
     //  Gecko fournit l'element touche et ses adresses : on branche dessus
     //  les fonctions deja presentes (identites, telechargements, traduction)
@@ -2597,6 +2719,10 @@ public class MainActivity extends Activity {
             .sub("\u6587", "Traduire", "vers " + trLangName(), this::showTranslateMenu)
             .add("\u2315", "Analyser la page", this::inspectPage)
             .add("\u2039", "Code source", this::viewSource)
+            // PRINT_V1 — le moteur produit la mise en page, Android imprime
+            // ou enregistre en PDF via « Enregistrer au format PDF ».
+            .add("\u2399", "Imprimer ou exporter en PDF",
+                 () -> { if (onWebPage()) printPage(); })
             .add("\u2194", "Ce sujet vu ailleurs",
                  () -> { if (onWebPage()) sendCommand("elsewhere"); })
             .add("\u26A1", "Procedes trompeurs",
@@ -3903,6 +4029,34 @@ public class MainActivity extends Activity {
         InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
         if (imm != null) imm.hideSoftInputFromWindow(urlBar.getWindowToken(), 0);
         urlBar.clearFocus();
+    }
+
+    /**
+     * Pile d'historique de l'onglet : sauter directement a une page
+     * plutot que d'appuyer cinq fois sur Precedent.
+     */
+    private void showHistoryStack() {
+        GeckoSession.HistoryDelegate.HistoryList list = historyList;
+        if (list == null || list.size() == 0) {
+            Toast.makeText(this, "Aucun historique pour cet onglet",
+                    Toast.LENGTH_SHORT).show();
+            return;
+        }
+        int current = list.getCurrentIndex();
+        Menus m = new Menus(this, "Historique de l'onglet");
+        // Du plus recent au plus ancien : c'est l'ordre dans lequel on
+        // revient en arriere.
+        for (int i = list.size() - 1; i >= 0; i--) {
+            final int index = i;
+            org.mozilla.geckoview.GeckoSession.HistoryDelegate.HistoryItem item = list.get(i);
+            if (item == null) continue;
+            String title = item.title == null || item.title.isEmpty()
+                    ? shortUrl(item.uri) : item.title;
+            m.add(i == current ? "\u25CF" : "\u25CB", title,
+                  shortUrl(item.uri),
+                  () -> { try { session.gotoHistoryIndex(index); } catch (Throwable ignored) { } });
+        }
+        m.back(this::showMenu).show();
     }
 
     @Override

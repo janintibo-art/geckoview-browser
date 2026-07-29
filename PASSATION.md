@@ -263,13 +263,17 @@ tout overlay.
 La liste des 14 étapes est terminée, plus le menu contextuel, la barre
 rétractable et les liens visités.
 
-API GeckoView repérées et **pas encore exploitées** : `PrintDelegate`
-(impression / export PDF natif), `gotoHistoryIndex` (pile d'historique sur
-appui long de Précédent), `WebNotificationDelegate` (notifications des
-sites), `setActivityDelegate` (passkeys WebAuthn dans les pages),
-exceptions de protection par site via les `ContentPermission`,
-`crashHandler` (survie à un plantage du moteur), `ProfilerController`.
-Autre idée : détecteur de mouchards *dans* le rapport réseau enrichi. Autres idées : détecteur de
+API GeckoView repérées et **pas encore exploitées** :
+`WebNotificationDelegate` (notifications des sites), `setActivityDelegate`
+(passkeys WebAuthn dans les pages), exceptions de protection par site via
+les `ContentPermission`, `ProfilerController` (profileur dans le mode
+développeur). Autre idée : détecteur de mouchards *dans* le rapport réseau
+enrichi.
+
+**Impression** : l'appel passe par introspection (`didPrintPageContent` /
+`printPageContent`), le nom ayant changé selon les versions de GeckoView.
+Si votre version en expose un de façon stable, remplacer par l'appel
+direct — c'est le seul endroit du projet qui utilise la réflexion. Autres idées : détecteur de
 mouchards *dans* le rapport réseau enrichi, menu contextuel sur appui long.
 
 Dette connue : 7 fichiers `MainActivity.java.before-*` (~780 Ko) et deux
