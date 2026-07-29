@@ -99,19 +99,27 @@
             'Telecharger</button>'
           : '<span style="flex:1;padding:8px;color:#99a0ad;font-size:12px;' +
             'text-align:center">' + esc(k.note) + '</span>';
+        // « Ouvrir » envoie le flux a une app externe (VLC, MX Player...).
+        // Utile notamment pour caster vers un Chromecast via VLC.
+        const openBtn =
+          '<button data-open="' + i + '" style="flex:1;padding:8px;border:1px solid ' +
+          '#2b4a63;border-radius:7px;background:#1c1f26;color:#8ab4f8;font-size:12px">' +
+          'Ouvrir (VLC\u2026)</button>';
         return '<div style="border:1px solid #2b303a;border-radius:8px;padding:9px;' +
           'margin-bottom:8px">' +
           '<div style="font-size:11px;color:#8ab4f8;word-break:break-all;' +
           'margin-bottom:4px">' + esc(shortUrl(v.url)) + '</div>' +
+          '<div style="font-size:11px;color:#99a0ad;margin-bottom:6px">' +
+          esc(k.label) + '</div>' +
           '<div style="display:flex;align-items:center;gap:8px">' +
-          '<span style="font-size:11px;color:#99a0ad">' + esc(k.label) + '</span>' +
-          btn + '</div></div>';
+          btn + openBtn + '</div></div>';
       }).join("");
       panel.innerHTML =
         '<div style="font-weight:600;margin-bottom:8px">Videos de cette page ' +
         '(' + list.length + ')</div>' + rows +
         '<div style="color:#99a0ad;font-size:11px;margin:2px 0 10px">Les flux ' +
-        'chiffres ou proteges ne peuvent pas etre telecharges.</div>' +
+        'chiffres ou proteges ne peuvent pas etre telecharges, mais « Ouvrir » ' +
+        'les envoie a un lecteur externe (VLC) d\'ou vous pouvez caster.</div>' +
         '<button data-a="close" style="width:100%;padding:9px;border:1px solid ' +
         '#2b303a;border-radius:7px;background:transparent;color:#99a0ad">Fermer</button>';
     }
@@ -120,10 +128,25 @@
       const a = e.target.getAttribute && e.target.getAttribute("data-a");
       if (a === "close") { close(); return; }
       const dl = e.target.getAttribute && e.target.getAttribute("data-dl");
-      if (dl != null) startDownload(list[+dl], e.target);
+      if (dl != null) { startDownload(list[+dl], e.target); return; }
+      const op = e.target.getAttribute && e.target.getAttribute("data-open");
+      if (op != null) openExternal(list[+op], e.target);
     });
 
     document.documentElement.appendChild(panel);
+  }
+
+  async function openExternal(v, btn) {
+    if (!v) return;
+    btn.textContent = "\u2026";
+    try {
+      const res = await browser.runtime.sendMessage({
+        type: "openVideoExternal", url: v.url
+      });
+      btn.textContent = (res && res.ok) ? "Ouvert" : "Echec";
+    } catch (e) {
+      btn.textContent = "Echec";
+    }
   }
 
   async function startDownload(v, btn) {

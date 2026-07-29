@@ -3847,6 +3847,34 @@ public class MainActivity extends Activity {
         }
     }
 
+    /**
+     * Envoie un flux video a une application externe (VLC, MX Player, etc.)
+     * via le selecteur Android. Interet principal : VLC sait diffuser vers un
+     * Chromecast, ce que le navigateur ne fait pas. On precise un type MIME
+     * pour que le systeme propose surtout des lecteurs video.
+     */
+    private void openVideoExternal(String url) {
+        if (url == null || url.isEmpty()) return;
+        try {
+            Uri uri = Uri.parse(url);
+            String mime = "video/*";
+            String low = url.toLowerCase();
+            if (low.contains(".m3u8")) mime = "application/x-mpegURL";
+            else if (low.contains(".mpd")) mime = "application/dash+xml";
+            else if (low.contains(".webm")) mime = "video/webm";
+            else if (low.contains(".mp4") || low.contains(".m4v")) mime = "video/mp4";
+
+            Intent i = new Intent(Intent.ACTION_VIEW);
+            i.setDataAndType(uri, mime);
+            i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(Intent.createChooser(i, "Ouvrir la video avec"));
+        } catch (Exception e) {
+            Toast.makeText(this,
+                    "Aucun lecteur video disponible (installez VLC par exemple)",
+                    Toast.LENGTH_LONG).show();
+        }
+    }
+
     private void openExternally() {
         if (currentUrl.isEmpty() || currentUrl.startsWith("moz-extension://")) return;
         try {
@@ -4130,6 +4158,14 @@ public class MainActivity extends Activity {
                         if ("gmCommands".equals(kind)) {
                             org.json.JSONArray list = json.optJSONArray("list");
                             gmCommands = list != null ? list : new org.json.JSONArray();
+                            return;
+                        }
+
+                        if ("openVideoExternal".equals(kind)) {
+                            final String url = json.optString("url", "");
+                            if (!url.isEmpty()) {
+                                runOnUiThread(() -> openVideoExternal(url));
+                            }
                             return;
                         }
 

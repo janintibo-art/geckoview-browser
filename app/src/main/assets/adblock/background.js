@@ -1114,6 +1114,15 @@ browser.runtime.onMessage.addListener(msg => {
       return Promise.resolve({ error: String(e) });
     }
   }
+  if (msg.type === "openVideoExternal") {
+    if (!nativePort) return Promise.resolve({ error: "app non connectee" });
+    try {
+      nativePort.postMessage({ type: "openVideoExternal", url: msg.url || "" });
+      return Promise.resolve({ ok: true });
+    } catch (e) {
+      return Promise.resolve({ error: String(e) });
+    }
+  }
   if (msg.type === "downloadHls") {
     if (!nativePort) return Promise.resolve({ error: "app non connectee" });
     try {

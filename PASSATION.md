@@ -304,6 +304,12 @@ ou l'on decide de charger l'accueil, sinon blocage sur ecran de demarrage.
 Un capteur de plantage global (last-crash.txt, affiche au lancement suivant)
 reste en place, discret.
 
+**Ouvrir une video dans une app externe (VLC)** : commande native
+`openVideoExternal` (video.js -> background.js -> MainActivity.openVideoExternal).
+Envoie un ACTION_VIEW avec type MIME adapte au selecteur Android. Permet de
+caster via VLC, ce que le navigateur ne fait pas. Bouton « Ouvrir (VLC…) »
+inconditionnel dans le panneau video, y compris pour DASH/proteges.
+
 **`qualifyDomain()` (background.js) est le seul endroit qui qualifie un
 domaine tiers** — propriétaire, catégorie, régie. Le rapport « qui parle à
 qui » et le journal réseau l'utilisent tous les deux ; ne pas dupliquer
