@@ -2783,6 +2783,9 @@ public class MainActivity extends Activity {
             .sub("\u6587", "Traduire", "vers " + trLangName(), this::showTranslateMenu)
             .add("\u2315", "Analyser la page", this::inspectPage)
             .add("\u2039", "Code source", this::viewSource)
+            // VIDEO_DOWNLOAD_V1 — flux reperes par le journal reseau.
+            .add("\u25BC", "Telecharger la video",
+                 () -> { if (onWebPage()) sendCommand("videoDownload"); })
             // PRINT_V1 — le moteur produit la mise en page, Android imprime
             // ou enregistre en PDF via « Enregistrer au format PDF ».
             .add("\u2399", "Imprimer ou exporter en PDF",

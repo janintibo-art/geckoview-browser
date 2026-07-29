@@ -474,6 +474,41 @@ function netPush(e) {
     const old = netLog.shift();
     netIndex.delete(old.id);
   }
+  noteVideoStream(e);
+}
+
+// ---------------------------------------------------------------------------
+//  Detection des videos en cours
+//  Le journal reseau voit passer les playlists .m3u8 et les gros fichiers
+//  video. On en tient une liste par page, pour proposer le telechargement
+//  sans passer par l'analyseur.
+// ---------------------------------------------------------------------------
+const videoStreams = new Map();   // doc origin -> [ { url, kind, ts } ]
+
+function docKey(url) {
+  try { return new URL(url).origin; } catch (e) { return url || ""; }
+}
+
+function noteVideoStream(e) {
+  const url = e.url || "";
+  let kind = null;
+  if (/\.m3u8(\?|$)/i.test(url)) kind = "hls";
+  else if (/\.mpd(\?|$)/i.test(url)) kind = "dash";
+  else if (/\.(mp4|webm|m4v|mov)(\?|$)/i.test(url) && e.type === "media") kind = "file";
+  if (!kind) return;
+
+  const key = docKey(e.doc);
+  let list = videoStreams.get(key);
+  if (!list) { list = []; videoStreams.set(key, list); }
+  if (list.some(v => v.url === url)) return;
+  list.push({ url: url, kind: kind, ts: Date.now(), title: "" });
+  // Une page peut multiplier les variantes ; on garde les plus recentes.
+  if (list.length > 24) list.shift();
+  // Borne memoire globale.
+  if (videoStreams.size > 40) {
+    const oldest = videoStreams.keys().next().value;
+    videoStreams.delete(oldest);
+  }
 }
 
 browser.webRequest.onBeforeRequest.addListener(
@@ -1015,6 +1050,14 @@ browser.runtime.onMessage.addListener(msg => {
     });
   }
 
+  if (msg.type === "videoStreams") {
+    const key = docKey(msg.origin || "");
+    const list = (videoStreams.get(key) || []).slice().reverse();
+    // hls d'abord (telechargeable), puis fichiers, puis dash (non gere).
+    const rank = { hls: 0, file: 1, dash: 2 };
+    list.sort((a, b) => (rank[a.kind] - rank[b.kind]));
+    return Promise.resolve({ streams: list });
+  }
   if (msg.type === "netLog") {
     const origin = msg.origin || "";
     const list = netLog.filter(e =>

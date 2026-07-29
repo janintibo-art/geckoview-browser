@@ -276,8 +276,13 @@ direction.
 choisit la variante de plus haute resolution, telecharge les segments et les
 remuxe en MP4 via MediaMuxer (comme AudioExtractor, sans reencodage). Route
 depuis inspector.js quand une ressource .m3u8 est telechargee ou "extraite".
-Non gere : DASH (.mpd, structure differente), segments chiffres. Prochaine
-etape prevue : detection de la video en cours + bouton telecharger direct.
+Non gere : DASH (.mpd, structure differente), segments chiffres.
+
+**Detection video** : background.js tient `videoStreams` (par origine,
+alimente par le journal reseau via noteVideoStream). video.js interroge
+`videoStreams` + les <video> du DOM, presente un panneau, route hls vers
+downloadHls et les fichiers vers downloadUrls. Commande `videoDownload`.
+Prochaine etape prevue : meilleur lecteur (vitesse, sous-titres, gestes).
 
 **`qualifyDomain()` (background.js) est le seul endroit qui qualifie un
 domaine tiers** — propriétaire, catégorie, régie. Le rapport « qui parle à
