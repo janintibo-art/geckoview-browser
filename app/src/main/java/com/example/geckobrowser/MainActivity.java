@@ -95,6 +95,9 @@ public class MainActivity extends Activity {
     private android.widget.ProgressBar progress;
     private android.view.View splash;
     private boolean homeLoaded = false;
+    // Vrai tant qu'un onglet attend que le metamoteur soit pret pour charger
+    // sa page d'accueil (voir bindPort et forceHomeFallback).
+    private boolean awaitingHome = false;
     private android.os.Handler sessionSaveHandler;
     private final Runnable sessionSaveRunnable = this::saveTabs;
 
@@ -821,16 +824,13 @@ public class MainActivity extends Activity {
             } else if (searchBase != null) {
                 session.loadUri(homeUrl());
             } else {
-                // L'extension n'est pas encore prete : sans cette attente, le premier
-                // lancement afficherait le moteur de repli au lieu du notre.
-                new android.os.Handler(getMainLooper()).postDelayed(() -> {
-                    if (!homeLoaded && tab.url.isEmpty()
-                            && tab.session != null && tab.session.isOpen()) {
-                        homeLoaded = true;
-                        tab.session.loadUri(homeUrl());
-                        if (tab.session == session) hideSplash();
-                    }
-                }, 5000);
+                // L'extension n'est pas encore prete (searchBase nul) : on
+                // marque cet onglet comme « en attente d'accueil ». bindPort()
+                // le chargera des que le metamoteur sera connu, et un repli
+                // temporel garantit qu'on ne reste jamais bloque sur l'ecran
+                // de demarrage, meme si l'extension tarde ou echoue.
+                awaitingHome = true;
+                geckoView.postDelayed(this::forceHomeFallback, 6000);
             }
         }
 
@@ -881,6 +881,11 @@ public class MainActivity extends Activity {
     private void selectTab(int index) {
         if (index < 0 || index >= tabs.size()) return;
         hideFindBar();
+        // Selectionner un onglet qui a deja une adresse (onglet restaure)
+        // annule l'attente d'accueil du premier onglet vide : sans cela, le
+        // repli aurait pu recharger l'accueil par-dessus la page restauree.
+        String selUrl = tabs.get(index).url;
+        if (selUrl != null && !selUrl.isEmpty()) awaitingHome = false;
         long now = System.currentTimeMillis();
         if (active >= 0 && active < tabs.size() && active != index) {
             tabs.get(active).lastUsed = now;
@@ -3916,8 +3921,16 @@ public class MainActivity extends Activity {
             if (ext.metaData != null && ext.metaData.baseUrl != null) {
                 searchBase = ext.metaData.baseUrl + "search.html";
                 runOnUiThread(() -> {
-                    if (session != null && !homeLoaded && currentUrl.isEmpty()) {
+                    // Charger l'accueil des que le metamoteur est connu, sur
+                    // l'onglet actif tant qu'il attend encore sa page. On ne
+                    // depend plus d'une reference d'onglet capturee ni de
+                    // l'etat d'ouverture : c'est ce qui bloquait le lancement
+                    // par l'icone (le widget, lui, forcait deja le chargement).
+                    if (awaitingHome && !homeLoaded && session != null
+                            && (currentUrl == null || currentUrl.isEmpty())) {
                         homeLoaded = true;
+                        awaitingHome = false;
+                        if (!session.isOpen()) session.open(sRuntime);
                         session.loadUri(homeUrl());
                     }
                 });
@@ -4086,8 +4099,31 @@ public class MainActivity extends Activity {
     private void loadHome() {
         if (searchBase != null) {
             homeLoaded = true;
+            awaitingHome = false;
             session.loadUri(homeUrl());
         }
+    }
+
+    /**
+     * Filet de securite du demarrage : si au bout de quelques secondes
+     * l'accueil n'a toujours pas ete charge (extension lente ou en echec),
+     * on charge quand meme quelque chose et on retire l'ecran de demarrage.
+     * Sans cela, un metamoteur qui tarde laissait l'app figee sur le splash
+     * quand elle etait lancee par l'icone.
+     */
+    private void forceHomeFallback() {
+        if (homeLoaded || !awaitingHome) return;
+        if (session == null) return;
+        if (currentUrl != null && !currentUrl.isEmpty()) { awaitingHome = false; return; }
+        homeLoaded = true;
+        awaitingHome = false;
+        try {
+            if (!session.isOpen()) session.open(sRuntime);
+            // homeUrl() renvoie le metamoteur si pret, sinon le moteur de repli :
+            // dans les deux cas l'utilisateur obtient une page utilisable.
+            session.loadUri(homeUrl());
+        } catch (Throwable ignored) { }
+        hideSplash();
     }
 
     private String homeUrl() {
