@@ -43,6 +43,13 @@
     } catch (e) { }
   }
 
+  // Minuteur d'arret : met en pause toute lecture de la page.
+  function pauseAll() {
+    document.querySelectorAll("video, audio").forEach(m => {
+      try { m.pause(); } catch (e) { }
+    });
+  }
+
   document.addEventListener("play", remember, true);
   document.addEventListener("loadedmetadata", remember, true);
 
@@ -51,5 +58,6 @@
     if (!value || !visible()) return;
     if (value.cmd === "mediaPip") preparePip();
     if (value.cmd === "mediaExitFullscreen") exitFullscreen();
+    if (value.cmd === "mediaPauseAll") pauseAll();
   });
 })();

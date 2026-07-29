@@ -310,6 +310,13 @@ Envoie un ACTION_VIEW avec type MIME adapte au selecteur Android. Permet de
 caster via VLC, ce que le navigateur ne fait pas. Bouton « Ouvrir (VLC…) »
 inconditionnel dans le panneau video, y compris pour DASH/proteges.
 
+**Medias, ameliorations en cours** (liste : reprise+minuteur / file audio /
+sous-titres / boost+capture, dans cet ordre). Fait : reprise de position
+(player.js, cle playerResume par URL, propose une fois par element video) et
+minuteur d'arret (MainActivity, Handler qui envoie mediaPauseAll -- commande
+ajoutee dans media-tools.js). Reste a faire : file d'attente audio, telechargement
+des sous-titres, boost du volume + capture d'image.
+
 **`qualifyDomain()` (background.js) est le seul endroit qui qualifie un
 domaine tiers** — propriétaire, catégorie, régie. Le rapport « qui parle à
 qui » et le journal réseau l'utilisent tous les deux ; ne pas dupliquer

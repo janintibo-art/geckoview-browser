@@ -27,14 +27,55 @@
 
   // ----- preferences -------------------------------------------------------
   try {
-    browser.storage.local.get(["playerGestures", "playerSpeed"]).then(s => {
+    browser.storage.local.get(["playerGestures", "playerSpeed", "playerResume"]).then(s => {
       if (s && s.playerGestures === false) enabled = false;
       const host = location.hostname.replace(/^www\./, "");
       const map = (s && s.playerSpeed) || {};
       pendingSpeed = map[host];
+      resumeMap = (s && s.playerResume) || {};
     });
   } catch (e) { }
   let pendingSpeed = undefined;
+  let resumeMap = {};
+
+  // Cle de reprise : l'URL de la page suffit dans l'immense majorite des cas
+  // (une video par page). On tronque pour ne pas gonfler le stockage.
+  function resumeKey() {
+    return (location.origin + location.pathname).slice(0, 180);
+  }
+
+  function saveResume(v) {
+    if (!v || !isFinite(v.duration) || v.duration < 60) return; // pas les clips courts
+    try {
+      const key = resumeKey();
+      const pos = v.currentTime;
+      // Fin de video : on efface, la prochaine ouverture repart du debut.
+      if (pos < 5 || pos > v.duration - 15) delete resumeMap[key];
+      else resumeMap[key] = { t: Math.floor(pos), d: Math.floor(v.duration), at: Date.now() };
+      pruneResume();
+      browser.storage.local.set({ playerResume: resumeMap });
+    } catch (e) { }
+  }
+
+  // Borne memoire : on garde les 60 positions les plus recentes.
+  function pruneResume() {
+    const keys = Object.keys(resumeMap);
+    if (keys.length <= 60) return;
+    keys.sort((a, b) => (resumeMap[a].at || 0) - (resumeMap[b].at || 0));
+    for (let i = 0; i < keys.length - 60; i++) delete resumeMap[keys[i]];
+  }
+
+  function offerResume(v) {
+    try {
+      const r = resumeMap[resumeKey()];
+      if (!r || !r.t) return;
+      if (!isFinite(v.duration) || Math.abs(v.duration - r.d) > 5) return; // pas la meme video
+      if (v.currentTime > 5) return; // deja en cours
+      const mn = Math.floor(r.t / 60), sc = r.t % 60;
+      flash("Reprise a " + mn + ":" + (sc < 10 ? "0" : "") + sc);
+      try { v.currentTime = r.t; } catch (e) { }
+    } catch (e) { }
+  }
 
   function saveSpeed(rate) {
     try {
@@ -54,6 +95,21 @@
       lastVideo = n;
       if (pendingSpeed && n.playbackRate === 1) {
         try { n.playbackRate = pendingSpeed; } catch (err) { }
+      }
+      // Reprise : proposee une seule fois par element video.
+      if (!n.__gbResumeChecked) {
+        n.__gbResumeChecked = true;
+        offerResume(n);
+        // Sauvegarde reguliere de la position pendant la lecture.
+        n.addEventListener("timeupdate", () => {
+          const now = Date.now();
+          if (now - (n.__gbLastSave || 0) > 5000) {
+            n.__gbLastSave = now;
+            saveResume(n);
+          }
+        });
+        n.addEventListener("pause", () => saveResume(n));
+        n.addEventListener("ended", () => saveResume(n));
       }
     }
   }

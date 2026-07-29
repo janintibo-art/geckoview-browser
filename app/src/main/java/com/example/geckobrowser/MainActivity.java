@@ -2849,6 +2849,10 @@ public class MainActivity extends Activity {
                  this::showSplitScreenMenu)
             .sub("\u25B6", "Multimedia", mediaHub.summary(),
                  () -> mediaHub.showMenu(this::showMenu))
+            // MEDIA_EXTRAS_V1 — minuteur d'arret de lecture.
+            .sub("\u23F2", "Minuteur d'arret",
+                 sleepTimerAt > 0 ? "actif" : "arreter la lecture apres un delai",
+                 () -> showSleepTimerMenu(this::showMenu))
             // DOWNLOAD_CENTER_V1 — file systeme, progression et historique.
             .sub("\u21E9", "Telechargements", DownloadCenter.summary(this),
                  () -> DownloadCenter.show(this, this::showMenu))
@@ -3030,6 +3034,53 @@ public class MainActivity extends Activity {
     //  Actions transmises a la page
     // =======================================================================
     /** Transmet une action aux scripts de contenu via l'extension. */
+    // =======================================================================
+    //  Minuteur d'arret de lecture (sleep timer)
+    //  Met la lecture en pause apres un delai. Utile pour s'endormir devant
+    //  une video. Le compte a rebours vit dans l'activite (pas dans la page)
+    //  pour survivre a la navigation.
+    // =======================================================================
+    private Runnable sleepTimerTask;
+    private long sleepTimerAt = 0;
+
+    void showSleepTimerMenu(Runnable back) {
+        Menus m = new Menus(this, "Minuteur d'arret");
+        if (sleepTimerAt > 0) {
+            long left = Math.max(0, (sleepTimerAt - System.currentTimeMillis()) / 60000);
+            m.add("\u25CF", "Minuteur actif", "~" + left + " min restantes \u00b7 toucher pour annuler",
+                  () -> { cancelSleepTimer(); showSleepTimerMenu(back); });
+        }
+        int[] mins = { 15, 30, 45, 60, 90 };
+        for (int min : mins) {
+            final int mm = min;
+            m.add("\u23F2", min + " minutes", () -> { startSleepTimer(mm); });
+        }
+        m.back(back).show();
+    }
+
+    private void startSleepTimer(int minutes) {
+        cancelSleepTimer();
+        sleepTimerAt = System.currentTimeMillis() + minutes * 60000L;
+        sleepTimerTask = () -> {
+            sleepTimerAt = 0;
+            sleepTimerTask = null;
+            // La pause passe par la page (met en pause toutes les <video>/<audio>).
+            if (onWebPage()) sendCommand("mediaPauseAll");
+            Toast.makeText(this, "Lecture arretee (minuteur)", Toast.LENGTH_LONG).show();
+        };
+        new android.os.Handler(getMainLooper()).postDelayed(sleepTimerTask, minutes * 60000L);
+        Toast.makeText(this, "Lecture s'arretera dans " + minutes + " min",
+                Toast.LENGTH_SHORT).show();
+    }
+
+    private void cancelSleepTimer() {
+        if (sleepTimerTask != null) {
+            new android.os.Handler(getMainLooper()).removeCallbacks(sleepTimerTask);
+            sleepTimerTask = null;
+        }
+        sleepTimerAt = 0;
+    }
+
     private void sendCommand(String cmd) {
         if (blockerPort == null) {
             Toast.makeText(this, "Extension non connectee", Toast.LENGTH_SHORT).show();
