@@ -402,7 +402,7 @@ public class MainActivity extends Activity {
 
         switch (action) {
             case "search":
-                session.loadUri(homeUrl());
+                loadHome();
                 urlBar.requestFocus();
                 InputMethodManager imm =
                         (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
@@ -791,7 +791,8 @@ public class MainActivity extends Activity {
                 // L'extension n'est pas encore prete : sans cette attente, le premier
                 // lancement afficherait le moteur de repli au lieu du notre.
                 new android.os.Handler(getMainLooper()).postDelayed(() -> {
-                    if (!homeLoaded && tab.session != null && tab.session.isOpen()) {
+                    if (!homeLoaded && tab.url.isEmpty()
+                            && tab.session != null && tab.session.isOpen()) {
                         homeLoaded = true;
                         tab.session.loadUri(homeUrl());
                         if (tab.session == session) hideSplash();
@@ -4015,6 +4016,24 @@ public class MainActivity extends Activity {
      * Accueil : la page de marque n'a de sens qu'avec le metamoteur integre.
      * Avec un autre moteur, on ouvre directement son propre accueil.
      */
+    /**
+     * Charge la page d'accueil du navigateur en respectant l'ordre de
+     * demarrage.
+     *
+     * Tant que l'extension n'est pas chargee, `searchBase` est nul et
+     * homeUrl() retombe sur le moteur de repli (DuckDuckGo). Charger tout
+     * de suite afficherait donc DuckDuckGo, remplace quelques secondes plus
+     * tard par notre metamoteur — c'est ce que faisait le widget de
+     * recherche. On laisse plutot bindPort(), ou le repli a 5 s, charger
+     * l'accueil des qu'il est connu.
+     */
+    private void loadHome() {
+        if (searchBase != null) {
+            homeLoaded = true;
+            session.loadUri(homeUrl());
+        }
+    }
+
     private String homeUrl() {
         String tpl = engineTemplate();
         if (!"internal".equals(tpl)) {
