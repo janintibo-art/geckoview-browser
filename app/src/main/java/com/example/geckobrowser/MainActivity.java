@@ -2688,6 +2688,10 @@ public class MainActivity extends Activity {
                      updateDynamicToolbar();
                      showMenu();
                  })
+            // PLAYER_V1 — gestes tactiles sur les videos en plein ecran.
+            .add("\u261D", "Gestes video en plein ecran",
+                 "double-tape: +/-10s \u00b7 glisser: volume",
+                 () -> { if (onWebPage()) sendCommand("playerGestures"); })
             .sub("\u2318", "Mode developpeur", DeveloperMode.summary(this),
                  () -> DeveloperMode.show(this, sRuntime, this::showMenu))
             // LAB_V1 — fonctions experimentales du moteur.
@@ -2786,6 +2790,11 @@ public class MainActivity extends Activity {
             // VIDEO_DOWNLOAD_V1 — flux reperes par le journal reseau.
             .add("\u25BC", "Telecharger la video",
                  () -> { if (onWebPage()) sendCommand("videoDownload"); })
+            // PLAYER_V1 — reglages du lecteur video de la page.
+            .add("\u25B7", "Vitesse de lecture", "0,5\u00d7 a 2\u00d7",
+                 () -> { if (onWebPage()) sendCommand("playerSpeed"); })
+            .add("\u25A4", "Sous-titres", "afficher ou masquer",
+                 () -> { if (onWebPage()) sendCommand("playerCaptions"); })
             // PRINT_V1 — le moteur produit la mise en page, Android imprime
             // ou enregistre en PDF via « Enregistrer au format PDF ».
             .add("\u2399", "Imprimer ou exporter en PDF",

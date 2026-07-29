@@ -282,7 +282,13 @@ Non gere : DASH (.mpd, structure differente), segments chiffres.
 alimente par le journal reseau via noteVideoStream). video.js interroge
 `videoStreams` + les <video> du DOM, presente un panneau, route hls vers
 downloadHls et les fichiers vers downloadUrls. Commande `videoDownload`.
-Prochaine etape prevue : meilleur lecteur (vitesse, sous-titres, gestes).
+
+**Lecteur (player.js, all_frames)** : gestes plein ecran (double-tape +/-10s,
+glissement volume), vitesse memorisee par site (cle playerSpeed), bascule
+sous-titres. Commandes playerSpeed/playerCaptions/playerGestures. Piege resolu :
+GB.foreground() est vrai dans toutes les iframes de l'onglet actif ; le cadre
+principal route donc la commande vers ses sous-cadres via postMessage pour
+qu'elle ne s'applique qu'a une video. La partie video est complete.
 
 **`qualifyDomain()` (background.js) est le seul endroit qui qualifie un
 domaine tiers** — propriétaire, catégorie, régie. Le rapport « qui parle à
