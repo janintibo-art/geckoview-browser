@@ -319,7 +319,10 @@ bouton « + File » du panneau video (commande queueAdd). Enchainement : player.
 envoie mediaEnded a la fin d'une video (>30s, cadre principal), MainActivity
 charge la suivante. Un flux de plateforme remet la PAGE en file (pas l'URL du
 flux, injouable hors contexte) ; un fichier direct est mis tel quel.
-Reste a faire : telechargement des sous-titres, boost du volume + capture d'image.
+Sous-titres (player.js downloadSubtitles, commande playerSubtitles) : URL
+directe du <track> -> downloadUrls ; sinon reconstruction VTT depuis track.cues
+-> downloadText. Il faut parfois afficher les sous-titres avant pour que les
+cues se chargent. Reste a faire : boost du volume + capture d'image.
 
 **`qualifyDomain()` (background.js) est le seul endroit qui qualifie un
 domaine tiers** — propriétaire, catégorie, régie. Le rapport « qui parle à

@@ -232,6 +232,109 @@
     flash("Vitesse " + rate + "\u00d7");
   }
 
+  // ----- telechargement des sous-titres ------------------------------------
+  function subtitleTracks(v) {
+    const out = [];
+    if (!v) return out;
+    // 1. Elements <track> du DOM : ils portent souvent une URL .vtt directe.
+    v.querySelectorAll("track").forEach(tr => {
+      if (tr.kind === "subtitles" || tr.kind === "captions" || !tr.kind) {
+        out.push({
+          label: tr.label || tr.srclang || "sous-titres",
+          lang: tr.srclang || "",
+          url: tr.src || "",
+          track: tr.track || null
+        });
+      }
+    });
+    // 2. Pistes textTracks sans <track> associe (chargees par le lecteur) :
+    //    pas d'URL, mais on pourra reconstruire depuis les cues.
+    for (let i = 0; i < v.textTracks.length; i++) {
+      const t = v.textTracks[i];
+      if ((t.kind === "subtitles" || t.kind === "captions") &&
+          !out.some(o => o.track === t)) {
+        out.push({ label: t.label || t.language || "sous-titres",
+                   lang: t.language || "", url: "", track: t });
+      }
+    }
+    return out;
+  }
+
+  function timeVtt(sec) {
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = Math.floor(sec % 60);
+    const ms = Math.floor((sec - Math.floor(sec)) * 1000);
+    const p = (n, l) => String(n).padStart(l, "0");
+    return p(h, 2) + ":" + p(m, 2) + ":" + p(s, 2) + "." + p(ms, 3);
+  }
+
+  // Reconstruit un fichier VTT a partir des cues deja charges en memoire.
+  function cuesToVtt(track) {
+    if (!track) return "";
+    // Forcer le chargement des cues si la piste etait masquee.
+    const prevMode = track.mode;
+    if (track.mode === "disabled") track.mode = "hidden";
+    const cues = track.cues;
+    if (!cues || !cues.length) { track.mode = prevMode; return ""; }
+    let out = "WEBVTT\n\n";
+    for (let i = 0; i < cues.length; i++) {
+      const c = cues[i];
+      out += timeVtt(c.startTime) + " --> " + timeVtt(c.endTime) + "\n";
+      out += (c.text || "") + "\n\n";
+    }
+    track.mode = prevMode;
+    return out;
+  }
+
+  async function downloadSubtitles() {
+    const v = activeVideo();
+    const tracks = subtitleTracks(v);
+    if (!tracks.length) {
+      alert("Aucun sous-titre disponible sur cette video.");
+      return;
+    }
+    // S'il y a plusieurs langues, demander laquelle (choix simple).
+    let choice = tracks[0];
+    if (tracks.length > 1) {
+      const labels = tracks.map((t, i) => (i + 1) + ". " + t.label).join("\n");
+      const pick = prompt("Quel sous-titre telecharger ?\n" + labels + "\n\nNumero :", "1");
+      const idx = parseInt(pick, 10) - 1;
+      if (isNaN(idx) || idx < 0 || idx >= tracks.length) return;
+      choice = tracks[idx];
+    }
+
+    const base = (document.title || location.hostname).slice(0, 80)
+                 + (choice.lang ? "." + choice.lang : "");
+
+    // Cas 1 : URL directe -> l'app telecharge le fichier.
+    if (choice.url && /^https?:/i.test(choice.url)) {
+      try {
+        await browser.runtime.sendMessage({
+          type: "downloadUrls", urls: [choice.url], referer: location.href
+        });
+        flash("Sous-titres telecharges");
+        return;
+      } catch (e) { /* on tente la reconstruction */ }
+    }
+
+    // Cas 2 : reconstruction depuis les cues, puis enregistrement du texte.
+    const vtt = cuesToVtt(choice.track);
+    if (!vtt) {
+      alert("Ces sous-titres ne sont pas encore charges. Affichez-les quelques "
+            + "secondes puis reessayez.");
+      return;
+    }
+    try {
+      await browser.runtime.sendMessage({
+        type: "downloadText", name: base + ".vtt", text: vtt
+      });
+      flash("Sous-titres enregistres");
+    } catch (e) {
+      alert("Echec de l'enregistrement des sous-titres.");
+    }
+  }
+
   function toggleCaptions() {
     const v = activeVideo();
     if (!v || !v.textTracks || !v.textTracks.length) {
@@ -273,6 +376,7 @@
   function applyCommand(cmd) {
     if (cmd === "playerSpeed") cycleSpeed();
     if (cmd === "playerCaptions") toggleCaptions();
+    if (cmd === "playerSubtitles") downloadSubtitles();
     if (cmd === "playerGestures") {
       enabled = !enabled;
       try { browser.storage.local.set({ playerGestures: enabled }); } catch (e) { }

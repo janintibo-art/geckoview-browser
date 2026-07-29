@@ -2950,6 +2950,8 @@ public class MainActivity extends Activity {
                  () -> { if (onWebPage()) sendCommand("playerSpeed"); })
             .add("\u25A4", "Sous-titres", "afficher ou masquer",
                  () -> { if (onWebPage()) sendCommand("playerCaptions"); })
+            .add("\u2913", "Telecharger les sous-titres", "fichier .vtt",
+                 () -> { if (onWebPage()) sendCommand("playerSubtitles"); })
             // PRINT_V1 — le moteur produit la mise en page, Android imprime
             // ou enregistre en PDF via « Enregistrer au format PDF ».
             .add("\u2399", "Imprimer ou exporter en PDF",
