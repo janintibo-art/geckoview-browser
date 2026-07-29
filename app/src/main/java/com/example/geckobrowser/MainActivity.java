@@ -129,6 +129,10 @@ public class MainActivity extends Activity {
 
     private static final int REQ_FILE = 8123;
     private static final int REQ_EXTENSION = 8124;
+    private static final int REQ_WEBAUTHN = 8125;
+
+    private WebNotifications webNotifications;
+    private GeckoResult<Intent> webAuthnResult;
     private GeckoResult<GeckoSession.PromptDelegate.PromptResponse> pendingFile;
     private GeckoSession.PromptDelegate.FilePrompt pendingFilePrompt;
 
@@ -251,6 +255,30 @@ public class MainActivity extends Activity {
                 this::pickExtensionPackage);
         // DEVELOPER_MODE_V1 — reglages a chaud memorises d'une session a l'autre.
         DeveloperMode.apply(this, sRuntime);
+
+        // WEB_NOTIFICATIONS_V1 — sans ce delegue, une page qui appelle
+        // Notification() ne produit rien du tout.
+        webNotifications = new WebNotifications(this);
+        try { sRuntime.setWebNotificationDelegate(webNotifications); }
+        catch (Throwable ignored) { }
+
+        // WEBAUTHN_V1 — chainon manquant pour que les passkeys fonctionnent
+        // dans les pages : Gecko a besoin de faire lancer un PendingIntent
+        // par une Activity, ce qu'il ne peut pas faire seul.
+        try {
+            sRuntime.setActivityDelegate(pendingIntent -> {
+                final GeckoResult<Intent> result = new GeckoResult<>();
+                try {
+                    webAuthnResult = result;
+                    startIntentSenderForResult(pendingIntent.getIntentSender(),
+                            REQ_WEBAUTHN, null, 0, 0, 0);
+                } catch (Throwable e) {
+                    webAuthnResult = null;
+                    result.completeExceptionally(e);
+                }
+                return result;
+            });
+        } catch (Throwable ignored) { }
         passwordVault = PasswordVault.get(this);
         sRuntime.setAutocompleteStorageDelegate(passwordVault);
         try {
@@ -310,6 +338,7 @@ public class MainActivity extends Activity {
 
         updateShield();
         handleWidgetIntent(getIntent());
+        handleNotificationIntent(getIntent());
         handleIncomingLink(getIntent());
     }
 
@@ -318,7 +347,18 @@ public class MainActivity extends Activity {
         super.onNewIntent(intent);
         setIntent(intent);
         handleWidgetIntent(intent);
+        handleNotificationIntent(intent);
         handleIncomingLink(intent);
+    }
+
+    /** Toucher une notification de site ouvre la page qui l'a produite. */
+    private void handleNotificationIntent(Intent intent) {
+        if (intent == null) return;
+        String url = intent.getStringExtra(WebNotifications.EXTRA_URL);
+        if (url == null || url.isEmpty()) return;
+        intent.removeExtra(WebNotifications.EXTRA_URL);
+        setupSession(false, url);
+        selectTab(tabs.size() - 1);
     }
 
     /**
@@ -1697,6 +1737,16 @@ public class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQ_WEBAUTHN) {
+            GeckoResult<Intent> pending = webAuthnResult;
+            webAuthnResult = null;
+            if (pending != null) {
+                if (resultCode == RESULT_OK) pending.complete(data);
+                else pending.completeExceptionally(
+                        new RuntimeException("authentification annulee"));
+            }
+            return;
+        }
         if (requestCode == REQ_EXTENSION) {
             if (resultCode == RESULT_OK && data != null && data.getData() != null
                     && extensionManager != null) {
@@ -2617,6 +2667,10 @@ public class MainActivity extends Activity {
             .sub("\u25F3", "Identites",
                  ContainerManager.summary(this, currentContainer()),
                  this::showContainers)
+            .sub("\u2709", "Notifications des sites",
+                 WebNotifications.summary(this),
+                 () -> WebNotifications.show(this,
+                         WebNotifications.hostOf(currentUrl), this::showMenu))
             .add(dynamicToolbar() ? "\u25C9" : "\u25CB", "Barre retractable",
                  dynamicToolbar() ? "se replie au defilement" : "toujours visible",
                  () -> {

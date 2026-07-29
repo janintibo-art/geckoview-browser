@@ -14,9 +14,18 @@ import re, sys, glob, collections
 
 # Le modificateur d'acces est facultatif : les methodes de portee paquet
 # (frequentes dans les classes imbriquees) doivent aussi etre reconnues.
+# Motif borne volontairement : la version precedente autorisait espaces et
+# sauts de ligne dans le type de retour ([\w<>...\s]+?), ce qui provoquait un
+# retour arriere catastrophique — 35 s sur ce projet, des minutes sur un
+# telephone. Chaque partie est desormais limitee et sans \s libre.
 DECL = re.compile(
-    r'^\s*(?:(?:public|private|protected)\s+)?(?:static\s+|final\s+|synchronized\s+)*'
-    r'[\w<>\[\],.?\s]+?\s+(\w+)\s*\(([^)]*)\)\s*(?:throws [\w,.\s]+)?\{', re.M)
+    r'^[ \t]*'
+    r'(?:(?:public|private|protected)[ \t]+)?'
+    r'(?:(?:static|final|synchronized|abstract|native|default)[ \t]+){0,3}'
+    r'(?:<[^<>{}\n]{0,80}>[ \t]*)?'                 # methode generique
+    r'[\w.$]+(?:<[^<>{}\n]{0,120}>)?(?:\[\])*[ \t]+'  # type de retour
+    r'(\w+)[ \t]*\(([^)]{0,800})\)[ \t]*'
+    r'(?:throws[ \t][\w,.\s]{0,150})?\{', re.M)
 
 def split_args(text):
     """Compte les arguments d'un appel en ignorant les virgules imbriquees."""
@@ -87,28 +96,38 @@ for path in sys.argv[1:] or glob.glob("app/src/main/java/**/*.java", recursive=T
             variadic.add(m.group(1))
             arities[m.group(1)].add(max(0, n - 1))
 
-    for name, expected in arities.items():
-        if name in KEYWORDS:
+    # Un seul balayage pour tous les appels, au lieu d'un balayage complet
+    # par nom de methode : sur un fichier de 170 Ko avec ~300 methodes, la
+    # version naive prenait plus de 30 s (des minutes sur un telephone).
+    line_of = None
+    for m in re.finditer(r'(?<![\w.])(\w+)\s*\(', clean):
+        name = m.group(1)
+        expected = arities.get(name)
+        if expected is None or name in KEYWORDS:
             continue
-        # Un nom qui sert aussi ailleurs (interface, classe anonyme) est ignore
-        for m in re.finditer(r'(?<![\w.])' + re.escape(name) + r'\s*\(', clean):
-            # Ecarter la declaration elle-meme
-            line_start = clean.rfind("\n", 0, m.start()) + 1
-            line = clean[line_start:m.start()]
-            if re.search(r'\b(public|private|protected)\b', line):
-                continue
-            args = call_args(clean, m.end() - 1)
-            if args is None:
-                continue
-            got = split_args(args)
-            if name in variadic:
-                if got >= min(expected):
-                    continue
-            if got not in expected:
-                ln = clean[:m.start()].count("\n") + 1
-                problems.append(
-                    f"{path}:{ln} {name}(...) appele avec {got} argument(s), "
-                    f"attendu {sorted(expected)}")
+        # Ecarter la declaration elle-meme
+        line_start = clean.rfind("\n", 0, m.start()) + 1
+        line = clean[line_start:m.start()]
+        if re.search(r'\b(public|private|protected|static)\b', line):
+            continue
+        args = call_args(clean, m.end() - 1)
+        if args is None:
+            continue
+        got = split_args(args)
+        if name in variadic and got >= min(expected):
+            continue
+        if got not in expected:
+            if line_of is None:
+                line_of = [0] * (len(clean) + 1)
+                n = 1
+                for i, ch in enumerate(clean):
+                    line_of[i] = n
+                    if ch == "\n":
+                        n += 1
+                line_of[len(clean)] = n
+            problems.append(
+                f"{path}:{line_of[m.start()]} {name}(...) appele avec "
+                f"{got} argument(s), attendu {sorted(expected)}")
 
 if problems:
     print(f"{len(problems)} probleme(s) d'arite :\n")

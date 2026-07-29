@@ -251,6 +251,11 @@ d'extensions. Avant d'appliquer un overlay ancien, sonder toutes ses
 ancres d'un coup plutôt que de corriger une erreur à la fois, et préférer
 des ancres **courtes et stables** (une ligne unique) à de longs blocs.
 
+**Attention aux regex de `tools/arity.py`** : la première version mettait
+36 s (des minutes sur téléphone) à cause d'un retour arrière catastrophique
+— le type de retour acceptait `\s` libre. Toute regex multi-ligne sur le
+Java doit être bornée (`[ \t]` plutôt que `\s`, quantificateurs limités).
+
 `tools/balance.py` vérifie l'équilibre accolades/parenthèses en
 comprenant chaînes, caractères et commentaires. `tools/arity.py` vérifie
 que chaque appel a le bon nombre d'arguments — `check.py` vérifie qu'une
@@ -263,12 +268,10 @@ tout overlay.
 La liste des 14 étapes est terminée, plus le menu contextuel, la barre
 rétractable et les liens visités.
 
-API GeckoView repérées et **pas encore exploitées** :
-`WebNotificationDelegate` (notifications des sites), `setActivityDelegate`
-(passkeys WebAuthn dans les pages), exceptions de protection par site via
-les `ContentPermission`, `ProfilerController` (profileur dans le mode
-développeur). Autre idée : détecteur de mouchards *dans* le rapport réseau
-enrichi.
+API GeckoView repérées et **pas encore exploitées** : exceptions de
+protection par site via les `ContentPermission`, `ProfilerController`
+(profileur dans le mode développeur). Autre idée : détecteur de mouchards
+*dans* le rapport réseau enrichi.
 
 **Impression** : l'appel passe par introspection (`didPrintPageContent` /
 `printPageContent`), le nom ayant changé selon les versions de GeckoView.
