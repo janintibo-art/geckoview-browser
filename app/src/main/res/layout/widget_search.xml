@@ -5,25 +5,32 @@
     android:orientation="horizontal"
     android:gravity="center_vertical"
     android:background="@drawable/widget_bg"
-    android:padding="8dp">
+    android:padding="10dp">
 
     <LinearLayout
         android:id="@+id/w_search"
         android:layout_width="0dp"
-        android:layout_height="44dp"
+        android:layout_height="46dp"
         android:layout_weight="1"
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:background="@drawable/widget_pill"
         android:paddingStart="14dp"
-        android:paddingEnd="10dp">
+        android:paddingEnd="12dp">
+
+        <ImageView
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_marginEnd="10dp"
+            android:src="@drawable/ic_widget_search"
+            android:contentDescription="@string/widget_search_hint" />
 
         <TextView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="@string/widget_search_hint"
-            android:textColor="#8A9099"
+            android:textColor="#9AA0AA"
             android:textSize="14sp"
             android:maxLines="1"
             android:ellipsize="end" />
@@ -31,18 +38,21 @@
 
     <ImageView
         android:id="@+id/w_private"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:layout_marginStart="4dp"
-        android:padding="9dp"
-        android:src="@android:drawable/ic_secure"
+        android:layout_width="46dp"
+        android:layout_height="46dp"
+        android:layout_marginStart="8dp"
+        android:padding="12dp"
+        android:background="@drawable/widget_btn_bg"
+        android:src="@drawable/ic_widget_private"
         android:contentDescription="@string/widget_private" />
 
     <ImageView
         android:id="@+id/w_bookmarks"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:padding="9dp"
-        android:src="@android:drawable/btn_star_big_off"
+        android:layout_width="46dp"
+        android:layout_height="46dp"
+        android:layout_marginStart="8dp"
+        android:padding="12dp"
+        android:background="@drawable/widget_btn_bg"
+        android:src="@drawable/ic_widget_bookmark"
         android:contentDescription="@string/widget_bookmarks" />
 </LinearLayout>

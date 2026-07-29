@@ -6,35 +6,50 @@
     android:orientation="vertical"
     android:gravity="center"
     android:background="@drawable/widget_bg"
-    android:padding="10dp">
+    android:padding="12dp">
+
+    <FrameLayout
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:background="@drawable/widget_count_bg">
+
+        <TextView
+            android:id="@+id/w_count"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:text="0"
+            android:textColor="#6FAE5F"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:maxLines="1" />
+    </FrameLayout>
 
     <TextView
-        android:id="@+id/w_count"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="0"
-        android:textColor="#6FAE5F"
-        android:textSize="26sp"
-        android:textStyle="bold" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
         android:text="@string/widget_blocked"
         android:textColor="#8A9099"
-        android:textSize="11sp" />
+        android:textSize="11sp"
+        android:letterSpacing="0.04" />
 
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:layout_marginTop="8dp">
+        android:layout_marginTop="8dp"
+        android:paddingStart="10dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="5dp"
+        android:paddingBottom="5dp"
+        android:background="@drawable/widget_state_bg">
 
         <ImageView
             android:id="@+id/w_dot"
-            android:layout_width="10dp"
-            android:layout_height="10dp"
+            android:layout_width="9dp"
+            android:layout_height="9dp"
             android:src="@drawable/widget_dot_on"
             android:contentDescription="@string/widget_state" />
 
@@ -42,7 +57,7 @@
             android:id="@+id/w_state"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="6dp"
+            android:layout_marginStart="7dp"
             android:text="@string/widget_on"
             android:textColor="#E8EAEE"
             android:textSize="12sp" />

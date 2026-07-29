@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Masque « navigation privee », dessine localement. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="22dp"
+    android:height="22dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#B58AD1">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M12,3C8,3 5,6 4,10H2v2h1.06C3.02,12.33 3,12.66 3,13c0,2.76 2.24,5 5,5 1.98,0 3.68,-1.15 4.5,-2.81C13.32,16.85 15.02,18 17,18c2.76,0 5,-2.24 5,-5 0,-0.34 -0.02,-0.67 -0.06,-1H23v-2h-2C20,6 17,3 13,3H12zM8,16c-1.66,0 -3,-1.34 -3,-3s1.34,-3 3,-3 3,1.34 3,3 -1.34,3 -3,3zM17,16c-1.66,0 -3,-1.34 -3,-3s1.34,-3 3,-3 3,1.34 3,3 -1.34,3 -3,3z" />
+</vector>
