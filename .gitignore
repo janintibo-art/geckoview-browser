@@ -4,3 +4,8 @@ app/build/
 local.properties
 *.iml
 .idea/
+
+# Sauvegardes produites par les scripts tools/apply_*.py : utiles en local
+# le temps d'une installation, jamais dans le depot (git conserve deja
+# l'etat precedent dans son historique).
+*.before-*

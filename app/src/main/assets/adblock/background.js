@@ -751,6 +751,33 @@ async function refreshLists() {
 }
 
 // ---------------------------------------------------------------------------
+//  Qualification d'un domaine tiers
+//  Meme logique pour le rapport « qui parle a qui » et pour le journal
+//  reseau : un seul endroit a corriger si les listes evoluent.
+// ---------------------------------------------------------------------------
+function qualifyDomain(base) {
+  const out = { owner: null, category: null };
+  if (!base) return out;
+
+  try { out.owner = ownerOf(base); } catch (e) { }
+
+  if (inSet(base, adDomains)) out.category = "publicite";
+
+  try {
+    for (const cat of CAT_API.CATEGORIES) {
+      const list = CAT_API.CAT_DOMAINS[cat.id];
+      if (!list || !list.length) continue;
+      if (CAT_API.hostMatches(base, new Set(list))) {
+        out.category = cat.id === "ads" ? "publicite" : cat.name;
+        break;
+      }
+    }
+  } catch (e) { }
+
+  return out;
+}
+
+// ---------------------------------------------------------------------------
 //  Traduction de texte (selection, requete de recherche)
 //  Passe par les memes instances Lingva que le redirecteur de facades :
 //  pas de cle, pas de cookie, texte jamais envoye a Google directement.
@@ -974,18 +1001,9 @@ browser.runtime.onMessage.addListener(msg => {
 
     // Qualification : proprietaire connu, categorie de filtrage, regie
     for (const d of byDomain.values()) {
-      try { d.owner = ownerOf(d.domain); } catch (e) { d.owner = null; }
-
-      if (inSet(d.domain, adDomains)) d.category = "publicite";
-
-      for (const cat of CAT_API.CATEGORIES) {
-        const list = CAT_API.CAT_DOMAINS[cat.id];
-        if (!list || !list.length) continue;
-        if (CAT_API.hostMatches(d.domain, new Set(list))) {
-          d.category = cat.id === "ads" ? "publicite" : cat.name;
-          break;
-        }
-      }
+      const q = qualifyDomain(d.domain);
+      d.owner = q.owner;
+      d.category = q.category;
     }
 
     const list = Array.from(byDomain.values()).sort((a, b) => b.count - a.count);
@@ -1001,7 +1019,31 @@ browser.runtime.onMessage.addListener(msg => {
     const origin = msg.origin || "";
     const list = netLog.filter(e =>
       !origin || (e.doc && e.doc.indexOf(origin) === 0) || e.url.indexOf(origin) === 0);
-    return Promise.resolve({ entries: list.slice(-250) });
+
+    // Chaque requete est qualifiee : tiers ou non, proprietaire, categorie.
+    // Le detail existait deja pour le rapport agrege ; le journal ligne a
+    // ligne l'ignorait, alors que c'est la qu'on cherche un mouchard precis.
+    let pageBase = "";
+    try {
+      pageBase = baseDomain(new URL(origin).hostname.replace(/^www\./, ""));
+    } catch (e) { }
+
+    const cache = new Map();
+    const entries = list.slice(-250).map(e => {
+      const host = hostOf(e.url);
+      const base = host ? baseDomain(host) : "";
+      const third = !!(base && pageBase && base !== pageBase);
+      let q = cache.get(base);
+      if (!q) { q = qualifyDomain(base); cache.set(base, q); }
+      return Object.assign({}, e, {
+        base: base,
+        third: third,
+        owner: third ? q.owner : null,
+        category: third ? q.category : null
+      });
+    });
+
+    return Promise.resolve({ entries: entries });
   }
   if (msg.type === "netClear") {
     netLog.length = 0;

@@ -268,8 +268,14 @@ tout overlay.
 La liste des 14 étapes est terminée, plus le menu contextuel, la barre
 rétractable et les liens visités.
 
-Le catalogue GeckoView repéré est épuisé. Idée restante : détecteur de
-mouchards *dans* le rapport réseau enrichi.
+Toutes les idées listées sont faites. Le catalogue GeckoView repéré est
+épuisé. Demander à l'utilisateur ce qu'il veut avant de partir dans une
+direction.
+
+**`qualifyDomain()` (background.js) est le seul endroit qui qualifie un
+domaine tiers** — propriétaire, catégorie, régie. Le rapport « qui parle à
+qui » et le journal réseau l'utilisent tous les deux ; ne pas dupliquer
+cette logique si une troisième surface en a besoin.
 
 **Deux appels passent par introspection** (impression, profileur) parce que
 ces API varient selon les versions de GeckoView. Si votre version les

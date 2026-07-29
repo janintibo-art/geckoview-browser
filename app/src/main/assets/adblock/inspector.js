@@ -18,6 +18,9 @@
   let netEntries = [];
   let netFilter = "";
   let netOnly = "";
+  // Filtre « mouchards » : ne montrer que les requetes vers un tiers
+  // qualifie (regie publicitaire, categorie de filtrage connue).
+  let netTrackersOnly = false;
   let exRow = "";
   let exCols = [];
   let exPages = 1;
@@ -392,6 +395,11 @@
         <input id="ins-nq" placeholder="Filtrer l'URL" value="${esc(netFilter)}">
         <select id="ins-ntype" class="ins-sel">${opts}</select>
       </div>
+      <div class="ins-tools">
+        <button id="ins-ntrack" class="ins-b${netTrackersOnly ? " on" : ""}">
+          ${netTrackersOnly ? "\u25C9" : "\u25CB"} Mouchards seulement</button>
+      </div>
+      <div id="ins-nsum" class="ins-sum"></div>
       <div id="ins-nlist" class="ins-list"><div class="ins-empty">Chargement…</div></div>`;
   }
 
@@ -728,6 +736,12 @@
   .ins-u{word-break:break-all;color:#8ab4f8;font-size:12px}
   .ins-m{display:flex;flex-wrap:wrap;gap:8px;margin-top:3px;color:#99a0ad;font-size:11px}
   .ins-tag{color:#6fae5f}
+  .ins-t-third{color:#8a9099}
+  .ins-t-track{color:#d97757;font-weight:600}
+  .ins-sum{padding:7px 10px;font-size:11px;line-height:1.5;color:#cfd4dc;
+    background:#1c1f26;border-bottom:1px solid #2b303a}
+  .ins-dim{color:#8a9099}
+  .ins-b.on{border-color:#d97757;color:#d97757}
   .ins-act{display:flex;gap:6px;margin-top:6px}
   .ins-act button{padding:4px 10px;border:1px solid #2b303a;border-radius:6px;
     background:none;color:#99a0ad;font-size:11px}
@@ -931,6 +945,13 @@
     if (nq) nq.oninput = () => { netFilter = nq.value; paintNet(); };
     const ntype = body.querySelector("#ins-ntype");
     if (ntype) ntype.onchange = () => { netOnly = ntype.value; paintNet(); };
+    const ntrack = body.querySelector("#ins-ntrack");
+    if (ntrack) ntrack.onclick = () => {
+      netTrackersOnly = !netTrackersOnly;
+      ntrack.classList.toggle("on", netTrackersOnly);
+      ntrack.textContent = (netTrackersOnly ? "\u25C9" : "\u25CB") + " Mouchards seulement";
+      paintNet();
+    };
 
     // --- Extraire ---
     const exr = body.querySelector("#ex-row");
@@ -1254,9 +1275,54 @@
   function netFiltered() {
     return netEntries.filter(e => {
       if (netOnly && e.type !== netOnly) return false;
+      if (netTrackersOnly && !isTracker(e)) return false;
       if (netFilter && e.url.toLowerCase().indexOf(netFilter.toLowerCase()) === -1) return false;
       return true;
     }).slice().reverse();
+  }
+
+  /**
+   * Un mouchard est ici une requete vers un tiers rattache a une regie ou
+   * a une categorie de filtrage connue. C'est un indice, pas un verdict :
+   * un tiers non qualifie peut pister, un tiers qualifie peut n'etre
+   * qu'un hebergeur d'images.
+   */
+  function isTracker(e) {
+    return !!(e.third && (e.category || e.owner));
+  }
+
+  function trackerBadge(e) {
+    if (!e.third) return "";
+    if (!isTracker(e)) {
+      return `<span class="ins-tag ins-t-third">tiers</span>`;
+    }
+    const label = e.category ? e.category : e.owner;
+    const title = [e.base, e.owner, e.category].filter(Boolean).join(" \u00b7 ");
+    return `<span class="ins-tag ins-t-track" title="${esc(title)}">${esc(label)}</span>`;
+  }
+
+  function paintNetSummary(list) {
+    const box = root.querySelector("#ins-nsum");
+    if (!box) return;
+    const trackers = list.filter(isTracker);
+    const blocked = trackers.filter(e => e.blocked).length;
+    const owners = {};
+    trackers.forEach(e => {
+      const k = e.owner || e.base;
+      if (k) owners[k] = (owners[k] || 0) + 1;
+    });
+    const top = Object.keys(owners)
+      .sort((a, b) => owners[b] - owners[a]).slice(0, 3)
+      .map(k => esc(k) + " \u00d7 " + owners[k]).join(", ");
+
+    if (!trackers.length) {
+      box.textContent = "Aucun mouchard identifie parmi " + list.length + " requete(s).";
+      return;
+    }
+    box.innerHTML = `<b>${trackers.length}</b> requete(s) vers des tiers ` +
+      `qualifies, dont <b>${blocked}</b> bloquee(s).` +
+      (top ? ` Principaux : ${top}.` : "") +
+      ` <span class="ins-dim">Indice, pas verdict.</span>`;
   }
 
   function statusClass(e) {
@@ -1272,6 +1338,7 @@
     const box = root.querySelector("#ins-nlist");
     if (!box) return;
     const list = netFiltered();
+    paintNetSummary(netEntries);
     if (!list.length) {
       box.innerHTML = '<div class="ins-empty">Aucune requete. Rechargez la page ' +
         'puis actualisez.</div>';
@@ -1285,6 +1352,7 @@
             : e.error ? esc(e.error) : (e.status || "…")}</span>
           <span>${esc(e.method)}</span>
           <span class="ins-tag">${esc(e.type)}</span>
+          ${trackerBadge(e)}
           ${e.mime ? `<span>${esc(e.mime)}</span>` : ""}
           ${e.size ? `<span>${human(e.size)}</span>` : ""}
           ${e.ms != null ? `<span>${e.ms} ms</span>` : ""}
