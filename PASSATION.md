@@ -228,10 +228,30 @@ concentration des médias, et plus. Voir la liste complète plus bas.
   enchaînées par `&&`**, avec le mot de passe dans une variable utilisée
   partout, jamais retapé.
 
+## Overlays par script : règle apprise
+
+Les scripts `tools/apply_*.py` remplacent des blocs repérés par ancres
+textuelles. **Chaque étape appliquée invalide les ancres des étapes
+suivantes** : `WEB_APPS_V1` a cassé 7 ancres de l'espace de travail des
+onglets, `ENCRYPTED_SYNC_V1` en a cassé d'autres du gestionnaire
+d'extensions. Avant d'appliquer un overlay ancien, sonder toutes ses
+ancres d'un coup plutôt que de corriger une erreur à la fois, et préférer
+des ancres **courtes et stables** (une ligne unique) à de longs blocs.
+
+`tools/balance.py` vérifie l'équilibre accolades/parenthèses en
+comprenant chaînes, caractères et commentaires — à lancer après tout
+overlay, en complément de `check.py`.
+
 ## Pour la prochaine session
 
-Idées déjà évoquées mais pas faites : détecteur de mouchards *dans* le
-rapport réseau enrichi, menu contextuel sur appui long. Demander à
+Reste de la liste : identités et conteneurs (`contextId` par espace —
+étape jamais appliquée malgré le fichier `.before-containers`), mode
+développeur, version laboratoire GeckoView. Autres idées : détecteur de
+mouchards *dans* le rapport réseau enrichi, menu contextuel sur appui long.
+
+Dette connue : 7 fichiers `MainActivity.java.before-*` (~780 Ko) et deux
+dossiers d'overlay sont commités dans le dépôt — à retirer, l'historique
+git les conserve. Demander à
 l'utilisateur ce qu'il veut avant de partir dans une direction.
 
 Toujours commencer une nouvelle demande de fonctionnalité par : lire les

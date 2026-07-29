@@ -111,7 +111,11 @@ public class MainActivity extends Activity {
     // ENCRYPTED_SYNC_V1 — paquet chiffre partage via le selecteur Android.
     private EncryptedSyncManager encryptedSync;
 
+    // EXTENSION_MANAGER_V1 — installation, permissions et actions WebExtension.
+    private ExtensionManager extensionManager;
+
     private static final int REQ_FILE = 8123;
+    private static final int REQ_EXTENSION = 8124;
     private GeckoResult<GeckoSession.PromptDelegate.PromptResponse> pendingFile;
     private GeckoSession.PromptDelegate.FilePrompt pendingFilePrompt;
 
@@ -216,6 +220,13 @@ public class MainActivity extends Activity {
         if (sRuntime == null) {
             sRuntime = GeckoRuntime.create(this, buildSettings());
         }
+        extensionManager = new ExtensionManager(
+                this, sRuntime, EXT_ID,
+                url -> {
+                    setupSession(false, url);
+                    selectTab(tabs.size() - 1);
+                },
+                this::pickExtensionPackage);
         passwordVault = PasswordVault.get(this);
         sRuntime.setAutocompleteStorageDelegate(passwordVault);
         try {
@@ -391,6 +402,7 @@ public class MainActivity extends Activity {
         tab.session = session;
         PrivacyCockpit.attach(tab.session);
         mediaHub.attach(tab.session);
+        if (extensionManager != null) extensionManager.attachSession(tab.session);
 
         session.setNavigationDelegate(new GeckoSession.NavigationDelegate() {
             @Override
@@ -472,6 +484,8 @@ public class MainActivity extends Activity {
             // Fichier que Gecko ne peut pas afficher : on l'enregistre.
             @Override
             public void onExternalResponse(GeckoSession s, WebResponse response) {
+                if (extensionManager != null
+                        && extensionManager.handleExternalResponse(response)) return;
                 Downloads.save(MainActivity.this, response);
             }
 
@@ -652,6 +666,7 @@ public class MainActivity extends Activity {
                         || (splitScreen != null && splitScreen.isVisible(s));
                 s.setActive(visible);
                 s.setFocused(i == active);
+                if (extensionManager != null) extensionManager.setTabActive(s, i == active);
             } catch (Throwable ignored) { }
         }
     }
@@ -1479,6 +1494,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (extensionManager != null) extensionManager.release();
         if (passwordVault != null) passwordVault.onActivityDestroyed(this);
         if (encryptedSync != null) encryptedSync.release();
         if (splitScreen != null) splitScreen.release();
@@ -1502,6 +1518,23 @@ public class MainActivity extends Activity {
             startActivity(i);
         } catch (Exception e) {
             Toast.makeText(this, "Aucune application pour ce lien", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void pickExtensionPackage() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("application/x-xpinstall");
+        intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[] {
+                "application/x-xpinstall", "application/zip",
+                "application/octet-stream"
+        });
+        try {
+            startActivityForResult(Intent.createChooser(intent,
+                    "Choisir une extension XPI"), REQ_EXTENSION);
+        } catch (Exception error) {
+            Toast.makeText(this, "Aucun selecteur de fichier disponible",
+                    Toast.LENGTH_LONG).show();
         }
     }
 
@@ -1534,6 +1567,13 @@ public class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQ_EXTENSION) {
+            if (resultCode == RESULT_OK && data != null && data.getData() != null
+                    && extensionManager != null) {
+                extensionManager.installFromContentUri(data.getData());
+            }
+            return;
+        }
         if (encryptedSync != null
                 && encryptedSync.onActivityResult(requestCode, resultCode, data)) {
             return;
@@ -2145,6 +2185,8 @@ public class MainActivity extends Activity {
             // DOWNLOAD_CENTER_V1 — file systeme, progression et historique.
             .sub("\u21E9", "Telechargements", DownloadCenter.summary(this),
                  () -> DownloadCenter.show(this, this::showMenu))
+            .sub("\u229E", "Extensions", extensionManager.summary(),
+                 () -> extensionManager.show(this::showMenu))
             .sub("\u25A3", "Applications web", webApps.summary(session, currentUrl),
                  this::showWebApps)
             .sub("\u25A4", "Page", pageHost(), this::showPageMenu)
